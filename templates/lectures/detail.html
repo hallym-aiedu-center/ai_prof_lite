@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ lecture.title }} · AI Professor Lite{% endblock %}
+{% block header_title %}강의 상세{% endblock %}
+{% block header_subtitle %}생성 진행상태 및 산출물{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-6xl space-y-6">
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-panel">
+        <div class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+            <div>
+                <div class="text-xs font-medium text-indigo-600">LECTURE #{{ lecture.id }}</div>
+                <h1 class="mt-2 text-2xl font-semibold">{{ lecture.title }}</h1>
+                <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{{ lecture.topic }}</p>
+            </div>
+            <span id="statusBadge" class="rounded-full px-3 py-1.5 text-xs font-medium
+                {% if lecture.status == 'completed' %}bg-emerald-50 text-emerald-700
+                {% elif lecture.status == 'failed' %}bg-rose-50 text-rose-700
+                {% else %}bg-indigo-50 text-indigo-700{% endif %}">
+                {{ lecture.status }}
+            </span>
+        </div>
+
+        <div class="mt-7">
+            <div class="mb-2 flex items-center justify-between text-sm">
+                <span id="statusMessage" class="text-slate-600">{{ lecture.status_message or lecture.status }}</span>
+                <span id="progressText" class="font-medium">{{ lecture.progress }}%</span>
+            </div>
+            <div class="h-2 overflow-hidden rounded-full bg-slate-100">
+                <div id="progressBar" class="h-full bg-indigo-500 transition-all duration-500" style="width: {{ lecture.progress }}%"></div>
+            </div>
+        </div>
+
+        <div id="errorBox" class="{% if not lecture.error_message %}hidden {% endif %}mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {{ lecture.error_message or '' }}
+        </div>
+        {% if lecture.status == 'failed' %}
+        <form method="post" action="/lectures/{{ lecture.id }}/retry" class="mt-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="rounded-lg bg-indigo-600 px-4 py-2 text-white">완료한 단계부터 재시도</button>
+        </form>
+        {% endif %}
+    </section>
+
+    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">강의 설계</div>
+            <div class="mt-2 font-medium">{{ lecture.text_model }}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">Image</div>
+            <div class="mt-2 font-medium">{{ lecture.image_model }}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">TTS</div>
+            <div class="mt-2 font-medium">{{ lecture.tts_model }}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">Moodle</div>
+            <div class="mt-2 font-medium">
+                {% if lecture.moodle_videotracker_cmid %}
+                    CMID {{ lecture.moodle_videotracker_cmid }}
+                {% elif lecture.upload_to_moodle %}
+                    생성 대기
+                {% else %}
+                    미사용
+                {% endif %}
+            </div>
+            <div class="mt-1 text-xs text-slate-400">
+                {{ lecture.moodle_deploy_mode or 'create' }}
+            </div>
+        </div>
+    </section>
+
+    <section id="artifactSection" class="rounded-2xl border border-slate-200 bg-white shadow-panel">
+        <div class="border-b border-slate-200 px-6 py-5">
+            <h2 class="font-semibold">산출물</h2>
+            <p class="mt-1 text-sm text-slate-500">완료된 파일을 내려받을 수 있습니다.</p>
+        </div>
+        <div class="grid gap-3 p-6 sm:grid-cols-2 lg:grid-cols-4">
+            <a href="/lectures/{{ lecture.id }}/download/pptx"
+               class="rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50">
+                <div class="text-sm font-semibold">PPTX</div>
+                <div class="mt-1 text-xs text-slate-500">lecture.pptx</div>
+            </a>
+            <a href="/lectures/{{ lecture.id }}/download/video"
+               class="rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50">
+                <div class="text-sm font-semibold">최종 강의 MP4</div>
+                <div class="mt-1 text-xs text-slate-500">final_lecture.mp4</div>
+            </a>
+            <a href="/lectures/{{ lecture.id }}/download/audio"
+               class="rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50">
+                <div class="text-sm font-semibold">Narration WAV</div>
+                <div class="mt-1 text-xs text-slate-500">narration.wav</div>
+            </a>
+            <a href="/lectures/{{ lecture.id }}/quiz.json"
+               class="rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50">
+                <div class="text-sm font-semibold">Quiz JSON</div>
+                <div class="mt-1 text-xs text-slate-500">강의 기반 퀴즈</div>
+            </a>
+        </div>
+    </section>
+
+    {% if lecture.plan_json %}
+    <section class="rounded-2xl border border-slate-200 bg-white shadow-panel">
+        <div class="border-b border-slate-200 px-6 py-5">
+            <h2 class="font-semibold">슬라이드 구성</h2>
+        </div>
+        <div class="divide-y divide-slate-100">
+            {% for slide in lecture.plan_json.slides %}
+            <div class="px-6 py-5">
+                <div class="text-sm font-semibold">{{ loop.index }}. {{ slide.title }}</div>
+                <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-500">
+                    {% for bullet in slide.bullets %}
+                    <li>{{ bullet }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+
+{% if lecture.status in ['queued', 'running'] %}
+<script>
+const lectureId = {{ lecture.id }};
+const timer = setInterval(async () => {
+    try {
+        const response = await fetch(`/lectures/${lectureId}/status`, {cache: 'no-store'});
+        if (!response.ok) return;
+        const data = await response.json();
+
+        document.getElementById('progressBar').style.width = `${data.progress}%`;
+        document.getElementById('progressText').textContent = `${data.progress}%`;
+        document.getElementById('statusMessage').textContent = data.status_message || data.status;
+        document.getElementById('statusBadge').textContent = data.status;
+
+        if (data.error_message) {
+            const box = document.getElementById('errorBox');
+            box.textContent = data.error_message;
+            box.classList.remove('hidden');
+        }
+
+        if (data.completed || data.failed) {
+            clearInterval(timer);
+            setTimeout(() => window.location.reload(), 700);
+        }
+    } catch (_) {}
+}, 2000);
+</script>
+{% endif %}
+{% endblock %}

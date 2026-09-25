@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+aiosqlite
+argon2-cffi
+cryptography
+python-dotenv
+httpx
+openai[realtime]

@@ -1,0 +1,46 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Runtime data / DB
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Logs / temp
+*.log
+logs/
+tmp/
+temp/
+
+# Ditto checkpoints / runtime
+core/ditto-talkinghead/checkpoints/
+core/ditto-talkinghead/tmp/
+core/ditto-talkinghead/tmp*/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

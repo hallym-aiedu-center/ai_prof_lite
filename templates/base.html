@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}AI Professor Lite{% endblock %}</title>
+
+    <link rel="stylesheet" href="/static/tailwind.css">
+</head>
+
+<body class="bg-slate-50 text-slate-900 antialiased">
+
+{% if user %}
+<div class="min-h-screen">
+
+    <aside class="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-white/10 bg-slate-950 lg:block">
+
+        <div class="flex h-16 items-center border-b border-white/10 px-6">
+            <a href="/dashboard"
+               class="flex items-center gap-3">
+
+                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500 font-bold text-white">
+                    AI
+                </div>
+
+                <div>
+                    <div class="text-sm font-semibold text-white">
+                        AI Professor
+                    </div>
+                    <div class="text-xs text-slate-400">
+                        Lite Console
+                    </div>
+                </div>
+            </a>
+        </div>
+
+
+        <nav class="space-y-6 p-4 text-sm">
+
+            <div>
+                <div class="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                    Workspace
+                </div>
+
+                <div class="space-y-1">
+
+                    <a href="/dashboard"
+                       class="flex items-center gap-3 rounded-xl px-3 py-2.5
+                       {% if active_page == 'dashboard' %}
+                           bg-white/10 text-white
+                       {% else %}
+                           text-slate-400 hover:bg-white/5 hover:text-white
+                       {% endif %}">
+
+                        <span class="h-2 w-2 rounded-full bg-indigo-400"></span>
+                        대시보드
+                    </a>
+
+                    <a href="/lectures"
+                       class="flex items-center gap-3 rounded-xl px-3 py-2.5
+                       {% if active_page == 'lectures' %}
+                           bg-white/10 text-white
+                       {% else %}
+                           text-slate-400 hover:bg-white/5 hover:text-white
+                       {% endif %}">
+
+                        <span class="h-2 w-2 rounded-full bg-violet-400"></span>
+                        강의 제작
+                    </a>
+
+                    <a href="/lectures/new"
+                       class="ml-5 flex items-center gap-3 rounded-xl px-3 py-2 text-xs
+                       text-slate-500 hover:bg-white/5 hover:text-white">
+
+                        새 강의 만들기
+                    </a>
+
+                    <a href="/instructor"
+                       class="flex items-center gap-3 rounded-xl px-3 py-2.5
+                       {% if active_page == 'instructor' %}
+                           bg-white/10 text-white
+                       {% else %}
+                           text-slate-400 hover:bg-white/5 hover:text-white
+                       {% endif %}">
+
+                        <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                        AI 강사 위임
+                    </a>
+                </div>
+            </div>
+
+
+            <div>
+                <div class="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                    Moodle
+                </div>
+
+                <div class="space-y-1">
+
+                    <a href="/moodle/courses"
+                       class="flex items-center gap-3 rounded-xl px-3 py-2.5
+                       {% if active_page == 'moodle_courses' %}
+                           bg-white/10 text-white
+                       {% else %}
+                           text-slate-400 hover:bg-white/5 hover:text-white
+                       {% endif %}">
+
+                        <span class="h-2 w-2 rounded-full bg-amber-400"></span>
+                        내 강좌
+                    </a>
+
+                    <a href="/settings/credentials"
+                       class="ml-5 flex items-center gap-3 rounded-xl px-3 py-2 text-xs
+                       {% if active_page == 'credentials' %}
+                           text-white
+                       {% else %}
+                           text-slate-500 hover:bg-white/5 hover:text-white
+                       {% endif %}">
+
+                        API / 연결 설정
+                    </a>
+                </div>
+            </div>
+
+
+            <div>
+                <div class="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                    Account
+                </div>
+
+                <a href="/settings/profile"
+                   class="flex items-center gap-3 rounded-xl px-3 py-2.5
+                   {% if active_page == 'profile' %}
+                       bg-white/10 text-white
+                   {% else %}
+                       text-slate-400 hover:bg-white/5 hover:text-white
+                   {% endif %}">
+
+                    <span class="h-2 w-2 rounded-full bg-sky-400"></span>
+                    회원정보
+                </a>
+            </div>
+
+        </nav>
+
+
+        <div class="absolute bottom-0 left-0 right-0 border-t border-white/10 p-4">
+
+            <div class="mb-3 rounded-xl bg-white/5 p-3">
+                <div class="truncate text-sm font-medium text-white">
+                    {{ user.name or user.nickname or '사용자' }}
+                </div>
+
+                <div class="truncate text-xs text-slate-400">
+                    {{ user.email }}
+                </div>
+            </div>
+
+            <form method="post"
+                  action="/logout">
+
+                <input type="hidden"
+                       name="csrf_token"
+                       value="{{ csrf_token }}">
+
+                <button class="w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white">
+                    로그아웃
+                </button>
+            </form>
+        </div>
+    </aside>
+
+
+    <div class="lg:pl-64">
+
+        <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+
+            <div class="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+
+                <div>
+                    <div class="text-sm font-semibold text-slate-900">
+                        {% block header_title %}
+                            AI Professor Lite
+                        {% endblock %}
+                    </div>
+
+                    <div class="text-xs text-slate-500">
+                        {% block header_subtitle %}
+                            Lecture Automation Console
+                        {% endblock %}
+                    </div>
+                </div>
+
+                <a href="/lectures/new"
+                   class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
+                    + 새 강의
+                </a>
+            </div>
+        </header>
+
+
+        <main class="px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-8 lg:pt-8">
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
+
+    <nav aria-label="모바일 하단 메뉴"
+         class="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 shadow-[0_-10px_30px_rgba(15,23,42,.08)] backdrop-blur lg:hidden"
+         style="padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);">
+        <div class="mx-auto grid max-w-lg grid-cols-5 px-2 pt-2">
+            <a href="/dashboard"
+               class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page == 'dashboard' %}text-indigo-600{% else %}text-slate-500{% endif %}">
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"></path><path d="M5.5 9.5V21h13V9.5"></path><path d="M9.5 21v-6h5v6"></path></svg>
+                <span>홈</span>
+            </a>
+            <a href="/lectures"
+               class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page == 'lectures' %}text-indigo-600{% else %}text-slate-500{% endif %}">
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 5.5v15A2.5 2.5 0 0 1 6.5 18H20"></path></svg>
+                <span>강의</span>
+            </a>
+            <a href="/lectures/new" class="-mt-5 flex min-w-0 flex-col items-center gap-1 px-1 py-1 text-[10px] font-semibold text-slate-700">
+                <span class="grid h-12 w-12 place-items-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/20">
+                    <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                </span>
+                <span>새 강의</span>
+            </a>
+            <a href="/instructor"
+               class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page == 'instructor' %}text-indigo-600{% else %}text-slate-500{% endif %}">
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6"></path></svg>
+                <span>AI 강사</span>
+            </a>
+            <a href="/settings/credentials"
+               class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page in ['credentials', 'profile', 'moodle_courses'] %}text-indigo-600{% else %}text-slate-500{% endif %}">
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2.5v2M12 19.5v2M21.5 12h-2M4.5 12h-2M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4M18.7 18.7l-1.4-1.4M6.7 6.7 5.3 5.3"></path></svg>
+                <span>설정</span>
+            </a>
+        </div>
+    </nav>
+</div>
+
+{% else %}
+
+    {% block auth_content %}{% endblock %}
+
+{% endif %}
+
+</body>
+</html>

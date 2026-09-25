@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+itsdangerous
+aiosqlite
+argon2-cffi
+cryptography
+python-dotenv
+httpx
+openai[realtime]
+python-pptx
+Pillow
+rembg[cpu]==2.0.69

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Moodle 강좌 · AI Professor Lite{% endblock %}
+{% block header_title %}Moodle 강좌{% endblock %}
+{% block header_subtitle %}현재 Moodle 계정의 수강/운영 강좌 조회{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-7xl space-y-6">
+
+    <section class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <p class="text-sm font-medium text-indigo-600">Moodle LMS</p>
+            <h1 class="mt-1 text-2xl font-semibold tracking-tight">
+                내 강좌
+            </h1>
+            <p class="mt-2 text-sm text-slate-500">
+                현재 저장된 Moodle Web Service Token 사용자 기준으로 강좌를 조회합니다.
+            </p>
+        </div>
+
+        <div class="flex gap-2">
+            <a href="/settings/credentials"
+               class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium hover:bg-slate-50">
+                Moodle 연결 설정
+            </a>
+            <a href="/lectures/new"
+               class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500">
+                + 새 강의
+            </a>
+        </div>
+    </section>
+
+    {% if error %}
+    <section class="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+        <div class="font-semibold">Moodle 강좌를 가져오지 못했습니다.</div>
+        <div class="mt-1">{{ error }}</div>
+    </section>
+    {% endif %}
+
+    {% if courses %}
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {% for course in courses %}
+        <a href="/moodle/courses/{{ course.id }}"
+           class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-panel transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-lg">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <div class="text-xs font-medium uppercase tracking-wider text-indigo-600">
+                        {{ course.shortname or ('COURSE ' ~ course.id) }}
+                    </div>
+                    <h2 class="mt-2 line-clamp-2 text-lg font-semibold">
+                        {{ course.displayname or course.fullname }}
+                    </h2>
+                </div>
+
+                {% if course.visible %}
+                <span class="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                    활성
+                </span>
+                {% else %}
+                <span class="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                    숨김
+                </span>
+                {% endif %}
+            </div>
+
+            {% if course.summary %}
+            <div class="mt-4 line-clamp-3 text-sm leading-6 text-slate-500">
+                {{ course.summary | striptags }}
+            </div>
+            {% else %}
+            <div class="mt-4 text-sm text-slate-400">
+                강좌 설명이 없습니다.
+            </div>
+            {% endif %}
+
+            <div class="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+                <span class="text-xs text-slate-400">
+                    Course ID {{ course.id }}
+                </span>
+                <span class="text-sm font-medium text-indigo-600 group-hover:text-indigo-500">
+                    강좌 보기 →
+                </span>
+            </div>
+        </a>
+        {% endfor %}
+    </section>
+
+    {% elif not error %}
+    <section class="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-panel">
+        <div class="text-base font-semibold">조회 가능한 Moodle 강좌가 없습니다.</div>
+        <p class="mt-2 text-sm text-slate-500">
+            Moodle token 사용자에게 강좌가 등록되어 있는지 확인하세요.
+        </p>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

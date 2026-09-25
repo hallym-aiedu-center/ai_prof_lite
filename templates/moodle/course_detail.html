@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if course %}{{ course.displayname or course.fullname }} · Moodle{% else %}Moodle 강좌{% endif %}
+{% endblock %}
+
+{% block header_title %}Moodle 강좌 상세{% endblock %}
+{% block header_subtitle %}섹션 및 활동 구성 조회{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-7xl space-y-6">
+
+    <div>
+        <a href="/moodle/courses"
+           class="text-sm font-medium text-slate-500 hover:text-indigo-600">
+            ← 내 강좌
+        </a>
+    </div>
+
+    {% if error %}
+    <section class="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+        {{ error }}
+    </section>
+    {% endif %}
+
+    {% if course and overview %}
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-panel">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+                <div class="text-xs font-medium uppercase tracking-wider text-indigo-600">
+                    {{ course.shortname }}
+                </div>
+                <h1 class="mt-2 text-2xl font-semibold tracking-tight">
+                    {{ course.displayname or course.fullname }}
+                </h1>
+                <div class="mt-3 text-sm text-slate-500">
+                    Course ID {{ course.id }}
+                </div>
+            </div>
+
+            <a href="/lectures/new?course_id={{ course.id }}"
+               class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-500">
+                이 강좌에 새 강의 만들기
+            </a>
+        </div>
+    </section>
+
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">VideoTracker</div>
+            <div class="mt-3 text-3xl font-semibold">
+                {{ overview.module_counts.get('videotracker', 0) }}
+            </div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">Quiz</div>
+            <div class="mt-3 text-3xl font-semibold">
+                {{ overview.module_counts.get('quiz', 0) }}
+            </div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">Assignment</div>
+            <div class="mt-3 text-3xl font-semibold">
+                {{ overview.module_counts.get('assign', 0) }}
+            </div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">Mentorboard</div>
+            <div class="mt-3 text-3xl font-semibold">
+                {{ overview.module_counts.get('mentorboard', 0) }}
+            </div>
+        </div>
+    </section>
+
+    <section class="space-y-4">
+        {% for section in overview.sections %}
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-panel">
+            <div class="border-b border-slate-200 bg-slate-50 px-6 py-4">
+                <div class="text-xs font-medium text-slate-400">
+                    SECTION {{ section.section }}
+                </div>
+                <h2 class="mt-1 font-semibold">
+                    {{ section.name or ('Section ' ~ section.section) }}
+                </h2>
+            </div>
+
+            {% if section.modules %}
+            <div class="divide-y divide-slate-100">
+                {% for module in section.modules %}
+                <div class="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-semibold uppercase text-slate-500">
+                                {{ module.modname }}
+                            </span>
+
+                            {% if module.modname == 'videotracker' %}
+                            <span class="rounded-lg bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700">
+                                CMID {{ module.cmid }}
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <div class="mt-2 truncate text-sm font-medium">
+                            {{ module.name }}
+                        </div>
+
+                        {% if module.modname == 'videotracker' %}
+                        <div class="mt-1 text-xs text-slate-400">
+                            VideoTracker instance {{ module.instance_id }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if module.url %}
+                    <a href="{{ module.url }}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                        Moodle에서 열기 →
+                    </a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="px-6 py-7 text-sm text-slate-400">
+                이 섹션에는 활동이 없습니다.
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

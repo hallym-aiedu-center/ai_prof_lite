@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}회원정보 · AI Professor Lite{% endblock %}
+{% block header_title %}회원정보{% endblock %}
+{% block header_subtitle %}프로필 및 기본 언어 설정{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl">
+    {% if saved %}
+    <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        회원정보를 저장했습니다.
+    </div>
+    {% endif %}
+
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-panel">
+        <div class="border-b border-slate-200 px-6 py-5">
+            <h1 class="font-semibold">프로필</h1>
+            <p class="mt-1 text-sm text-slate-500">회원 기본정보를 관리합니다.</p>
+        </div>
+
+        <form method="post" action="/settings/profile" class="space-y-6 p-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+            <div>
+                <label class="mb-2 block text-sm font-medium">이메일</label>
+                <input value="{{ user.email }}" disabled
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            </div>
+
+            <div class="grid gap-5 sm:grid-cols-2">
+                <div>
+                    <label class="mb-2 block text-sm font-medium">이름</label>
+                    <input name="name" value="{{ user.name or '' }}"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium">닉네임</label>
+                    <input name="nickname" value="{{ user.nickname or '' }}"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+
+            <div class="grid gap-5 sm:grid-cols-2">
+                <div>
+                    <label class="mb-2 block text-sm font-medium">전화번호</label>
+                    <input name="phone" value="{{ user.phone or '' }}"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium">기본 언어</label>
+                    <select name="language"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                        <option value="ko" {% if user.language == 'ko' %}selected{% endif %}>한국어</option>
+                        <option value="en" {% if user.language == 'en' %}selected{% endif %}>English</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end">
+                <button class="rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800">
+                    저장
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
