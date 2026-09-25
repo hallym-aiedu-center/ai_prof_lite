@@ -1,0 +1,75 @@
+AI Professor Lite
+License Notice
+
+Copyright (c) AI Professor Lite contributors.
+
+1. AI Professor Lite Source Code
+================================
+
+The licensing terms for the original AI Professor Lite source code are
+currently under institutional review and have not yet been formally
+designated.
+
+Until an official license is specified by the authorized copyright holder
+or institution, no open-source license is granted for the original
+AI Professor Lite source code.
+
+Use, modification, redistribution, sublicensing, or commercial use of the
+original AI Professor Lite source code requires separate authorization
+unless otherwise permitted by applicable law.
+
+This notice will be updated when the official license for AI Professor Lite
+is designated.
+
+
+2. Third-Party Software
+=======================
+
+This repository includes, incorporates, or integrates third-party software.
+
+Third-party software is NOT relicensed under the AI Professor Lite license
+notice above. Each third-party component remains subject to the license and
+terms provided by its respective copyright holders and upstream project.
+
+
+3. Ditto TalkingHead
+====================
+
+AI Professor Lite integrates Ditto TalkingHead:
+
+Repository:
+https://github.com/antgroup/ditto-talkinghead
+
+Project:
+https://digital-avatar.github.io/ai/Ditto/
+
+Model:
+https://huggingface.co/digital-avatar/ditto-talkinghead
+
+The Ditto TalkingHead source code, models, checkpoints, and related
+components remain subject to the licenses, notices, and usage terms
+specified by the original Ditto authors and upstream repositories.
+
+The inclusion or integration of Ditto TalkingHead in this repository does
+not transfer ownership of Ditto TalkingHead to the AI Professor Lite
+project and does not replace or override the upstream license.
+
+
+4. Other Third-Party Components
+===============================
+
+Other libraries, frameworks, models, tools, and dependencies used by this
+project remain subject to their respective licenses and notices.
+
+Users and redistributors are responsible for complying with all applicable
+third-party license terms.
+
+
+5. Future License Designation
+=============================
+
+When the official licensing terms for the original AI Professor Lite source
+code are designated, this file may be replaced or updated accordingly.
+
+Third-party components will continue to remain subject to their own
+respective licenses.

@@ -44,3 +44,4 @@ core/ditto-talkinghead/tmp*/
 .vscode/
 .DS_Store
 Thumbs.db
+README.MD.backup

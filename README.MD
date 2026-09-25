@@ -1,3 +1,21 @@
+<!-- INITIAL_RELEASE_STATUS -->
+
+> **Status — Initial Release / 1차 공개본**
+>
+> 본 저장소는 **AI Professor Lite의 1차 공개 버전(initial release)** 입니다.
+> 현재 다양한 실행 환경에서의 재현성을 높이기 위해 Python/Conda dependency와
+> `requirements` 구성을 지속적으로 검증·정리하고 있습니다.
+>
+> 특히 Ditto TalkingHead, CUDA, TensorRT, cuDNN 등 GPU 관련 의존성은
+> 하드웨어 및 시스템 환경에 따라 추가 설정이 필요할 수 있습니다.
+> 설치 전 본 README의 **시스템 요구사항**, **Ditto Checkpoint 설치**,
+> **Preflight**, **Troubleshooting** 항목을 확인해 주십시오.
+>
+> 기능 및 코드 구조는 현재 공개 버전을 기준으로 하며,
+> dependency 정의와 설치 절차는 재현성 검증 결과에 따라 업데이트될 수 있습니다.
+
+---
+
 # AI Professor Lite
 
 AI Professor Lite는 **강의 기획 → 슬라이드/이미지 생성 → 교수 설명 음성 생성 → Ditto TalkingHead 아바타 영상 생성 → 최종 강의 영상 합성 → Moodle VideoTracker 배포**를 하나의 웹 애플리케이션에서 처리하는 AI 기반 강의 제작 시스템입니다.
