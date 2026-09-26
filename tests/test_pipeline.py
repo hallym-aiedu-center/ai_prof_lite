@@ -8,12 +8,17 @@ from PIL import Image
 from core.database.client import get_connection
 from core.jobs.errors import AmbiguousDeploymentError, retryable
 from core.jobs.sqlite import SQLiteJobQueue
-from modules.lecture import stages, narration
+from modules.lecture import stages, narration, publish_scheduler
 from modules.lecture.checkpoints import get_stage
 from modules.lecture.composer import (
     detect_video_encoder, encoder_args, media_duration, run_process,
 )
-from modules.lecture.repository import get_lecture
+from modules.lecture.repository import (
+    create_publish_schedule_config,
+    get_lecture,
+    get_publish_schedule,
+    update_lecture,
+)
 from modules.lecture.service import run_lecture_job
 
 
@@ -37,6 +42,11 @@ async def ready(make_lecture, **overrides):
 
 async def test_pipeline_retry_reuses_paid_stages_and_real_ffmpeg(make_lecture, monkeypatch, plan):
     monkeypatch.setenv("LECTURE_RENDER_SLIDES_WITH_IMAGE_MODEL", "false")
+    plan = dict(plan)
+    plan["slides"] = [
+        dict(slide, narration=f"test narration {idx}")
+        for idx, slide in enumerate(plan["slides"], start=1)
+    ]
     queue, job = await ready(make_lecture)
     async def preflight(ctx):
         await ctx.check()
@@ -53,7 +63,7 @@ async def test_pipeline_retry_reuses_paid_stages_and_real_ffmpeg(make_lecture, m
         images.append(path)
         return path
     monkeypatch.setattr(stages, 'generate_image', image)
-    speech = AsyncMock(side_effect=[TimeoutError('temporary'), *[wav_bytes() for _ in range(4)]])
+    speech = AsyncMock(side_effect=[wav_bytes(), TimeoutError('temporary'), *[wav_bytes() for _ in range(3)]])
     monkeypatch.setattr(narration, '_speech_bytes', speech)
     async def avatar(**kwargs):
         path = kwargs['output_path']
@@ -83,6 +93,9 @@ async def test_pipeline_retry_reuses_paid_stages_and_real_ffmpeg(make_lecture, m
     assert await media_duration(Path(result['final_video_path'])) > 0.5
     assert Path(result['pptx_path']).is_file()
     assert planner.await_count == 1 and len(images) == 4
+    # slide 1 succeeded before the first attempt failed on slide 2. The retry
+    # must reuse that paid TTS result instead of calling the API again.
+    assert speech.await_count == 5
     assert (await get_stage(job.lecture_id, 'deploy'))['status'] == 'completed'
 
 
@@ -132,3 +145,45 @@ async def test_truncated_concatenated_video_is_rejected(monkeypatch, tmp_path):
         await composer.build_slides_video(slide_pngs=[tmp_path / f'{i}.png' for i in range(4)],
                                           slide_audio_paths=[tmp_path / f'{i}.wav' for i in range(4)],
                                           output_dir=tmp_path)
+
+
+async def test_due_publish_waits_for_final_video_without_spending_attempt(
+    make_lecture, tmp_path, monkeypatch
+):
+    lecture_id = await make_lecture(
+        upload_to_moodle=True,
+        moodle_course_id=7,
+        moodle_section_num=0,
+    )
+    await create_publish_schedule_config(
+        lecture_id=lecture_id,
+        user_id=1,
+        mode="exact",
+        weekday=None,
+        hour=None,
+        minute=0,
+        timezone="Asia/Seoul",
+        scheduled_at="2000-01-01 00:00:00",
+    )
+
+    await publish_scheduler._run_one(lecture_id)
+
+    schedule = await get_publish_schedule(lecture_id)
+    assert schedule is not None
+    assert schedule["status"] == "pending"
+    assert schedule["attempts"] == 0
+    assert schedule["lease_token"] is None
+    lecture = await get_lecture(lecture_id)
+    assert "영상 생성 완료 대기" in lecture["status_message"]
+
+    final_video = tmp_path / "final.mp4"
+    final_video.write_bytes(b"video")
+    await update_lecture(lecture_id, final_video_path=str(final_video))
+    deploy = AsyncMock(return_value={"success": True})
+    monkeypatch.setattr(publish_scheduler, "deploy_lecture_to_moodle", deploy)
+
+    await publish_scheduler._run_one(lecture_id)
+    schedule = await get_publish_schedule(lecture_id)
+    assert schedule["status"] == "published"
+    assert schedule["attempts"] == 1
+    deploy.assert_awaited_once()

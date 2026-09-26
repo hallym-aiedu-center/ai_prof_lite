@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 from pptx import Presentation
 
 from modules.lecture import slides as slides_module
-from modules.lecture.slides import HEIGHT, WIDTH, _contain_size, _fit_image, build_slide_assets
+from modules.lecture.slides import HEIGHT, WIDTH, _contain_size, _fit_image, build_slide_assets, render_local_slide
 
 
 def test_contain_size_preserves_generated_image_ratio():
@@ -77,3 +77,28 @@ async def test_generate_images_false_never_calls_image_api(tmp_path: Path, monke
         generate_images=False,
     )
     generated.assert_not_awaited()
+
+
+def test_local_slide_renders_supporting_visual(tmp_path: Path):
+    visual_path = tmp_path / "visual.png"
+    Image.new("RGB", (800, 600), (240, 20, 20)).save(visual_path)
+    output_path = tmp_path / "slide.png"
+
+    render_local_slide(
+        lecture_title="테스트 강의",
+        slide_index=1,
+        total_slides=1,
+        slide={"title": "제목", "bullets": ["설명"]},
+        output_path=output_path,
+        visual_path=visual_path,
+    )
+
+    with Image.open(output_path) as rendered:
+        # The supporting visual is placed above the lower-right presenter safe
+        # zone. A solid red source makes the regression easy to detect.
+        crop = rendered.crop((1220, 145, 1810, 362)).convert("RGB")
+        red_pixels = sum(
+            1 for r, g, b in crop.getdata()
+            if r > 200 and g < 80 and b < 80
+        )
+    assert red_pixels > 1000

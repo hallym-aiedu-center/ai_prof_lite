@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from core.jobs.errors import AmbiguousDeploymentError
+from core.jobs.errors import AmbiguousDeploymentError, PublishNotReadyError
 from core.openai.client import get_client
 from modules.lecture.repository import (
     get_lecture,
@@ -184,6 +185,25 @@ async def choose_ai_publish_plan(
     }
 
 
+async def ensure_lecture_ready_for_publish(lecture_id: int) -> dict:
+    """Return the lecture once final media exists, without consuming a publish attempt.
+
+    A scheduled publication can become due while the lecture worker is still rendering.
+    That is a normal waiting state, not an upload failure.  A path that has already been
+    recorded but points to a missing/empty file is treated as a real failure instead.
+    """
+    lecture = await get_lecture(lecture_id)
+    if not lecture:
+        raise RuntimeError("강의를 찾을 수 없습니다.")
+    if not lecture.get("upload_to_moodle"):
+        raise RuntimeError("이 강의는 Moodle 자동 업로드 대상이 아닙니다.")
+
+    final_video_path = lecture.get("final_video_path")
+    if not final_video_path:
+        raise PublishNotReadyError("최종 강의 영상 생성이 아직 완료되지 않았습니다.")
+    return lecture
+
+
 async def deploy_lecture_to_moodle(
     lecture_id: int,
     *,
@@ -196,15 +216,11 @@ async def deploy_lecture_to_moodle(
     response is durably recorded, the next attempt stops as ambiguous instead of
     creating a duplicate activity.
     """
-    lecture = await get_lecture(lecture_id)
-    if not lecture:
-        raise RuntimeError("강의를 찾을 수 없습니다.")
-    if not lecture.get("upload_to_moodle"):
-        raise RuntimeError("이 강의는 Moodle 자동 업로드 대상이 아닙니다.")
-
-    final_video_path = lecture.get("final_video_path")
-    if not final_video_path:
-        raise RuntimeError("최종 강의 영상이 아직 생성되지 않았습니다.")
+    lecture = await ensure_lecture_ready_for_publish(lecture_id)
+    final_video_path = lecture["final_video_path"]
+    final_video = Path(final_video_path)
+    if not final_video.is_file() or final_video.stat().st_size <= 0:
+        raise RuntimeError(f"최종 강의 영상 파일을 확인할 수 없습니다: {final_video}")
 
     user_id = int(lecture["user_id"])
     moodle = await get_user_moodle_client(user_id)

@@ -7,9 +7,15 @@ class AmbiguousDeploymentError(RuntimeError):
     """A remote creation might have succeeded; never blindly repeat it."""
 
 
+class PublishNotReadyError(RuntimeError):
+    """The scheduled publish time arrived before the final lecture media was ready."""
+
+
 def retryable(error: Exception) -> bool:
     if isinstance(error, AmbiguousDeploymentError):
         return False
+    if isinstance(error, PublishNotReadyError):
+        return True
     if isinstance(error, (asyncio.TimeoutError, TimeoutError, APIConnectionError, httpx.TransportError)):
         return True
     if isinstance(error, APIStatusError):

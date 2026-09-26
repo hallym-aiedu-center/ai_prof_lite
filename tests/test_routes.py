@@ -111,3 +111,19 @@ def test_security_headers_and_self_hosted_tailwind(client):
     css = client.get('/static/tailwind.css')
     assert css.status_code == 200
     assert '.bg-slate-50' in css.text
+
+
+def test_login_rate_limit_returns_429():
+    from app import app
+    with TestClient(app) as anonymous_client:
+        token = csrf(anonymous_client.get('/login'))
+        response = None
+        for _ in range(11):
+            response = anonymous_client.post('/login', data={
+                'email': 'rate-limit@example.test',
+                'password': 'wrong-password',
+                'csrf_token': token,
+            })
+        assert response is not None
+        assert response.status_code == 429
+        assert int(response.headers['retry-after']) >= 1

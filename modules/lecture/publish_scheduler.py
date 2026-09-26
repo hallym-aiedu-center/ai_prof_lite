@@ -6,8 +6,8 @@ import os
 from datetime import datetime, timedelta, timezone
 
 from core.jobs.base import LeaseLost
-from core.jobs.errors import AmbiguousDeploymentError
-from modules.lecture.publishing import deploy_lecture_to_moodle
+from core.jobs.errors import AmbiguousDeploymentError, PublishNotReadyError
+from modules.lecture.publishing import deploy_lecture_to_moodle, ensure_lecture_ready_for_publish
 from modules.lecture.repository import (
     claim_publish_schedule,
     get_publish_schedule,
@@ -71,7 +71,14 @@ async def _run_one(lecture_id: int) -> None:
     attempts = 0
     try:
         schedule = await get_publish_schedule(lecture_id)
-        attempts = int((schedule or {}).get("attempts") or 0) + 1
+        attempts = int((schedule or {}).get("attempts") or 0)
+
+        # A schedule can become due before media rendering finishes. Waiting for
+        # final_video_path is not a Moodle upload attempt and must not consume the
+        # retry budget.
+        await ensure_lecture_ready_for_publish(lecture_id)
+
+        attempts += 1
         await update_publish_schedule(
             lecture_id,
             lease_token=lease_token,
@@ -114,6 +121,21 @@ async def _run_one(lecture_id: int) -> None:
         # Another process recovered an expired lease. Never let this stale
         # scheduler overwrite the new owner's state.
         return
+    except PublishNotReadyError:
+        # Rendering is still in progress. Keep the original scheduled_at so the
+        # next scheduler poll can retry, but do not spend an upload attempt.
+        with contextlib.suppress(LeaseLost):
+            await update_publish_schedule(
+                lecture_id,
+                lease_token=lease_token,
+                clear_lease=True,
+                status="pending",
+                last_error=None,
+            )
+        await update_lecture(
+            lecture_id,
+            status_message="예약 시각 도달 · 최종 강의 영상 생성 완료 대기 중",
+        )
     except AmbiguousDeploymentError as exc:
         with contextlib.suppress(LeaseLost):
             await update_publish_schedule(

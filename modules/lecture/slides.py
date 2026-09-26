@@ -252,7 +252,7 @@ def render_local_slide(
     y += 35
 
     visual_exists = visual_path is not None and visual_path.is_file()
-    content_right = 1110 if visual_exists else min(1320, safe["left"] - 40)
+    content_right = 1160 if visual_exists else min(1320, safe["left"] - 40)
     text_width = max(650, content_right - 155)
     bullets = [str(item).strip() for item in slide.get("bullets", []) if str(item).strip()]
     for bullet in bullets[:6]:
@@ -268,8 +268,12 @@ def render_local_slide(
             break
 
     if visual_exists:
-        box = (1160, 200, min(1810, safe["left"] - 35), 650)
-        if box[2] - box[0] >= 260:
+        # The presenter occupies the lower-right corner, so the supporting
+        # visual belongs above that safe zone rather than to its left.  The old
+        # calculation constrained the visual by safe["left"], leaving at most
+        # ~171 px and making this branch unreachable with the 260 px minimum.
+        box = (1220, 145, 1810, min(430, safe["top"] - 24))
+        if box[2] - box[0] >= 260 and box[3] - box[1] >= 120:
             visual = _fit_image(visual_path, box)
             x = box[0] + (box[2] - box[0] - visual.width) // 2
             vy = box[1] + (box[3] - box[1] - visual.height) // 2

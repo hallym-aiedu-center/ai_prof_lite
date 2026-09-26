@@ -35,6 +35,12 @@ class StageContext:
         # A paused, expired process must never overwrite another attempt's media.
         return data_dir() / 'lectures' / str(self.job.lecture_id) / 'runs' / self.job.token
 
+    @property
+    def cache_directory(self):
+        # Content-addressed paid-call artifacts may be shared across attempts.
+        # Final media remains isolated by run_token in ``directory`` above.
+        return data_dir() / 'lectures' / str(self.job.lecture_id) / 'cache'
+
     async def check(self):
         if not await self.queue.owns(self.job):
             raise LeaseLost('작업 소유권이 변경되었습니다.')
@@ -158,6 +164,7 @@ async def narration_stage(ctx):
     narration, audios = await build_narration(
         api_key=ctx.api_key, plan=ctx.outputs['plan']['plan'], output_dir=ctx.directory / 'audio',
         model=ctx.lecture['tts_model'], voice=ctx.lecture['tts_voice'], check_lease=ctx.check,
+        cache_dir=ctx.cache_directory / 'tts',
     )
     await ctx.update(narration_path=str(narration))
     return {'narration': str(narration), 'audios': list(map(str, audios)),

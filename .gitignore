@@ -1,26 +1,28 @@
-# Secrets
+# Secrets / local environment
 .env
 .env.*
 !.env.example
-
 *.pem
 *.key
 *.p12
 *.pfx
 
-# Python cache
+# Python cache / test output
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 
-# Virtual env
+# Virtual environments
 .venv/
 venv/
 env/
 
-# Runtime data / DB
+# Runtime data / databases
 data/
 *.db
 *.db-wal
@@ -28,13 +30,13 @@ data/
 *.sqlite
 *.sqlite3
 
-# Logs / temp
+# Logs / temporary files
 *.log
 logs/
 tmp/
 temp/
 
-# Ditto checkpoints / runtime
+# Ditto model/runtime artifacts
 core/ditto-talkinghead/checkpoints/
 core/ditto-talkinghead/tmp/
 core/ditto-talkinghead/tmp*/

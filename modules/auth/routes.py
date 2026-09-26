@@ -3,6 +3,10 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from modules.auth.rate_limit import (
+    check_login_rate_limit,
+    reset_login_account,
+)
 from modules.auth.service import (
     EmailAlreadyExistsError,
     authenticate_user,
@@ -46,6 +50,21 @@ async def login(
 ):
     verify_csrf(request, csrf_token)
 
+    allowed, retry_after = check_login_rate_limit(request, email)
+    if not allowed:
+        response = templates.TemplateResponse(
+            request=request,
+            name="auth/login.html",
+            context={
+                "csrf_token": get_csrf_token(request),
+                "error": "로그인 요청이 많습니다. 잠시 후 다시 시도하세요.",
+                "email": email,
+            },
+            status_code=429,
+        )
+        response.headers["Retry-After"] = str(retry_after)
+        return response
+
     user = await authenticate_user(
         email=email,
         password=password,
@@ -63,6 +82,7 @@ async def login(
             status_code=400,
         )
 
+    reset_login_account(email)
     request.session.clear()
     request.session["user_id"] = user["id"]
     request.session["csrf_token"] = get_csrf_token(request)

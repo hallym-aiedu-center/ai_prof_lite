@@ -1,3 +1,4 @@
+import asyncio
 from argon2 import PasswordHasher
 from argon2.exceptions import (
     InvalidHashError,
@@ -33,7 +34,7 @@ async def register_user(
     if len(password) < 8:
         raise ValueError("비밀번호는 8자 이상이어야 합니다.")
 
-    password_hash = _password_hasher.hash(password)
+    password_hash = await asyncio.to_thread(_password_hasher.hash, password)
 
     db = await get_connection()
 
@@ -128,17 +129,20 @@ async def authenticate_user(
             return None
 
         try:
-            _password_hasher.verify(
+            await asyncio.to_thread(
+                _password_hasher.verify,
                 row["password_hash"],
                 password,
             )
         except (VerifyMismatchError, InvalidHashError):
             return None
 
-        if _password_hasher.check_needs_rehash(
-            row["password_hash"]
-        ):
-            new_hash = _password_hasher.hash(password)
+        needs_rehash = await asyncio.to_thread(
+            _password_hasher.check_needs_rehash,
+            row["password_hash"],
+        )
+        if needs_rehash:
+            new_hash = await asyncio.to_thread(_password_hasher.hash, password)
             await db.execute(
                 """
                 UPDATE users

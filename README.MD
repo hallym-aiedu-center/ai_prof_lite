@@ -1,26 +1,8 @@
-<!-- INITIAL_RELEASE_STATUS -->
-
-> **Status — Initial Release / 1차 공개본**
->
-> 본 저장소는 **AI Professor Lite의 1차 공개 버전(initial release)** 입니다.
-> 현재 다양한 실행 환경에서의 재현성을 높이기 위해 Python/Conda dependency와
-> `requirements` 구성을 지속적으로 검증·정리하고 있습니다.
->
-> 특히 Ditto TalkingHead, CUDA, TensorRT, cuDNN 등 GPU 관련 의존성은
-> 하드웨어 및 시스템 환경에 따라 추가 설정이 필요할 수 있습니다.
-> 설치 전 본 README의 **시스템 요구사항**, **Ditto Checkpoint 설치**,
-> **Preflight**, **Troubleshooting** 항목을 확인해 주십시오.
->
-> 기능 및 코드 구조는 현재 공개 버전을 기준으로 하며,
-> dependency 정의와 설치 절차는 재현성 검증 결과에 따라 업데이트될 수 있습니다.
-
----
-
 # AI Professor Lite
 
 AI Professor Lite는 **강의 기획 → 슬라이드/이미지 생성 → 교수 설명 음성 생성 → Ditto TalkingHead 아바타 영상 생성 → 최종 강의 영상 합성 → Moodle VideoTracker 배포**를 하나의 웹 애플리케이션에서 처리하는 AI 기반 강의 제작 시스템입니다.
 
-현재 애플리케이션 버전은 `0.4.2`이며, FastAPI 기반 웹 애플리케이션과 SQLite durable job queue, 멀티 GPU worker supervisor, OpenAI API, Ditto TalkingHead, FFmpeg, Moodle 연동으로 구성됩니다. 애플리케이션 코드의 버전 기준값은 `core/version.py`에서 관리합니다.
+현재 애플리케이션 버전은 `0.4.3`이며, FastAPI 기반 웹 애플리케이션과 SQLite durable job queue, 멀티 GPU worker supervisor, OpenAI API, Ditto TalkingHead, FFmpeg, Moodle 연동으로 구성됩니다. 애플리케이션 코드의 버전 기준값은 `core/version.py`에서 관리합니다.
 
 ---
 
@@ -82,6 +64,7 @@ AI Professor Lite는 **강의 기획 → 슬라이드/이미지 생성 → 교�
 - Argon2 비밀번호 해시
 - Session 기반 인증
 - CSRF 보호
+- 로그인 요청 rate limit
 - 사용자별 OpenAI API Key 저장
 - 사용자별 Moodle URL / Web Service Token 저장
 - 민감 credential의 Fernet 암호화 저장
@@ -96,6 +79,7 @@ AI Professor Lite는 **강의 기획 → 슬라이드/이미지 생성 → 교�
 - worker crash 복구
 - 애플리케이션 재시작 후 작업 재개
 - stage checkpoint 기반 이어서 실행
+- 재시도 시 완료된 슬라이드 TTS 결과 재사용
 - 이전 worker의 stale write 방지
 - Ditto / FFmpeg child process group 종료 처리
 
@@ -374,6 +358,8 @@ lecture row에는 현재 실행권한을 가진 runner의 token이 기록됩니�
 합니다.
 
 완료된 파일이 삭제되거나 0 byte인 경우 checkpoint가 있어도 정상 완료로 취급하지 않습니다.
+
+Narration 단계는 슬라이드별 TTS 결과를 강의 단위 content-addressed cache에 저장합니다. 같은 강의의 재시도에서는 model, voice, narration text가 동일한 이미 생성된 음성을 재사용하므로 중간 실패 뒤 앞 슬라이드의 TTS를 다시 호출하지 않습니다. run별 최종 산출물 디렉터리는 기존처럼 `run_token`으로 분리됩니다.
 
 ---
 
