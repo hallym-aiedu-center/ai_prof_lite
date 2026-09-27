@@ -154,6 +154,7 @@ async def slides_stage(ctx):
         generate_images=bool(ctx.lecture['generate_images']),
         image_paths=[Path(p) if p else None for p in ctx.outputs['images']['images']],
         avatar_source_path=Path(ctx.lecture['portrait_path']) if ctx.lecture.get('portrait_path') else None,
+        cache_dir=ctx.cache_directory / 'slides',
     )
 
     await ctx.update(pptx_path=str(pptx))

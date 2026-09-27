@@ -6,7 +6,11 @@ import os
 from datetime import datetime, timedelta, timezone
 
 from core.jobs.base import LeaseLost
-from core.jobs.errors import AmbiguousDeploymentError, PublishNotReadyError
+from core.jobs.errors import (
+    AmbiguousDeploymentError,
+    PublishNotReadyError,
+    PublishSourceFailedError,
+)
 from modules.lecture.publishing import deploy_lecture_to_moodle, ensure_lecture_ready_for_publish
 from modules.lecture.repository import (
     claim_publish_schedule,
@@ -135,6 +139,19 @@ async def _run_one(lecture_id: int) -> None:
         await update_lecture(
             lecture_id,
             status_message="예약 시각 도달 · 최종 강의 영상 생성 완료 대기 중",
+        )
+    except PublishSourceFailedError as exc:
+        with contextlib.suppress(LeaseLost):
+            await update_publish_schedule(
+                lecture_id,
+                lease_token=lease_token,
+                clear_lease=True,
+                status="failed",
+                last_error=str(exc)[:1200],
+            )
+        await update_lecture(
+            lecture_id,
+            status_message="강의 생성 실패 · Moodle 예약 게시 중단",
         )
     except AmbiguousDeploymentError as exc:
         with contextlib.suppress(LeaseLost):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import os
 from pathlib import Path
 from typing import Sequence
@@ -14,6 +15,7 @@ from core.openai.client import get_client
 
 
 RAW_IMAGE_SIZE = "1536x1024"
+WIDE_IMAGE_SIZE = "1536x864"
 PPT_IMAGE_WIDTH = 1920
 PPT_IMAGE_HEIGHT = 1080
 WIDTH = PPT_IMAGE_WIDTH
@@ -59,13 +61,14 @@ async def _save_openai_image(
     prompt: str,
     output_path: Path,
     quality: str = DEFAULT_QUALITY,
+    size: str = RAW_IMAGE_SIZE,
 ) -> Path:
     client = get_client(api_key=api_key)
     async with client:
         result = await client.images.generate(
             model=model,
             prompt=prompt,
-            size=RAW_IMAGE_SIZE,
+            size=size,
             quality=quality,
         )
 
@@ -139,20 +142,49 @@ Professional modern educational PPT style. Strong hierarchy, generous spacing, r
 """.strip()
 
 
-def _resize_exact_to_ppt_canvas(*, source_path: Path, output_path: Path):
+def _image_request_size(model: str) -> str:
+    # GPT Image 2 supports arbitrary valid dimensions, so request the final 16:9
+    # composition directly. Older selectable models keep their legacy landscape
+    # size and are contained without distortion below.
+    return WIDE_IMAGE_SIZE if str(model or "").startswith("gpt-image-2") else RAW_IMAGE_SIZE
+
+
+def _slide_cache_key(*, model: str, quality: str, size: str, prompt: str) -> str:
+    payload = f"v2\0{model}\0{quality}\0{size}\0{prompt}".encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _copy_cached_image(cache_path: Path, output_path: Path) -> bool:
+    if not cache_path.is_file() or cache_path.stat().st_size <= 0:
+        return False
+    _atomic_write(output_path, cache_path.read_bytes())
+    return True
+
+
+def _fit_to_ppt_canvas(*, source_path: Path, output_path: Path):
     with Image.open(source_path) as source:
-        image = source.convert("RGB").resize((PPT_IMAGE_WIDTH, PPT_IMAGE_HEIGHT), Image.Resampling.LANCZOS)
+        image = ImageOps.exif_transpose(source).convert("RGB")
+        width, height = _contain_size(
+            image.width, image.height, PPT_IMAGE_WIDTH, PPT_IMAGE_HEIGHT
+        )
+        image = image.resize((width, height), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (PPT_IMAGE_WIDTH, PPT_IMAGE_HEIGHT), (255, 255, 255))
+        canvas.paste(
+            image,
+            ((PPT_IMAGE_WIDTH - width) // 2, (PPT_IMAGE_HEIGHT - height) // 2),
+        )
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output_path, "PNG")
+    canvas.save(output_path, "PNG")
 
 
 async def generate_slide_image(
     *, api_key: str, model: str, lecture_title: str, slide_index: int,
     total_slides: int, slide: dict, output_path: Path,
-    avatar_source_path: Path | None = None,
+    avatar_source_path: Path | None = None, cache_dir: Path | None = None,
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    raw_path = output_path.with_name(output_path.stem + "_raw" + output_path.suffix)
+    actual_model = model or DEFAULT_MODEL
+    request_size = _image_request_size(actual_model)
     prompt = _build_slide_prompt(
         lecture_title=lecture_title,
         slide_index=slide_index,
@@ -160,14 +192,32 @@ async def generate_slide_image(
         slide=slide,
         avatar_safe_zone=_estimate_avatar_safe_zone(avatar_source_path),
     )
-    await _save_openai_image(
-        api_key=api_key,
-        model=model or DEFAULT_MODEL,
-        prompt=prompt,
-        output_path=raw_path,
-    )
-    _resize_exact_to_ppt_canvas(source_path=raw_path, output_path=output_path)
-    raw_path.unlink(missing_ok=True)
+
+    cache_path = None
+    if cache_dir is not None:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = cache_dir / (
+            _slide_cache_key(
+                model=actual_model, quality=DEFAULT_QUALITY, size=request_size, prompt=prompt
+            ) + ".png"
+        )
+        if _copy_cached_image(cache_path, output_path):
+            return output_path
+
+    raw_path = output_path.with_name(output_path.stem + "_raw" + output_path.suffix)
+    try:
+        await _save_openai_image(
+            api_key=api_key,
+            model=actual_model,
+            prompt=prompt,
+            output_path=raw_path,
+            size=request_size,
+        )
+        _fit_to_ppt_canvas(source_path=raw_path, output_path=output_path)
+        if cache_path is not None:
+            _atomic_write(cache_path, output_path.read_bytes())
+    finally:
+        raw_path.unlink(missing_ok=True)
     return output_path
 
 
@@ -304,7 +354,7 @@ def build_pptx_from_images(*, output_path: Path, slide_image_paths: Sequence[Pat
 async def build_slide_assets(
     *, api_key: str, title: str, plan: dict, output_dir: Path, image_model: str,
     generate_images: bool = True, image_paths: Sequence[Path | None] | None = None,
-    avatar_source_path: Path | None = None,
+    avatar_source_path: Path | None = None, cache_dir: Path | None = None,
 ) -> tuple[Path, list[Path]]:
     """Create slide PNGs and PPTX.
 
@@ -332,6 +382,7 @@ async def build_slide_assets(
                     slide=slide,
                     output_path=png_path,
                     avatar_source_path=avatar_source_path,
+                    cache_dir=cache_dir,
                 )
             else:
                 visual = visuals[idx - 1] if idx - 1 < len(visuals) else None

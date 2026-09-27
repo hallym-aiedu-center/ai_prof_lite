@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from core.jobs.errors import AmbiguousDeploymentError, PublishNotReadyError
+from core.jobs.errors import AmbiguousDeploymentError, PublishNotReadyError, PublishSourceFailedError
 from core.openai.client import get_client
 from modules.lecture.repository import (
     get_lecture,
@@ -197,6 +197,11 @@ async def ensure_lecture_ready_for_publish(lecture_id: int) -> dict:
         raise RuntimeError("강의를 찾을 수 없습니다.")
     if not lecture.get("upload_to_moodle"):
         raise RuntimeError("이 강의는 Moodle 자동 업로드 대상이 아닙니다.")
+
+    if lecture.get("status") == "failed":
+        raise PublishSourceFailedError(
+            "강의 생성이 실패하여 예약 게시를 진행할 수 없습니다."
+        )
 
     final_video_path = lecture.get("final_video_path")
     if not final_video_path:

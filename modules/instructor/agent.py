@@ -115,9 +115,11 @@ async def _choose_course(
             raise ValueError("AI가 허용되지 않은 강좌를 선택했습니다.")
         selected = next(item for item in courses if int(item.get("id", -1)) == course_id)
         return selected, str(payload.get("rationale") or "AI 강좌 선택")
-    except Exception:
-        # Deterministic fallback keeps the autonomous pipeline alive.
-        return courses[0], "AI 선택 응답을 사용할 수 없어 첫 번째 허용 강좌를 선택했습니다."
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        # A syntactically invalid structured answer can fall back deterministically.
+        # Transport/auth/rate-limit/server failures must propagate so the planner can retry
+        # instead of silently creating a lecture for an arbitrary course.
+        return courses[0], "AI 선택 응답 형식을 사용할 수 없어 첫 번째 허용 강좌를 선택했습니다."
 
 
 async def _choose_lesson(
@@ -210,7 +212,7 @@ async def _choose_lesson(
             "topic": str(payload["topic"]).strip(),
             "rationale": str(payload.get("rationale") or "AI 강의 주제 선택"),
         }
-    except Exception:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         section = usable_sections[0]
         course_name = _course_label(course)
         section_name = section["name"]

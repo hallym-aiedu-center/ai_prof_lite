@@ -11,8 +11,14 @@ class PublishNotReadyError(RuntimeError):
     """The scheduled publish time arrived before the final lecture media was ready."""
 
 
+class PublishSourceFailedError(RuntimeError):
+    """The lecture failed before scheduled publication could become ready."""
+
+
 def retryable(error: Exception) -> bool:
     if isinstance(error, AmbiguousDeploymentError):
+        return False
+    if isinstance(error, PublishSourceFailedError):
         return False
     if isinstance(error, PublishNotReadyError):
         return True

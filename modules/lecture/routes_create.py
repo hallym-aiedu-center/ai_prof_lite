@@ -91,7 +91,7 @@ async def new_lecture(
                 ),
                 "image_model": os.getenv(
                     "LECTURE_IMAGE_MODEL",
-                    "gpt-image-1",
+                    "gpt-image-2",
                 ),
                 "tts_model": os.getenv(
                     "LECTURE_TTS_MODEL",

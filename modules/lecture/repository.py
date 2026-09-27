@@ -392,17 +392,29 @@ async def list_due_publish_schedule_ids(limit: int = 10) -> list[int]:
     try:
         cursor = await db.execute(
             """
-            SELECT lecture_id
-            FROM lecture_publish_schedules
+            SELECT s.lecture_id
+            FROM lecture_publish_schedules AS s
+            JOIN lectures AS l ON l.id = s.lecture_id
             WHERE (
-                    status = 'pending'
-                    AND scheduled_at <= CURRENT_TIMESTAMP
+                    s.status = 'pending'
+                    AND s.scheduled_at <= CURRENT_TIMESTAMP
+                    AND (
+                        l.final_video_path IS NOT NULL
+                        OR l.status = 'failed'
+                    )
                   )
                OR (
-                    status = 'publishing'
-                    AND (lease_until IS NULL OR lease_until <= CURRENT_TIMESTAMP)
+                    s.status = 'publishing'
+                    AND (s.lease_until IS NULL OR s.lease_until <= CURRENT_TIMESTAMP)
                   )
-            ORDER BY scheduled_at ASC, lecture_id ASC
+            ORDER BY
+                CASE
+                    WHEN l.final_video_path IS NOT NULL THEN 0
+                    WHEN l.status = 'failed' THEN 1
+                    ELSE 2
+                END,
+                s.scheduled_at ASC,
+                s.lecture_id ASC
             LIMIT ?
             """,
             (limit,),
