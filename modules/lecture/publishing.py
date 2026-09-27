@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 from core.jobs.errors import AmbiguousDeploymentError, PublishNotReadyError, PublishSourceFailedError
 from core.openai.client import get_client
+from modules.lecture.composer import media_duration
 from modules.lecture.repository import (
     get_lecture,
     get_publish_schedule,
@@ -312,10 +313,12 @@ async def deploy_lecture_to_moodle(
     else:
         raise RuntimeError(f"지원하지 않는 Moodle 배포 방식: {deploy_mode}")
 
+    duration = await media_duration(final_video)
     video_result = await set_video_from_file(
         client=moodle,
         cmid=int(cmid),
         path=final_video_path,
+        duration=duration,
     )
     if isinstance(video_result, dict) and video_result.get("success") is False:
         raise RuntimeError("Moodle 영상 연결에 실패했습니다.")

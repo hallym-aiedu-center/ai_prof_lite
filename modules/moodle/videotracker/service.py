@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 
 from core.moodle.client import MoodleClient
@@ -56,11 +57,18 @@ async def set_video_from_file(
     client: MoodleClient,
     cmid: int,
     path: str | Path,
+    duration: float | None = None,
 ):
     """
     Upload local MP4 into Moodle draft storage and attach it
     to the target custom VideoTracker activity.
     """
+    duration_value = None
+    if duration is not None:
+        duration_value = float(duration)
+        if not math.isfinite(duration_value) or duration_value <= 0:
+            raise ValueError("Video duration must be a finite positive number.")
+
     uploaded = await client.upload_file(
         path
     )
@@ -83,12 +91,17 @@ async def set_video_from_file(
             f"{first}"
         )
 
+    params = {
+        "cmid": int(cmid),
+        "draftitemid": int(draftitemid),
+    }
+
+    if duration_value is not None:
+        params["duration"] = duration_value
+
     return await client.call(
         "mod_videotracker_set_video",
-        cmid=int(cmid),
-        draftitemid=int(
-            draftitemid
-        ),
+        **params,
     )
 
 
@@ -100,6 +113,7 @@ async def create_activity_and_set_video(
     name: str,
     intro: str,
     video_path: str | Path,
+    duration: float | None = None,
 ):
     created = await create_activity(
         client=client,
@@ -113,6 +127,7 @@ async def create_activity_and_set_video(
         client=client,
         cmid=int(created["cmid"]),
         path=video_path,
+        duration=duration,
     )
 
     return {

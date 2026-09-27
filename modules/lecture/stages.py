@@ -12,7 +12,7 @@ from modules.credentials.required import require_user_openai_api_key
 from modules.image.service import generate_image
 from modules.lecture.avatar import create_avatar_video, get_ditto_paths
 from modules.lecture.background import prepare_avatar_source
-from modules.lecture.composer import build_slides_video, compose_final_video
+from modules.lecture.composer import build_slides_video, compose_final_video, media_duration
 from modules.lecture.narration import build_narration
 from modules.lecture.planner import create_lecture_plan
 from modules.lecture.checkpoints import get_stage, save_stage
@@ -208,8 +208,9 @@ async def compose_stage(ctx):
                                      narration_audio=Path(ctx.outputs['narration']['narration']),
                                      output_path=ctx.directory / 'final_lecture.mp4',
                                      chroma_color=ctx.outputs['avatar']['chroma_color'])
+    duration = await media_duration(path)
     await ctx.update(final_video_path=str(path))
-    return {'video': str(path), 'files': [str(path)]}
+    return {'video': str(path), 'duration': duration, 'files': [str(path)]}
 
 
 async def deploy_stage(ctx):
@@ -260,7 +261,20 @@ async def deploy_stage(ctx):
     if not cmid:
         raise ValueError('Moodle VideoTracker CMID가 없습니다.')
     await ctx.check()
-    video = await set_video_from_file(client=client, cmid=int(cmid), path=ctx.outputs['compose']['video'])
+    video_path = ctx.outputs['compose']['video']
+    duration = ctx.outputs['compose'].get('duration')
+    if duration is None:
+        # Backward compatibility for checkpoints created before duration was
+        # recorded in compose-stage outputs.
+        video_file = Path(video_path)
+        if video_file.is_file():
+            duration = await media_duration(video_file)
+    video = await set_video_from_file(
+        client=client,
+        cmid=int(cmid),
+        path=video_path,
+        duration=duration,
+    )
     if isinstance(video, dict) and video.get('success') is False:
         raise RuntimeError('Moodle 영상 연결에 실패했습니다.')
     result = {'mode': lecture['moodle_deploy_mode'], 'cmid': cmid, 'activity': activity, 'video': video}
