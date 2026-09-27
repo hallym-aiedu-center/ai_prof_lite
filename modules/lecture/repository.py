@@ -484,6 +484,76 @@ async def renew_publish_schedule_lease(
         await db.close()
 
 
+async def settle_source_failed_publish_schedule(
+    lecture_id: int,
+    *,
+    lease_token: str,
+    last_error: str,
+) -> bool:
+    """Atomically settle a source-failure observation against current lecture state.
+
+    The scheduler may observe ``lectures.status == 'failed'`` and then lose the race
+    to a user retry before it persists the publish failure.  Hold a SQLite write
+    transaction while re-checking the lecture projection and updating the publish
+    row so a recovered lecture can never be overwritten with a stale source failure.
+
+    Returns ``True`` when the lecture is still failed and the publish schedule is
+    closed as failed.  Returns ``False`` when the lecture has already recovered; in
+    that case the schedule is returned to pending with its original scheduled time.
+    """
+    db = await get_connection()
+    try:
+        await db.execute("BEGIN IMMEDIATE")
+        lecture = await (await db.execute(
+            "SELECT status FROM lectures WHERE id = ? LIMIT 1",
+            (lecture_id,),
+        )).fetchone()
+        still_failed = bool(lecture and lecture["status"] == "failed")
+
+        if still_failed:
+            cursor = await db.execute(
+                """
+                UPDATE lecture_publish_schedules
+                SET status = 'failed',
+                    last_error = ?,
+                    lease_token = NULL,
+                    lease_until = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE lecture_id = ?
+                  AND status = 'publishing'
+                  AND lease_token = ?
+                """,
+                (last_error[:1200], lecture_id, lease_token),
+            )
+        else:
+            cursor = await db.execute(
+                """
+                UPDATE lecture_publish_schedules
+                SET status = 'pending',
+                    last_error = NULL,
+                    lease_token = NULL,
+                    lease_until = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE lecture_id = ?
+                  AND status = 'publishing'
+                  AND lease_token = ?
+                """,
+                (lecture_id, lease_token),
+            )
+
+        if cursor.rowcount != 1:
+            await db.rollback()
+            raise LeaseLost("This process no longer owns the publish schedule.")
+
+        await db.commit()
+        return still_failed
+    except BaseException:
+        await db.rollback()
+        raise
+    finally:
+        await db.close()
+
+
 async def update_publish_schedule(
     lecture_id: int,
     *,

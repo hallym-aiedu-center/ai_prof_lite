@@ -8,6 +8,31 @@ from core.jobs.base import Job
 
 
 class SQLiteJobQueue:
+    @staticmethod
+    async def _rearm_source_failed_publish_schedule(db, lecture_id: int) -> None:
+        """Re-activate a delayed publish only after lecture generation recovers.
+
+        A source-generation failure is the only scheduler failure that happens
+        before a Moodle upload attempt is spent, so ``attempts = 0`` is the
+        durable discriminator.  Moodle/ambiguous deployment failures have
+        ``attempts >= 1`` and must remain failed for explicit operator action.
+
+        The schedule is intentionally re-armed on *successful job completion*,
+        not when the user clicks retry.  This prevents a due schedule from
+        publishing stale media while the retry is still rendering.
+        """
+        await db.execute("""
+            UPDATE lecture_publish_schedules
+            SET status='pending', last_error=NULL, lease_token=NULL,
+                lease_until=NULL, updated_at=CURRENT_TIMESTAMP
+            WHERE lecture_id=?
+              AND status='failed'
+              AND attempts=0
+              AND published_at IS NULL
+              AND COALESCE(create_state, 'idle')='idle'
+              AND create_result_json IS NULL
+        """, (lecture_id,))
+
     def __init__(self):
         self.lease_seconds = positive_int("JOB_LEASE_SECONDS", 60)
         self.max_attempts = positive_int("JOB_MAX_ATTEMPTS", 3)
@@ -61,6 +86,12 @@ class SQLiteJobQueue:
 
             # A worker can die after the lecture transaction reached completed but before
             # the queue acknowledgement.  Never replay such a lecture.
+            completed_lecture_rows = await (await db.execute("""
+                SELECT lecture_id
+                FROM lecture_jobs
+                WHERE status='running'
+                  AND lecture_id IN (SELECT id FROM lectures WHERE status='completed')
+            """)).fetchall()
             completed = await db.execute("""
                 UPDATE lecture_jobs
                 SET status='completed', lease_token=NULL, lease_until=NULL,
@@ -69,6 +100,10 @@ class SQLiteJobQueue:
                   AND lecture_id IN (SELECT id FROM lectures WHERE status='completed')
             """, (now,))
             completed_count = completed.rowcount
+            for completed_row in completed_lecture_rows:
+                await self._rearm_source_failed_publish_schedule(
+                    db, int(completed_row['lecture_id'])
+                )
 
             rows = await (await db.execute("""
                 SELECT id, lecture_id, lease_token
@@ -137,6 +172,9 @@ class SQLiteJobQueue:
                             lease_until=NULL, worker_id=NULL, gpu_id=NULL, updated_at=? WHERE id=?
                     """, (now, row['id']))
                     await db.execute('UPDATE lectures SET run_token=NULL WHERE id=?', (row['lecture_id'],))
+                    await self._rearm_source_failed_publish_schedule(
+                        db, int(row['lecture_id'])
+                    )
                     continue
                 state = 'failed' if row['attempts'] >= row['max_attempts'] else 'queued'
                 message = '워커 연결이 끊겨 재시도합니다.' if state == 'queued' else '워커 중단 후 최대 시도 횟수를 초과했습니다.'
@@ -239,6 +277,8 @@ class SQLiteJobQueue:
                     error_message=?, updated_at=CURRENT_TIMESTAMP
                 WHERE id=? AND run_token=?
             """, (state, message, error, job.lecture_id, job.token))
+            if state == 'completed':
+                await self._rearm_source_failed_publish_schedule(db, job.lecture_id)
             await db.commit()
             return True
         except BaseException:

@@ -17,6 +17,7 @@ from modules.lecture.repository import (
     get_publish_schedule,
     list_due_publish_schedule_ids,
     renew_publish_schedule_lease,
+    settle_source_failed_publish_schedule,
     update_lecture,
     update_publish_schedule,
 )
@@ -141,18 +142,23 @@ async def _run_one(lecture_id: int) -> None:
             status_message="예약 시각 도달 · 최종 강의 영상 생성 완료 대기 중",
         )
     except PublishSourceFailedError as exc:
-        with contextlib.suppress(LeaseLost):
-            await update_publish_schedule(
+        # The source-failure observation can go stale while a user retry is
+        # completing. Re-check lecture.status and settle the publish row in one
+        # SQLite write transaction so a recovered lecture is never overwritten
+        # with a late publish failure.
+        try:
+            still_failed = await settle_source_failed_publish_schedule(
                 lecture_id,
                 lease_token=lease_token,
-                clear_lease=True,
-                status="failed",
-                last_error=str(exc)[:1200],
+                last_error=str(exc),
             )
-        await update_lecture(
-            lecture_id,
-            status_message="강의 생성 실패 · Moodle 예약 게시 중단",
-        )
+        except LeaseLost:
+            return
+        if still_failed:
+            await update_lecture(
+                lecture_id,
+                status_message="강의 생성 실패 · Moodle 예약 게시 중단",
+            )
     except AmbiguousDeploymentError as exc:
         with contextlib.suppress(LeaseLost):
             await update_publish_schedule(
