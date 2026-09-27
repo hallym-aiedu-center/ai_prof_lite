@@ -17,7 +17,7 @@
                 사용자별 API와 LMS 연결을 안전하게 관리합니다.
             </h1>
             <p class="mt-5 text-base leading-7 text-slate-400">
-                계정을 만든 뒤 OpenAI, Moodle, Google, GitHub 자격증명을 개별로 등록할 수 있습니다.
+                계정별 강의·예약·외부 서비스 연결정보를 분리해 안전하게 사용할 수 있습니다.
             </p>
         </div>
         <div class="text-xs text-slate-500">AI Professor Lite</div>
@@ -48,6 +48,15 @@
                     <input type="email" name="email" value="{{ email or '' }}" required
                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
                 </div>
+
+                {% if registration_required %}
+                <div>
+                    <label class="mb-2 block text-sm font-medium">가입 코드</label>
+                    <input type="password" name="registration_code_input" required autocomplete="one-time-code"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                    <p class="mt-2 text-xs text-slate-500">서버 운영자에게 전달받은 가입 코드를 입력하세요.</p>
+                </div>
+                {% endif %}
 
                 <div>
                     <label class="mb-2 block text-sm font-medium">비밀번호</label>

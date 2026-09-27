@@ -1,5 +1,8 @@
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT
+from hmac import compare_digest
+
 from fastapi import APIRouter, Form, Request
+
+from core.config import PROJECT_ROOT as TEMPLATE_ROOT, registration_code
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -107,6 +110,7 @@ async def register_page(request: Request):
         context={
             "csrf_token": get_csrf_token(request),
             "error": None,
+            "registration_required": bool(registration_code()),
         },
     )
 
@@ -118,9 +122,25 @@ async def register(
     email: str = Form(...),
     password: str = Form(...),
     password_confirm: str = Form(...),
+    registration_code_input: str = Form(""),
     csrf_token: str = Form(...),
 ):
     verify_csrf(request, csrf_token)
+
+    required_code = registration_code()
+    if required_code and not compare_digest(required_code, registration_code_input.strip()):
+        return templates.TemplateResponse(
+            request=request,
+            name="auth/register.html",
+            context={
+                "csrf_token": get_csrf_token(request),
+                "error": "가입 코드가 올바르지 않습니다.",
+                "name": name,
+                "email": email,
+                "registration_required": True,
+            },
+            status_code=403,
+        )
 
     if password != password_confirm:
         return templates.TemplateResponse(
@@ -131,6 +151,7 @@ async def register(
                 "error": "비밀번호가 일치하지 않습니다.",
                 "name": name,
                 "email": email,
+                "registration_required": bool(required_code),
             },
             status_code=400,
         )
@@ -150,6 +171,7 @@ async def register(
                 "error": str(exc),
                 "name": name,
                 "email": email,
+                "registration_required": bool(required_code),
             },
             status_code=400,
         )

@@ -37,6 +37,7 @@ class SQLiteJobQueue:
         self.lease_seconds = positive_int("JOB_LEASE_SECONDS", 60)
         self.max_attempts = positive_int("JOB_MAX_ATTEMPTS", 3)
         self.capacity = positive_int("JOB_CONCURRENCY", 4)
+        self.per_user_capacity = positive_int("MAX_RUNNING_JOBS_PER_USER", 1)
         self.retry_seconds = positive_int("JOB_RETRY_SECONDS", 10)
 
     async def enqueue(self, lecture_id: int) -> None:
@@ -195,9 +196,21 @@ class SQLiteJobQueue:
                 await db.commit()
                 return None
             row = await (await db.execute("""
-                SELECT * FROM lecture_jobs WHERE status='queued' AND available_at<=?
-                ORDER BY available_at, id LIMIT 1
-            """, (now,))).fetchone()
+                SELECT queued.*
+                FROM lecture_jobs AS queued
+                JOIN lectures AS queued_lecture ON queued_lecture.id = queued.lecture_id
+                WHERE queued.status='queued'
+                  AND queued.available_at<=?
+                  AND (
+                      SELECT COUNT(*)
+                      FROM lecture_jobs AS running
+                      JOIN lectures AS running_lecture ON running_lecture.id = running.lecture_id
+                      WHERE running.status='running'
+                        AND running_lecture.user_id = queued_lecture.user_id
+                  ) < ?
+                ORDER BY queued.available_at, queued.id
+                LIMIT 1
+            """, (now, self.per_user_capacity))).fetchone()
             if row is None:
                 await db.commit()
                 return None

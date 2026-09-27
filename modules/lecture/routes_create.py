@@ -173,8 +173,8 @@ async def submit_lecture(
         csrf_token,
     )
 
-    # Paid/external work is available only with credentials owned by this user.
-    # Never fall back to server-wide OPENAI_API_KEY / MOODLE_* secrets.
+    # OpenAI credential policy is installation-configurable (user BYOK or server key).
+    # Moodle credentials always remain user-owned.
     try:
         await require_user_openai_api_key(user_id)
     except MissingCredentialError as exc:

@@ -149,7 +149,8 @@ def _next_slots(profile: dict, count: int = 6) -> list[dict]:
         zone = ZoneInfo("Asia/Seoul")
     now = datetime.now(zone)
     weekdays = {int(v) for v in profile.get("weekdays_json") or [] if 0 <= int(v) <= 6}
-    hour = int(profile.get("publish_hour") or 18)
+    hour_value = profile.get("publish_hour")
+    hour = int(18 if hour_value is None else hour_value)
     minute = int(profile.get("publish_minute") or 0)
     start, end, total_weeks = _semester_dates(profile)
     results: list[dict] = []

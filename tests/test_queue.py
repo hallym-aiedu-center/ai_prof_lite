@@ -115,3 +115,30 @@ async def test_nonretryable_failure_is_not_requeued(make_lecture):
     await queue.fail(await queue.claim('worker'), 'bad input', retryable=False)
     assert await queue.claim('worker') is None
     assert (await get_lecture(lecture_id))['error_message'] == 'bad input'
+
+
+async def test_per_user_running_limit_skips_busy_users(make_lecture, monkeypatch):
+    monkeypatch.setenv('JOB_CONCURRENCY', '4')
+    monkeypatch.setenv('MAX_RUNNING_JOBS_PER_USER', '1')
+
+    db = await get_connection()
+    try:
+        await db.execute("INSERT INTO users(id,email,password_hash) VALUES(2,'second@example.test','unused')")
+        await db.commit()
+    finally:
+        await db.close()
+
+    queue = SQLiteJobQueue()
+    a1 = await make_lecture(user_id=1, title='A1')
+    a2 = await make_lecture(user_id=1, title='A2')
+    b1 = await make_lecture(user_id=2, title='B1')
+    for lecture_id in (a1, a2, b1):
+        await queue.enqueue(lecture_id)
+
+    first = await queue.claim('first')
+    second = await queue.claim('second')
+    third = await queue.claim('third')
+
+    assert first is not None and first.lecture_id == a1
+    assert second is not None and second.lecture_id == b1
+    assert third is None

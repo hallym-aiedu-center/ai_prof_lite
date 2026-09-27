@@ -66,7 +66,6 @@ async def reserve_instructor_run(
             SELECT 1
             FROM ai_instructor_runs
             WHERE id = ?
-              AND scheduled_at > CURRENT_TIMESTAMP
               AND updated_at <= datetime('now', ?)
             """,
             (int(row["id"]), retry_modifier),

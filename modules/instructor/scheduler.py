@@ -44,6 +44,11 @@ def _planning_retry_minutes() -> int:
     return max(1, int(os.getenv("AI_INSTRUCTOR_RETRY_MINUTES", "10")))
 
 
+def _catchup_grace_minutes() -> int:
+    """How far past a missed publish slot the planner may catch up after downtime."""
+    return max(0, min(1440, int(os.getenv("AI_INSTRUCTOR_CATCHUP_GRACE_MINUTES", "120"))))
+
+
 def _utc_sql(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -72,6 +77,7 @@ def _candidate_slots(profile: dict, now_utc: datetime) -> list[tuple[datetime, i
     now_local = now_utc.astimezone(zone)
     lead_hours = max(1, min(168, int(profile.get("lead_hours") or 24)))
     horizon = now_local + timedelta(hours=lead_hours)
+    catchup_floor = now_local - timedelta(minutes=_catchup_grace_minutes())
     weekdays = {int(v) for v in profile.get("weekdays_json") or [] if 0 <= int(v) <= 6}
     value = profile.get("publish_hour")
     hour = max(0, min(23, int(18 if value is None else value)))
@@ -82,7 +88,7 @@ def _candidate_slots(profile: dict, now_utc: datetime) -> list[tuple[datetime, i
     term_end_exclusive = term_start + timedelta(days=total_weeks * 7)
 
     slots: list[tuple[datetime, int]] = []
-    day = max(now_local.date(), term_start)
+    day = max(catchup_floor.date(), term_start)
     last_day = min(horizon.date(), term_end_exclusive - timedelta(days=1))
 
     while day <= last_day:
@@ -98,7 +104,7 @@ def _candidate_slots(profile: dict, now_utc: datetime) -> list[tuple[datetime, i
         if (
             1 <= week_number <= total_weeks
             and local_slot.weekday() in weekdays
-            and now_local < local_slot <= horizon
+            and catchup_floor <= local_slot <= horizon
         ):
             slots.append((local_slot, week_number))
         day += timedelta(days=1)

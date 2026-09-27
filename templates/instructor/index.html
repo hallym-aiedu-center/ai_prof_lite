@@ -32,6 +32,10 @@
         </div>
     </section>
 
+    <div class="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+        AI 강사를 비활성화하면 새 예약 생성만 중단됩니다. 이미 생성된 강의/게시 예약은 자동 취소되지 않습니다.
+    </div>
+
     <form method="post" action="/instructor" enctype="multipart/form-data" class="space-y-5 sm:space-y-6">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 

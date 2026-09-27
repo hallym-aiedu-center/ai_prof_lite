@@ -1,6 +1,6 @@
 {
-  "version": "0.4.6",
-  "purpose": "full account + per-user credential + multi-GPU lecture queue + Ditto + FFmpeg + Moodle VideoTracker overlay",
+  "version": "0.4.7",
+  "purpose": "account isolation + configurable OpenAI credentials + fair multi-GPU lecture queue + Ditto + FFmpeg + Moodle VideoTracker overlay",
   "ditto_source_included": true,
   "ditto_model_checkpoints_included": false,
   "ditto_path": "core/ditto-talkinghead",

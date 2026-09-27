@@ -11,7 +11,11 @@ def csrf(response):
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    async def valid_openai_key(_key):
+        return None
+    monkeypatch.setattr("modules.credentials.routes.validate_openai_api_key", valid_openai_key)
+
     from app import app
     with TestClient(app) as client:
         token = csrf(client.get('/register'))
@@ -72,7 +76,8 @@ def test_credentials_url_rejected_before_network(client):
     assert response.status_code == 422
 
 
-def test_system_openai_key_is_not_a_user_fallback(portrait_bytes):
+def test_system_openai_key_is_not_a_user_fallback(portrait_bytes, monkeypatch):
+    monkeypatch.setenv("OPENAI_KEY_MODE", "user")
     from app import app
     with TestClient(app) as anonymous_client:
         token = csrf(anonymous_client.get('/register'))
@@ -127,3 +132,33 @@ def test_login_rate_limit_returns_429():
         assert response is not None
         assert response.status_code == 429
         assert int(response.headers['retry-after']) >= 1
+
+
+def test_server_openai_key_mode_uses_server_key(monkeypatch):
+    from modules.credentials.required import require_user_openai_api_key
+    import asyncio
+
+    monkeypatch.setenv("OPENAI_KEY_MODE", "server")
+    monkeypatch.setenv("SERVER_OPENAI_API_KEY", "server-owned-key")
+    assert asyncio.run(require_user_openai_api_key(999)) == "server-owned-key"
+
+
+def test_invalid_openai_key_is_not_saved(monkeypatch):
+    async def invalid_key(_key):
+        raise RuntimeError("invalid")
+    monkeypatch.setattr("modules.credentials.routes.validate_openai_api_key", invalid_key)
+
+    from app import app
+    with TestClient(app) as anonymous_client:
+        token = csrf(anonymous_client.get('/register'))
+        anonymous_client.post('/register', data={
+            'email': 'bad-key@example.test', 'name': 'Bad Key',
+            'password': 'test-password-123', 'password_confirm': 'test-password-123',
+            'csrf_token': token,
+        })
+        response = anonymous_client.post('/settings/credentials/openai', data={
+            'secret': 'bad-secret-key',
+            'csrf_token': csrf(anonymous_client.get('/settings/credentials')),
+        })
+        assert response.status_code == 422
+        assert 'bad-secret-key' not in response.text

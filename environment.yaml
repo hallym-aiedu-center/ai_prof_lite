@@ -140,4 +140,3 @@ dependencies:
       - polygraphy
       - colored
       - rembg[cpu]==2.0.69
-prefix: /opt/conda/envs/ditto

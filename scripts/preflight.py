@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from dotenv import load_dotenv
 load_dotenv(ROOT / '.env')
-from core.config import session_secret
+from core.config import openai_key_mode, session_secret
 from core.database.secrets import _get_cipher
 from modules.lecture.avatar import get_ditto_paths
 
@@ -24,6 +24,11 @@ def main():
     for validator in (session_secret, _get_cipher):
         try: validator()
         except (RuntimeError, ValueError) as exc: failures.append(str(exc))
+    try:
+        if openai_key_mode() == "server" and not os.getenv("SERVER_OPENAI_API_KEY", "").strip():
+            failures.append("SERVER_OPENAI_API_KEY is required when OPENAI_KEY_MODE=server")
+    except ValueError as exc:
+        failures.append(str(exc))
     root, data, config = get_ditto_paths()
     for path in (root / 'inference.py', data, config):
         if not path.exists(): failures.append(f'Ditto: {path}')

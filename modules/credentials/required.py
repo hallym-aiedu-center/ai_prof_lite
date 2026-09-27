@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+
+from core.config import openai_key_mode
 from modules.credentials.service import get_credential
 
 
@@ -8,6 +11,15 @@ class MissingCredentialError(RuntimeError):
 
 
 async def require_user_openai_api_key(user_id: int) -> str:
+    """Resolve the OpenAI key according to the installation credential policy."""
+    if openai_key_mode() == "server":
+        secret = os.getenv("SERVER_OPENAI_API_KEY", "").strip()
+        if not secret:
+            raise MissingCredentialError(
+                "서버 OpenAI API Key가 설정되지 않았습니다. 서버 운영자에게 문의하세요."
+            )
+        return secret
+
     credential = await get_credential(
         user_id=user_id,
         provider="openai",
@@ -16,7 +28,7 @@ async def require_user_openai_api_key(user_id: int) -> str:
     secret = str((credential or {}).get("secret") or "").strip()
     if not secret:
         raise MissingCredentialError(
-            "OpenAI API Key를 먼저 등록하세요. 서버 공용 API Key는 사용자 작업에 사용하지 않습니다."
+            "OpenAI API Key를 먼저 등록하세요."
         )
     return secret
 

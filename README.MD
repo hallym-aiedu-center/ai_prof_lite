@@ -1,8 +1,8 @@
 # AI Professor Lite
 
-> **v0.4.6 · 1차 공개본**
+> **v0.4.7 · 1차 공개본**
 >
-> 현재 애플리케이션 버전은 `0.4.6`
+> 현재 애플리케이션 버전은 `0.4.7`
 >
 > 현재 다른 서버에서도 같은 방식으로 실행할 수 있도록 Python/Conda 패키지와 설치 절차를 계속 정리하고 있습니다.  
 > 특히 Ditto TalkingHead, CUDA, TensorRT, cuDNN 쪽은 GPU와 드라이버 구성에 따라 추가 설정이 필요할 수 있습니다.
@@ -106,8 +106,11 @@ Lead Time: 24시간
 
 ```env
 AI_INSTRUCTOR_POLL_SECONDS=60
+AI_INSTRUCTOR_CATCHUP_GRACE_MINUTES=120
 LECTURE_PUBLISH_POLL_SECONDS=30
 ```
+
+서버가 게시 시점을 지나 재시작한 경우 `AI_INSTRUCTOR_CATCHUP_GRACE_MINUTES` 이내의 최근 슬롯은 늦게라도 계획할 수 있습니다. `0`으로 설정하면 catch-up을 비활성화합니다. AI Instructor를 비활성화하면 새 예약 생성만 중단되며, 이미 생성된 강의와 게시 예약은 자동 취소하지 않습니다.
 
 ---
 
@@ -334,14 +337,33 @@ CREDENTIAL_MASTER_KEY=<generated-fernet-key>
 
 `CREDENTIAL_MASTER_KEY`가 바뀌면 기존 DB에 저장된 암호화 credential을 복호화할 수 없습니다. 운영 중에는 DB와 함께 별도로 보관해야 합니다.
 
+## 회원가입
+
+로그인/회원가입은 사용자별 OpenAI/Moodle 자격증명, 강의, 예약, 작업 이력을 분리하기 위해 유지합니다. 관리자 대시보드는 필요하지 않으며, 공개 가입을 제한하려면 공유 가입 코드를 설정할 수 있습니다.
+
+```env
+REGISTRATION_CODE=
+```
+
+값이 비어 있으면 일반 회원가입을 허용하고, 값이 있으면 가입 화면에서 해당 코드를 요구합니다. 가입 코드는 DB에 저장하지 않습니다.
+
 ## OpenAI
 
-OpenAI 기능은 서버 공용 API key가 아니라 사용자가 UI에 등록한 본인 API key를 사용합니다.
+OpenAI 자격증명 정책은 설치자가 선택할 수 있습니다. 기본값은 사용자별 BYOK(`user`)입니다. 연구실/기관이 GPU 서버를 공용 자산으로 제공하면서 외부 종량제 API 사용량과 비용은 사용자별 키로 분리할 수 있습니다. 서버 공용 키를 사용할 설치 환경은 `server` 모드를 선택할 수 있습니다.
+
+```env
+OPENAI_KEY_MODE=user
+SERVER_OPENAI_API_KEY=
+OPENAI_TIMEOUT_SECONDS=120
+```
+
+- `OPENAI_KEY_MODE=user`: 각 계정이 API / 연결 설정에서 본인 OpenAI API Key를 등록합니다. 저장 전에 실제 API 연결 검증을 수행하며 실패한 키는 저장하지 않습니다.
+- `OPENAI_KEY_MODE=server`: 서버의 `SERVER_OPENAI_API_KEY`를 모든 강의 작업에서 사용하며 개인 OpenAI Key 입력 UI는 숨깁니다.
+- Moodle URL/Token은 모드와 관계없이 항상 사용자별 자격증명으로 유지합니다.
 
 모델 관련 기본값은 다음과 같습니다.
 
 ```env
-OPENAI_TIMEOUT_SECONDS=120
 
 LECTURE_TEXT_MODEL=gpt-5.1
 LECTURE_IMAGE_MODEL=gpt-image-2
@@ -359,6 +381,7 @@ LECTURE_RENDER_SLIDES_WITH_IMAGE_MODEL=true
 
 ```env
 JOB_CONCURRENCY=4
+MAX_RUNNING_JOBS_PER_USER=1
 JOB_GPU_IDS=0,1,2,3
 
 JOB_POLL_SECONDS=2
@@ -368,6 +391,10 @@ JOB_TIMEOUT_SECONDS=7200
 JOB_MAX_ATTEMPTS=3
 JOB_RETRY_SECONDS=10
 ```
+
+`JOB_CONCURRENCY`는 서버 전체에서 동시에 실행할 수 있는 강의 job 수입니다. `MAX_RUNNING_JOBS_PER_USER`는 한 사용자가 동시에 점유할 수 있는 running job 수이며 기본값은 1입니다. queue 등록 자체는 제한하지 않습니다. 따라서 한 사용자가 여러 강의를 미리 등록해도 동시에 실행되는 수만 제한되고, 다른 사용자의 실행 슬롯을 독점하지 않습니다.
+
+각 runner는 `JOB_GPU_IDS`의 GPU 하나에 고정됩니다. 같은 GPU에는 동시에 두 runner를 배정하지 않으며 GPU가 여러 개면 GPU 수/`JOB_CONCURRENCY` 범위에서 병렬 처리됩니다.
 
 GPU가 1개라면 다음처럼 바꿉니다.
 
@@ -426,7 +453,7 @@ MEDIA_PROCESS_TIMEOUT_SECONDS=3600
 
 ## Moodle
 
-Moodle URL과 Web Service Token도 사용자가 UI에서 등록합니다.
+Moodle URL과 Web Service Token도 사용자가 UI에서 등록합니다. 저장 시 URL의 SSRF/DNS 정책을 검사한 뒤 `core_webservice_get_site_info` 호출로 실제 연결과 token 유효성을 확인합니다. 검증에 실패한 token은 저장하지 않습니다.
 
 ```env
 MOODLE_VERIFY_SSL=true

@@ -51,6 +51,19 @@ def job_gpu_ids(*, concurrency: int | None = None) -> list[str]:
     return values[:slots]
 
 
+def registration_code() -> str:
+    """Optional shared code required for new account registration."""
+    return os.getenv("REGISTRATION_CODE", "").strip()
+
+
+def openai_key_mode() -> str:
+    """Return the configured OpenAI credential policy: ``user`` or ``server``."""
+    mode = os.getenv("OPENAI_KEY_MODE", "user").strip().lower() or "user"
+    if mode not in {"user", "server"}:
+        raise ValueError("OPENAI_KEY_MODE must be either 'user' or 'server'")
+    return mode
+
+
 def session_secret() -> str:
     secret = os.getenv("SESSION_SECRET", "").strip()
     if len(secret) < 32 or secret in {"dev-only-change-me", "change-me"}:

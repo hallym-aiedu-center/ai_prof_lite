@@ -1,4 +1,6 @@
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT
+import os
+
+from core.config import PROJECT_ROOT as TEMPLATE_ROOT, openai_key_mode
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -50,12 +52,19 @@ async def dashboard(request: Request):
         for row in credentials
     }
 
+    openai_server_mode = openai_key_mode() == "server"
+    openai_connected = (
+        bool(os.getenv("SERVER_OPENAI_API_KEY", "").strip())
+        if openai_server_mode
+        else "openai" in provider_map
+    )
+
     provider_status = [
         {
             "key": "openai",
             "name": "OpenAI",
-            "connected": "openai" in provider_map,
-            "detail": "강의 설계 · 이미지 · 음성",
+            "connected": openai_connected,
+            "detail": "서버 공용 Key" if openai_server_mode else "사용자별 BYOK",
         },
         {
             "key": "moodle",
@@ -94,7 +103,7 @@ async def dashboard(request: Request):
             "active_page": "dashboard",
             "csrf_token": get_csrf_token(request),
             "provider_status": provider_status,
-            "connected_count": len(credentials),
+            "connected_count": sum(1 for item in provider_status if item["connected"]),
             "lectures": lectures,
             "completed_count": completed,
             "running_count": running,
