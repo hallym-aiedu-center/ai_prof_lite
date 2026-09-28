@@ -312,8 +312,6 @@ async def update_lecture_review(request: Request, lecture_id: int):
         await update_review_plan(lecture_id, plan)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
-    if not await get_queue().resume_review(lecture_id):
-        raise HTTPException(409, "수정한 PPT를 다시 생성 큐에 넣지 못했습니다.")
     return RedirectResponse(f"/lectures/{lecture_id}", status_code=303)
 
 

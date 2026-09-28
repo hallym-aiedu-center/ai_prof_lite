@@ -4,7 +4,7 @@ from core.database.client import get_connection
 from core.jobs.sqlite import SQLiteJobQueue
 from modules.lecture.checkpoints import save_stage
 from modules.lecture.repository import get_lecture, update_lecture
-from modules.lecture.review import approve_review, update_review_plan
+from modules.lecture.review import approve_and_resume_review, update_review_plan
 
 
 async def test_ppt_edit_invalidates_video_stages_and_resume_requeues(make_lecture, plan):
@@ -29,6 +29,10 @@ async def test_ppt_edit_invalidates_video_stages_and_resume_requeues(make_lectur
     edited["slides"][0]["title"] = "사용자가 수정한 제목"
     await update_review_plan(lecture_id, edited)
 
+    lecture = await get_lecture(lecture_id)
+    assert lecture["status"] == "queued"
+    assert lecture["review_status"] == "pending"
+
     db = await get_connection()
     try:
         stages = await (await db.execute(
@@ -39,10 +43,28 @@ async def test_ppt_edit_invalidates_video_stages_and_resume_requeues(make_lectur
     assert [row["name"] for row in stages] == ["plan"]
 
     # Editing causes a slide rebuild first; after the regenerated PPT is shown,
-    # approval resumes the same durable queue job for video generation.
-    await update_lecture(lecture_id, status="awaiting_review", review_status="awaiting_review")
-    assert await approve_review(lecture_id)
-    assert await queue.resume_review(lecture_id)
+    # approval atomically resumes the same durable queue job for video generation.
+    job = await queue.claim("review-test-regenerated")
+    assert job is not None
+    assert await queue.pause_for_review(job)
+    assert await approve_and_resume_review(lecture_id)
+
+    lecture = await get_lecture(lecture_id)
+    assert lecture["status"] == "queued"
+    assert lecture["review_status"] == "approved"
+
+
+async def test_approval_recovers_already_approved_paused_job(make_lecture):
+    lecture_id = await make_lecture(review_before_video=True)
+    queue = SQLiteJobQueue()
+    await queue.enqueue(lecture_id)
+    job = await queue.claim("review-recovery-test")
+    assert job is not None
+
+    assert await queue.pause_for_review(job)
+    await update_lecture(lecture_id, review_status="approved")
+
+    assert await approve_and_resume_review(lecture_id)
     lecture = await get_lecture(lecture_id)
     assert lecture["status"] == "queued"
     assert lecture["review_status"] == "approved"

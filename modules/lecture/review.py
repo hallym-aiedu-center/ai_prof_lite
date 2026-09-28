@@ -18,11 +18,12 @@ def _write_json_atomic(path: Path, value: object) -> None:
 
 
 async def update_review_plan(lecture_id: int, plan: dict) -> None:
-    """Persist reviewer edits and invalidate only stages downstream of slides."""
+    """Persist reviewer edits and atomically requeue the paused review job."""
     slides = list(plan.get("slides") or [])
     validate(instance=plan, schema=lecture_schema_for_slide_count(len(slides)))
 
     db = await get_connection()
+    outputs: dict = {}
     try:
         await db.execute("BEGIN IMMEDIATE")
         lecture = await (await db.execute(
@@ -37,33 +38,82 @@ async def update_review_plan(lecture_id: int, plan: dict) -> None:
         )).fetchone()
         if not row:
             raise ValueError("수정할 강의 설계 체크포인트가 없습니다.")
+
         outputs = json.loads(row["outputs_json"] or "{}")
         outputs["plan"] = plan
+
+        now = time.time()
+
+        job_cursor = await db.execute(
+            """
+            UPDATE lecture_jobs
+            SET status='queued',
+                available_at=?,
+                lease_token=NULL,
+                lease_until=NULL,
+                worker_id=NULL,
+                gpu_id=NULL,
+                last_error=NULL,
+                updated_at=?
+            WHERE lecture_id=?
+              AND status='paused'
+            """,
+            (now, now, lecture_id),
+        )
+
+        if job_cursor.rowcount != 1:
+            raise ValueError("수정한 PPT를 다시 생성할 대기 작업이 없습니다.")
 
         await db.execute(
             """
             UPDATE lecture_stages
-            SET outputs_json=?, status='completed', updated_at=CURRENT_TIMESTAMP
-            WHERE lecture_id=? AND name='plan'
+            SET outputs_json=?,
+                status='completed',
+                updated_at=CURRENT_TIMESTAMP
+            WHERE lecture_id=?
+              AND name='plan'
             """,
-            (json.dumps(outputs, ensure_ascii=False), lecture_id),
+            (
+                json.dumps(outputs, ensure_ascii=False),
+                lecture_id,
+            ),
         )
+
         await db.execute(
             """
             DELETE FROM lecture_stages
-            WHERE lecture_id=? AND name IN ('slides','narration','timeline','avatar','compose','deploy')
+            WHERE lecture_id=?
+              AND name IN (
+                  'slides',
+                  'narration',
+                  'timeline',
+                  'avatar',
+                  'compose',
+                  'deploy'
+              )
             """,
             (lecture_id,),
         )
-        await db.execute(
+
+        lecture_cursor = await db.execute(
             """
             UPDATE lectures
-            SET plan_json=?, quiz_json=?, review_status='pending', pptx_path=NULL,
-                narration_path=NULL, slides_video_path=NULL, avatar_path=NULL,
-                final_video_path=NULL, moodle_result_json=NULL,
-                status_message='수정한 PPT를 다시 생성할 준비 중입니다.',
+            SET plan_json=?,
+                quiz_json=?,
+                review_status='pending',
+                status='queued',
+                run_token=NULL,
+                error_message=NULL,
+                pptx_path=NULL,
+                narration_path=NULL,
+                slides_video_path=NULL,
+                avatar_path=NULL,
+                final_video_path=NULL,
+                moodle_result_json=NULL,
+                status_message='검토 반영 · 작업 재개 대기 중',
                 updated_at=CURRENT_TIMESTAMP
             WHERE id=?
+              AND status='awaiting_review'
             """,
             (
                 json.dumps(plan, ensure_ascii=False),
@@ -71,7 +121,14 @@ async def update_review_plan(lecture_id: int, plan: dict) -> None:
                 lecture_id,
             ),
         )
+
+        if lecture_cursor.rowcount != 1:
+            raise ValueError(
+                "PPT 검토 상태가 변경되어 수정 내용을 반영하지 못했습니다."
+            )
+
         await db.commit()
+
     except BaseException:
         await db.rollback()
         raise
