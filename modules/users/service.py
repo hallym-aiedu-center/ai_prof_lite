@@ -34,7 +34,8 @@ async def get_user(user_id: int):
                 s.default_openai_model,
                 s.default_image_model,
                 s.default_realtime_model,
-                s.default_course_id
+                s.default_course_id,
+                s.openai_budget_usd
             FROM users AS u
             LEFT JOIN user_profiles AS p
                 ON p.user_id = u.id
@@ -61,6 +62,7 @@ async def update_profile(
     nickname: str | None,
     phone: str | None,
     language: str = "ko",
+    openai_budget_usd: float | None = None,
 ):
     db = await get_connection()
 
@@ -86,11 +88,13 @@ async def update_profile(
             """
             UPDATE user_settings
             SET language = ?,
+                openai_budget_usd = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE user_id = ?
             """,
             (
                 language,
+                openai_budget_usd,
                 user_id,
             ),
         )

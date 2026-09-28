@@ -16,11 +16,11 @@ from modules.credentials.required import (
     require_user_moodle_credential,
     require_user_openai_api_key,
 )
-from modules.lecture.costs import cost_estimate_config, estimate_lecture_cost_usd
 from modules.lecture.references import cleanup_reference_files, save_reference_files
 from modules.lecture.repository import create_lecture, list_lectures
 from modules.lecture.route_support import _queue_runtime_config, _wants_json, templates
 from modules.lecture.uploads import save_portrait
+from core.openai.usage import usage_summary
 from modules.users.service import get_user
 
 router = APIRouter()
@@ -79,7 +79,7 @@ async def new_lecture(
                 request
             ),
             "queue_config": _queue_runtime_config(),
-            "cost_config": cost_estimate_config(),
+            "openai_usage": await usage_summary(user_id),
             "requested_course_id": (
                 request.query_params.get(
                     "course_id",
@@ -138,7 +138,6 @@ async def submit_lecture(
     target_slide_count: int = Form(10),
     review_before_video: str | None = Form(None),
     reference_mode: str = Form("rag"),
-    max_cost_usd: str = Form(""),
 
     upload_to_moodle: str | None = Form(
         None
@@ -212,27 +211,6 @@ async def submit_lecture(
     if reference_mode not in {"rag", "full"}:
         raise HTTPException(422, "참고자료 처리 방식은 RAG 또는 전체 파일 전달 중에서 선택하세요.")
 
-    budget = None
-    if max_cost_usd.strip():
-        try:
-            budget = round(float(max_cost_usd), 2)
-        except ValueError as exc:
-            raise HTTPException(422, "비용 한도는 숫자로 입력하세요.") from exc
-        if budget <= 0 or budget > 1000:
-            raise HTTPException(422, "비용 한도는 $0 초과 $1,000 이하로 입력하세요.")
-
-    should_generate_images = generate_images is not None
-    estimated_cost = estimate_lecture_cost_usd(
-        target_duration_minutes=int(target_duration_minutes),
-        target_slide_count=int(target_slide_count),
-        generate_images=should_generate_images,
-    )
-    if budget is not None and estimated_cost > budget + 1e-9:
-        raise HTTPException(
-            422,
-            f"현재 설정의 예상비용은 약 ${estimated_cost:.2f}입니다. 비용 한도를 높이거나 이미지 생성을 줄여주세요.",
-        )
-
     if moodle_deploy_mode not in {"create", "existing"}:
         raise HTTPException(422, "올바른 Moodle 배포 방식을 선택하세요.")
     course_id = integer(moodle_course_id, "강좌")
@@ -253,6 +231,8 @@ async def submit_lecture(
         elif cmid is None:
             raise HTTPException(422, "기존 VideoTracker를 선택하세요.")
 
+    should_generate_images = generate_images is not None
+
     portrait_path = None
     source_files: list[dict] = []
     try:
@@ -268,8 +248,6 @@ async def submit_lecture(
             review_before_video=review_before_video is not None,
             source_files=source_files,
             reference_mode=reference_mode,
-            max_cost_usd=budget,
-            estimated_cost_usd=estimated_cost,
             moodle_course_id=course_id, moodle_section_num=section_num,
             moodle_deploy_mode=moodle_deploy_mode, moodle_videotracker_cmid=cmid,
             upload_to_moodle=should_upload, portrait_path=str(portrait_path),
@@ -293,8 +271,6 @@ async def submit_lecture(
                 "status": "queued",
                 "progress": 0,
                 "status_message": "작업 대기 중",
-                "estimated_cost_usd": estimated_cost,
-                "max_cost_usd": budget,
                 "reference_mode": reference_mode,
                 "review_before_video": review_before_video is not None,
                 "detail_url": f"/lectures/{lecture_id}",

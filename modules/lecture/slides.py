@@ -12,6 +12,7 @@ from pptx import Presentation
 from pptx.util import Inches
 
 from core.openai.client import get_client
+from core.openai.usage import images_generate
 
 RAW_IMAGE_SIZE = "1536x1024"
 WIDE_IMAGE_SIZE = "1536x864"
@@ -61,14 +62,18 @@ async def _save_openai_image(
     output_path: Path,
     quality: str = DEFAULT_QUALITY,
     size: str = RAW_IMAGE_SIZE,
+    user_id: int | None = None,
+    lecture_id: int | None = None,
+    usage_context: dict | None = None,
 ) -> Path:
+    if user_id is None:
+        raise ValueError("Tracked OpenAI image calls require user_id.")
     client = get_client(api_key=api_key)
     async with client:
-        result = await client.images.generate(
-            model=model,
-            prompt=prompt,
-            size=size,
-            quality=quality,
+        result = await images_generate(
+            client, user_id=user_id, lecture_id=lecture_id,
+            model=model, prompt=prompt, size=size, quality=quality,
+            usage_context=usage_context,
         )
 
     item = result.data[0]
@@ -180,6 +185,7 @@ async def generate_slide_image(
     *, api_key: str, model: str, lecture_title: str, slide_index: int,
     total_slides: int, slide: dict, output_path: Path,
     avatar_source_path: Path | None = None, cache_dir: Path | None = None,
+    user_id: int | None = None, lecture_id: int | None = None,
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     actual_model = model or DEFAULT_MODEL
@@ -211,6 +217,15 @@ async def generate_slide_image(
             prompt=prompt,
             output_path=raw_path,
             size=request_size,
+            user_id=user_id,
+            lecture_id=lecture_id,
+            usage_context={
+                "operation": "lecture_slide_image",
+                "stage": "slides.render",
+                "item_key": f"slide_{slide_index:03d}",
+                "item_index": slide_index,
+                "metadata": {"total_slides": total_slides},
+            },
         )
         _fit_to_ppt_canvas(source_path=raw_path, output_path=output_path)
         if cache_path is not None:
@@ -354,6 +369,7 @@ async def build_slide_assets(
     *, api_key: str, title: str, plan: dict, output_dir: Path, image_model: str,
     generate_images: bool = True, image_paths: Sequence[Path | None] | None = None,
     avatar_source_path: Path | None = None, cache_dir: Path | None = None,
+    user_id: int | None = None, lecture_id: int | None = None,
 ) -> tuple[Path, list[Path]]:
     """Create slide PNGs and PPTX.
 
@@ -382,6 +398,8 @@ async def build_slide_assets(
                     output_path=png_path,
                     avatar_source_path=avatar_source_path,
                     cache_dir=cache_dir,
+                    user_id=user_id,
+                    lecture_id=lecture_id,
                 )
             else:
                 visual = visuals[idx - 1] if idx - 1 < len(visuals) else None

@@ -62,12 +62,6 @@ class StageContext:
 
     async def preflight(self):
         await self.check()
-        maximum_cost = self.lecture.get("max_cost_usd")
-        estimated_cost = float(self.lecture.get("estimated_cost_usd") or 0.0)
-        if maximum_cost is not None and estimated_cost > float(maximum_cost) + 1e-9:
-            raise ValueError(
-                f"예상 생성비용 ${estimated_cost:.2f}이 사용자가 설정한 한도 ${float(maximum_cost):.2f}를 초과합니다."
-            )
         done = set()
         for name, *_ in STAGES:
             saved = await get_stage(self.job.lecture_id, name)
@@ -124,11 +118,13 @@ async def plan_stage(ctx):
     reference_mode = str(ctx.lecture.get("reference_mode") or "rag").lower()
     reference_context = ""
     if source_files and reference_mode == "rag":
-        reference_context = await asyncio.to_thread(
-            build_reference_context,
+        reference_context = await build_reference_context(
             source_files,
             title=ctx.lecture["title"],
             topic=ctx.lecture["topic"],
+            api_key=ctx.api_key,
+            user_id=int(ctx.lecture["user_id"]),
+            lecture_id=int(ctx.job.lecture_id),
         )
 
     plan = await create_lecture_plan(
@@ -141,6 +137,8 @@ async def plan_stage(ctx):
         reference_context=reference_context,
         reference_files=source_files if reference_mode == "full" else None,
         reference_mode=reference_mode,
+        user_id=int(ctx.lecture["user_id"]),
+        lecture_id=int(ctx.job.lecture_id),
     )
     plan_path, quiz_path = ctx.directory / 'lecture_plan.json', ctx.directory / 'quiz.json'
     await ctx.check()
@@ -207,6 +205,8 @@ async def image_stage(ctx):
                         output_path=path,
                         size=_IMAGE_SIZE,
                         quality=_IMAGE_QUALITY,
+                        user_id=int(ctx.lecture["user_id"]),
+                        lecture_id=int(ctx.job.lecture_id),
                     )
                     _copy_image_atomic(path, cache_path)
             elif not cache_path.is_file() or cache_path.stat().st_size <= 0:
@@ -230,6 +230,8 @@ async def slides_stage(ctx):
         image_paths=[Path(p) if p else None for p in ctx.outputs['images']['images']],
         avatar_source_path=Path(ctx.lecture['portrait_path']) if ctx.lecture.get('portrait_path') else None,
         cache_dir=ctx.cache_directory / 'slides',
+        user_id=int(ctx.lecture["user_id"]),
+        lecture_id=int(ctx.job.lecture_id),
     )
 
     await ctx.update(pptx_path=str(pptx))
@@ -266,6 +268,8 @@ async def narration_stage(ctx):
             voice=ctx.lecture['tts_voice'],
             check_lease=ctx.check,
             cache_dir=ctx.cache_directory / 'tts',
+            user_id=int(ctx.lecture["user_id"]),
+            lecture_id=int(ctx.job.lecture_id),
         )
         duration = await media_duration(narration)
         if duration >= minimum_seconds:
@@ -293,6 +297,8 @@ async def narration_stage(ctx):
             actual_duration_seconds=duration,
             minimum_duration_seconds=minimum_seconds,
             attempt=attempt + 1,
+            user_id=int(ctx.lecture["user_id"]),
+            lecture_id=int(ctx.job.lecture_id),
         )
 
         # Keep the corrected narration durable across worker retries.  Slides and

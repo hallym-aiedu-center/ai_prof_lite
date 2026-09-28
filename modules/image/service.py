@@ -4,6 +4,7 @@ from pathlib import Path
 import httpx
 
 from core.openai.client import get_client
+from core.openai.usage import images_generate
 
 
 async def generate_image(
@@ -14,6 +15,8 @@ async def generate_image(
     model: str,
     size: str = "1536x1024",
     quality: str = "medium",
+    user_id: int | None = None,
+    lecture_id: int | None = None,
 ) -> Path:
     """
     Generate one lecture visual and save it as PNG/JPEG returned by the API.
@@ -21,11 +24,15 @@ async def generate_image(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    client = get_client(api_key=api_key)
+    if user_id is None:
+        raise ValueError("Tracked OpenAI image calls require user_id.")
 
+    client = get_client(api_key=api_key)
     async with client:
-        result = await client.images.generate(
+        result = await images_generate(
+            client, user_id=user_id, lecture_id=lecture_id,
             model=model, prompt=prompt, size=size, quality=quality,
+            usage_context={"operation": "standalone_image_generate", "stage": "image.service"},
         )
 
     item = result.data[0]

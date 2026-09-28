@@ -12,6 +12,7 @@ from core.jobs.errors import (
     PublishSourceFailedError,
 )
 from core.openai.client import get_client
+from core.openai.usage import responses_create
 from modules.lecture.composer import media_duration
 from modules.lecture.repository import (
     get_lecture,
@@ -82,6 +83,8 @@ async def choose_ai_publish_plan(
     model: str,
     timezone_name: str,
     weekday_load: dict[int, int] | None = None,
+    user_id: int | None = None,
+    lecture_id: int | None = None,
 ) -> dict:
     zone = ZoneInfo(timezone_name)
     now_local = datetime.now(zone)
@@ -140,17 +143,13 @@ async def choose_ai_publish_plan(
 """.strip()
 
     try:
-        response = await client.responses.create(
-            model=model,
-            input=prompt,
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "lecture_publish_plan",
-                    "strict": True,
-                    "schema": schema,
-                }
-            },
+        if user_id is None:
+            raise ValueError("Tracked OpenAI Responses calls require user_id.")
+        response = await responses_create(
+            client, user_id=user_id, lecture_id=lecture_id, model=model, input=prompt,
+            max_output_tokens=1200,
+            text={"format": {"type": "json_schema", "name": "lecture_publish_plan", "strict": True, "schema": schema}},
+            usage_context={"operation": "lecture_publish_plan", "stage": "publishing.schedule"},
         )
         payload = json.loads(response.output_text)
     except Exception:  # noqa: BLE001

@@ -17,6 +17,16 @@ class Client:
     async def __aexit__(self, *args): pass
 
 
+
+
+def install_usage_passthrough(monkeypatch):
+    async def passthrough(client, **kwargs):
+        kwargs.pop("user_id", None)
+        kwargs.pop("lecture_id", None)
+        kwargs.pop("budget_input_bytes", None)
+        return await client.responses.create(**kwargs)
+    monkeypatch.setattr(planner, "responses_create", passthrough)
+
 def error(cls, status, body):
     request = httpx.Request('POST', 'https://api.openai.com/v1/responses')
     return cls(str(body), response=httpx.Response(status, request=request), body=body)
@@ -25,8 +35,9 @@ def error(cls, status, body):
 async def invoke(monkeypatch, responses):
     client = Client(responses)
     monkeypatch.setattr(planner, 'get_client', lambda **_: client)
+    install_usage_passthrough(monkeypatch)
     return client, planner.create_lecture_plan(
-        api_key='test', title='title', topic='topic', model='test', target_slide_count=4
+        api_key='test', title='title', topic='topic', model='test', target_slide_count=4, user_id=1
     )
 
 
@@ -82,6 +93,7 @@ async def test_expand_narrations_preserves_structure_and_never_shortens(monkeypa
     }
     client = Client([SimpleNamespace(output_text=json.dumps(revised, ensure_ascii=False))])
     monkeypatch.setattr(planner, 'get_client', lambda **_: client)
+    install_usage_passthrough(monkeypatch)
 
     result = await planner.expand_lecture_narrations(
         api_key='test',
@@ -90,6 +102,7 @@ async def test_expand_narrations_preserves_structure_and_never_shortens(monkeypa
         actual_duration_seconds=1800,
         minimum_duration_seconds=2400,
         attempt=1,
+        user_id=1,
     )
 
     assert result is not plan
@@ -101,3 +114,22 @@ async def test_expand_narrations_preserves_structure_and_never_shortens(monkeypa
     prompt = client.responses.create.call_args.kwargs['input']
     assert '최소 재생시간: 40.00분' in prompt
     assert '안전 목표: 약 42.00분' in prompt
+
+
+async def test_reference_context_is_used_without_a_second_review_call(monkeypatch, plan):
+    client = Client([SimpleNamespace(output_text=json.dumps(plan, ensure_ascii=False))])
+    monkeypatch.setattr(planner, 'get_client', lambda **_: client)
+    install_usage_passthrough(monkeypatch)
+    result = await planner.create_lecture_plan(
+        api_key='test',
+        title='title',
+        topic='topic',
+        model='test',
+        target_slide_count=4,
+        reference_context='REFERENCE FACT: alpha is beta',
+        user_id=1,
+    )
+    assert result == plan
+    assert client.responses.create.await_count == 1
+    prompt = client.responses.create.call_args.kwargs['input']
+    assert 'REFERENCE FACT: alpha is beta' in prompt

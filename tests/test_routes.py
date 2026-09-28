@@ -163,3 +163,71 @@ def test_invalid_openai_key_is_not_saved(monkeypatch):
         })
         assert response.status_code == 422
         assert 'bad-secret-key' not in response.text
+
+
+def test_new_lecture_exposes_review_reference_and_account_budget_link(client):
+    response = client.get('/lectures/new')
+    assert response.status_code == 200
+    assert 'name="review_before_video"' in response.text
+    assert 'name="reference_files"' in response.text
+    assert 'name="max_cost_usd"' not in response.text
+    assert '/settings/profile' in response.text
+
+
+async def test_submit_persists_reference_and_review(client, portrait_bytes):
+    data = fields(client) | {'review_before_video': 'on'}
+    response = client.post(
+        '/lectures',
+        data=data,
+        files=[
+            ('portrait', ('p.png', portrait_bytes, 'image/png')),
+            ('reference_files', ('notes.txt', b'Grounded course material', 'text/plain')),
+        ],
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    db = await get_connection()
+    try:
+        row = await (await db.execute('SELECT * FROM lectures ORDER BY id DESC LIMIT 1')).fetchone()
+        assert row['review_before_video'] == 1
+        assert row['review_status'] == 'pending'
+        assert 'notes.txt' in row['source_files_json']
+    finally:
+        await db.close()
+
+
+def test_profile_exposes_openai_budget_control(client):
+    response = client.get('/settings/profile')
+    assert response.status_code == 200
+    assert 'name="openai_budget_usd"' in response.text
+
+
+async def test_profile_saves_account_openai_budget(client):
+    response = client.get('/settings/profile')
+    token = csrf(response)
+    saved = client.post(
+        '/settings/profile',
+        data={
+            'name': 'Test',
+            'nickname': 'Budget Owner',
+            'phone': '',
+            'language': 'ko',
+            'openai_budget_usd': '12.34',
+            'csrf_token': token,
+        },
+        follow_redirects=False,
+    )
+    assert saved.status_code == 303
+
+    db = await get_connection()
+    try:
+        row = await (await db.execute(
+            """SELECT s.openai_budget_usd
+               FROM user_settings s
+               JOIN users u ON u.id=s.user_id
+               WHERE u.email='route@example.test'"""
+        )).fetchone()
+    finally:
+        await db.close()
+    assert row is not None
+    assert row['openai_budget_usd'] == pytest.approx(12.34)

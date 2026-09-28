@@ -1,5 +1,4 @@
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -67,11 +66,6 @@ async def test_concat_wav_files_single_and_multiple(tmp_path, monkeypatch):
 
 
 class _FakeClient:
-    def __init__(self, response):
-        self.audio = SimpleNamespace(
-            speech=SimpleNamespace(create=AsyncMock(return_value=response))
-        )
-
     async def __aenter__(self):
         return self
 
@@ -80,26 +74,28 @@ class _FakeClient:
 
 
 @pytest.mark.asyncio
-async def test_speech_bytes_supports_openai_response_shapes(monkeypatch):
-    class AsyncAread:
-        async def aread(self):
-            return b"aread"
+async def test_speech_bytes_uses_tracked_openai_wrapper(monkeypatch):
+    monkeypatch.setattr(narration, "get_client", lambda **_: _FakeClient())
+    tracked = AsyncMock(return_value=b"audio")
+    monkeypatch.setattr(narration, "speech_create_bytes", tracked)
 
-    monkeypatch.setattr(narration, "get_client", lambda **_: _FakeClient(AsyncAread()))
-    assert await narration._speech_bytes(api_key="k", model="m", voice="v", text="t") == b"aread"
+    content = await narration._speech_bytes(
+        api_key="k", model="gpt-4o-mini-tts", voice="alloy", text="hello",
+        user_id=3, lecture_id=9,
+    )
 
-    monkeypatch.setattr(narration, "get_client", lambda **_: _FakeClient(SimpleNamespace(content=b"content")))
-    assert await narration._speech_bytes(api_key="k", model="m", voice="v", text="t") == b"content"
+    assert content == b"audio"
+    tracked.assert_awaited_once()
+    kwargs = tracked.await_args.kwargs
+    assert kwargs["user_id"] == 3 and kwargs["lecture_id"] == 9
+    assert kwargs["model"] == "gpt-4o-mini-tts"
+    assert kwargs["response_format"] == "wav"
 
-    class SyncRead:
-        def read(self):
-            return b"read"
 
-    monkeypatch.setattr(narration, "get_client", lambda **_: _FakeClient(SyncRead()))
-    assert await narration._speech_bytes(api_key="k", model="m", voice="v", text="t") == b"read"
-
-    monkeypatch.setattr(narration, "get_client", lambda **_: _FakeClient(object()))
-    with pytest.raises(RuntimeError, match="Unable to read"):
+@pytest.mark.asyncio
+async def test_speech_bytes_requires_user_id(monkeypatch):
+    monkeypatch.setattr(narration, "get_client", lambda **_: _FakeClient())
+    with pytest.raises(ValueError, match="user_id"):
         await narration._speech_bytes(api_key="k", model="m", voice="v", text="t")
 
 

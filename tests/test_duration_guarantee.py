@@ -18,6 +18,7 @@ class FakeContext:
             'tts_model': 'tts',
             'tts_voice': 'alloy',
             'text_model': 'text',
+            'user_id': 1,
         }
         plan_file = self.directory / 'lecture_plan.json'
         plan_file.write_text('{}', encoding='utf-8')
@@ -27,6 +28,7 @@ class FakeContext:
                 'files': [str(plan_file)],
             }
         }
+        self.job = SimpleNamespace(lecture_id=1)
         self.check = AsyncMock()
         self.update = AsyncMock()
         self.checkpoint = AsyncMock()

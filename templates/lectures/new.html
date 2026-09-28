@@ -127,8 +127,8 @@
                 <section class="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
                     <div class="mb-5">
                         <div class="text-xs font-black uppercase tracking-[.15em] text-slate-400">Generation Control</div>
-                        <h2 class="mt-1 text-lg font-black">PPT 확인 · 비용 한도</h2>
-                        <p class="mt-1 text-xs leading-5 text-slate-500">기존처럼 바로 영상까지 만들지, PPT에서 한 번 멈춰 페이지별로 확인·수정할지 선택합니다.</p>
+                        <h2 class="mt-1 text-lg font-black">PPT 확인 · OpenAI 비용</h2>
+                        <p class="mt-1 text-xs leading-5 text-slate-500">PPT 검토 여부를 선택하고, 계정 단위 OpenAI 누적 비용 한도를 확인합니다.</p>
                     </div>
 
                     <div class="space-y-4">
@@ -140,18 +140,15 @@
                             </span>
                         </label>
 
-                        <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                            <div>
-                                <label for="maxCostUsd" class="mb-2 block text-xs font-black text-slate-700">이번 강의 비용 한도 (USD)</label>
-                                <input id="maxCostUsd" name="max_cost_usd" type="number" min="0.01" max="1000" step="0.01" inputmode="decimal"
-                                       class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50">
-                            </div>
-                            <div class="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 sm:min-w-44">
-                                <div class="text-[10px] font-black uppercase tracking-wider text-indigo-500">현재 예상</div>
-                                <div id="estimatedCost" class="mt-1 text-lg font-black text-indigo-950">-</div>
-                            </div>
+                        <div class="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-xs leading-5 text-indigo-900">
+                            OpenAI 누적 사용액 <strong>${{ '%.4f'|format(openai_usage.spent) }}</strong> ·
+                            {% if openai_usage.budget is none %}
+                                비용 한도 없음
+                            {% else %}
+                                사용자 한도 <strong>${{ '%.2f'|format(openai_usage.budget) }}</strong> · 남은 한도 <strong>${{ '%.4f'|format(openai_usage.remaining) }}</strong>
+                            {% endif %}
+                            <a href="/settings/profile" class="ml-2 font-black text-indigo-600 hover:text-indigo-500">사용자 페이지에서 한도 설정 →</a>
                         </div>
-                        <p class="text-[11px] leading-5 text-slate-400">예상 비용은 설정된 모델별 추정 단가와 재시도 버퍼를 사용한 작업 진입 한도입니다. 실제 OpenAI 청구 금액과 완전히 동일하지 않을 수 있습니다.</p>
                     </div>
                 </section>
 
@@ -379,34 +376,8 @@
     const targetDurationSelect = document.getElementById("targetDurationMinutes");
     const targetSlideCountSelect = document.getElementById("targetSlideCount");
     const lectureFormatHint = document.getElementById("lectureFormatHint");
-    const generateImagesInput = document.getElementById("generateImages");
-    const maxCostInput = document.getElementById("maxCostUsd");
-    const estimatedCost = document.getElementById("estimatedCost");
     const referenceFiles = document.getElementById("referenceFiles");
     const referenceFilesHint = document.getElementById("referenceFilesHint");
-    const costConfig = {{ cost_config | tojson }};
-    let budgetTouched = false;
-
-    function estimateCost() {
-        const minutes = Number(targetDurationSelect?.value || 40);
-        const slides = Number(targetSlideCountSelect?.value || 10);
-        let subtotal = Number(costConfig.text_base || 0) + minutes * Number(costConfig.tts_per_minute || 0);
-        if (generateImagesInput?.checked) {
-            subtotal += slides * Number(costConfig.image_per_slide || 0);
-        }
-        return Math.round(subtotal * (1 + Number(costConfig.retry_buffer_ratio || 0)) * 100) / 100;
-    }
-
-    function updateCostEstimate() {
-        const value = estimateCost();
-        if (estimatedCost) estimatedCost.textContent = `$${value.toFixed(2)}`;
-        if (maxCostInput && (!budgetTouched || !maxCostInput.value)) {
-            maxCostInput.value = value.toFixed(2);
-        }
-    }
-
-    maxCostInput?.addEventListener("input", () => { budgetTouched = true; });
-    generateImagesInput?.addEventListener("change", updateCostEstimate);
     referenceFiles?.addEventListener("change", () => {
         if (!referenceFilesHint) return;
         const names = [...(referenceFiles.files || [])].map(file => file.name);
@@ -419,7 +390,6 @@
         const slides = Number(targetSlideCountSelect.value || 10);
         const average = slides > 0 ? (minutes / slides).toFixed(1) : "-";
         lectureFormatHint.innerHTML = `선택: <strong>${slides}장 · ${minutes}분</strong> · 평균 약 ${average}분/장. 도입은 짧게, 핵심 개념·사례는 더 길게 설명하도록 AI가 자동 배분합니다.`;
-        updateCostEstimate();
     }
 
     targetDurationSelect?.addEventListener("change", updateLectureFormatHint);

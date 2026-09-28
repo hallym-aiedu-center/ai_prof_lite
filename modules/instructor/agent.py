@@ -8,6 +8,7 @@ from pathlib import Path
 from core.config import data_dir
 from core.jobs.factory import get_queue
 from core.openai.client import get_client
+from core.openai.usage import responses_create
 from modules.credentials.required import require_user_openai_api_key
 from modules.instructor.repository import (
     finalize_instructor_run,
@@ -45,6 +46,7 @@ async def _choose_course(
     recent_titles: list[str],
     week_number: int,
     total_weeks: int,
+    user_id: int | None = None,
 ) -> tuple[dict, str]:
     if not courses:
         raise RuntimeError("AI 강사가 선택할 수 있는 Moodle 강좌가 없습니다.")
@@ -94,17 +96,13 @@ async def _choose_course(
 """.strip()
 
     try:
-        response = await client.responses.create(
-            model=model,
-            input=prompt,
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "ai_instructor_course_choice",
-                    "strict": True,
-                    "schema": schema,
-                }
-            },
+        if user_id is None:
+            raise ValueError("Tracked OpenAI Responses calls require user_id.")
+        response = await responses_create(
+            client, user_id=user_id, model=model, input=prompt,
+            max_output_tokens=1200,
+            text={"format": {"type": "json_schema", "name": "ai_instructor_course_choice", "strict": True, "schema": schema}},
+            usage_context={"operation": "ai_instructor_course_choice", "stage": "instructor.course_selection"},
         )
         payload = json.loads(response.output_text)
         course_id = int(payload["course_id"])
@@ -129,6 +127,7 @@ async def _choose_lesson(
     recent_titles: list[str],
     week_number: int,
     total_weeks: int,
+    user_id: int | None = None,
 ) -> dict:
     usable_sections = [
         {
@@ -187,17 +186,13 @@ async def _choose_lesson(
 """.strip()
 
     try:
-        response = await client.responses.create(
-            model=model,
-            input=prompt,
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "ai_instructor_lesson_choice",
-                    "strict": True,
-                    "schema": schema,
-                }
-            },
+        if user_id is None:
+            raise ValueError("Tracked OpenAI Responses calls require user_id.")
+        response = await responses_create(
+            client, user_id=user_id, model=model, input=prompt,
+            max_output_tokens=2000,
+            text={"format": {"type": "json_schema", "name": "ai_instructor_lesson_choice", "strict": True, "schema": schema}},
+            usage_context={"operation": "ai_instructor_lesson_choice", "stage": "instructor.lesson_selection"},
         )
         payload = json.loads(response.output_text)
         section_num = int(payload["section"])
@@ -258,6 +253,7 @@ async def create_delegated_lecture(
         recent_titles=recent_titles,
         week_number=week_number,
         total_weeks=total_weeks,
+        user_id=user_id,
     )
     sections = await get_course_sections(moodle, int(course["id"]))
     lesson = await _choose_lesson(
@@ -269,6 +265,7 @@ async def create_delegated_lecture(
         recent_titles=recent_titles,
         week_number=week_number,
         total_weeks=total_weeks,
+        user_id=user_id,
     )
     section_num = int(lesson["section"])
     section_name = next(

@@ -36,6 +36,15 @@ def test_weekday_and_datetime_helpers():
     assert restored == now.replace(second=0, microsecond=0)
 
 
+
+
+def _install_usage_passthrough(monkeypatch):
+    async def passthrough(client, **kwargs):
+        kwargs.pop("user_id", None)
+        kwargs.pop("lecture_id", None)
+        return await client.responses.create(**kwargs)
+    monkeypatch.setattr(publishing, "responses_create", passthrough)
+
 class _Responses:
     def __init__(self, result=None, error=None):
         self.result = result
@@ -51,6 +60,7 @@ class _Responses:
 
 @pytest.mark.asyncio
 async def test_choose_ai_publish_plan_success(monkeypatch):
+    _install_usage_passthrough(monkeypatch)
     responses = _Responses({"weekday": 2, "hour": 18, "minute": 30, "rationale": "분산 게시"})
     monkeypatch.setattr(
         publishing,
@@ -64,6 +74,7 @@ async def test_choose_ai_publish_plan_success(monkeypatch):
         model="model",
         timezone_name="Asia/Seoul",
         weekday_load={2: 3},
+        user_id=1,
     )
     assert result["weekday"] == 2
     assert result["hour"] == 18 and result["minute"] == 30
@@ -74,13 +85,14 @@ async def test_choose_ai_publish_plan_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_choose_ai_publish_plan_fallback_and_validation(monkeypatch):
+    _install_usage_passthrough(monkeypatch)
     monkeypatch.setattr(
         publishing,
         "get_client",
         lambda **_: SimpleNamespace(responses=_Responses(error=RuntimeError("offline"))),
     )
     result = await publishing.choose_ai_publish_plan(
-        api_key="k", title="t", topic="x", model="m", timezone_name="Asia/Seoul"
+        api_key="k", title="t", topic="x", model="m", timezone_name="Asia/Seoul", user_id=1
     )
     assert result["hour"] == 18 and result["minute"] == 0
     assert "자동 스케줄" in result["rationale"]
@@ -89,7 +101,7 @@ async def test_choose_ai_publish_plan_fallback_and_validation(monkeypatch):
     monkeypatch.setattr(publishing, "get_client", lambda **_: SimpleNamespace(responses=bad))
     with pytest.raises(ValueError, match="weekday"):
         await publishing.choose_ai_publish_plan(
-            api_key="k", title="t", topic="x", model="m", timezone_name="UTC"
+            api_key="k", title="t", topic="x", model="m", timezone_name="UTC", user_id=1
         )
 
 

@@ -148,6 +148,7 @@ async def init_database() -> None:
                 default_image_model TEXT,
                 default_realtime_model TEXT,
                 default_course_id INTEGER,
+                openai_budget_usd REAL,
 
                 settings_json TEXT,
 
@@ -184,8 +185,6 @@ async def init_database() -> None:
                 review_status TEXT NOT NULL DEFAULT 'not_required',
                 source_files_json TEXT,
                 reference_mode TEXT NOT NULL DEFAULT 'rag',
-                max_cost_usd REAL,
-                estimated_cost_usd REAL NOT NULL DEFAULT 0,
 
                 moodle_course_id INTEGER,
                 moodle_section_num INTEGER,
@@ -229,6 +228,12 @@ async def init_database() -> None:
             "user_settings",
             "default_course_id",
             "INTEGER",
+        )
+        await _add_column_if_missing(
+            db,
+            "user_settings",
+            "openai_budget_usd",
+            "REAL",
         )
 
         await _add_column_if_missing(
@@ -277,15 +282,46 @@ async def init_database() -> None:
             "reference_mode",
             "TEXT NOT NULL DEFAULT 'rag'",
         )
-        await _add_column_if_missing(db, "lectures", "max_cost_usd", "REAL")
-        await _add_column_if_missing(
-            db,
-            "lectures",
-            "estimated_cost_usd",
-            "REAL NOT NULL DEFAULT 0",
-        )
 
         await _add_column_if_missing(db, "lectures", "run_token", "TEXT")
+        await db.executescript("""
+            CREATE TABLE IF NOT EXISTS openai_usage_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                lecture_id INTEGER REFERENCES lectures(id) ON DELETE SET NULL,
+                kind TEXT NOT NULL,
+                endpoint TEXT,
+                operation TEXT,
+                stage TEXT,
+                item_key TEXT,
+                item_index INTEGER,
+                model TEXT NOT NULL,
+                request_id TEXT,
+                status TEXT NOT NULL DEFAULT 'reserved',
+                reserved_cost_usd REAL NOT NULL DEFAULT 0,
+                cost_usd REAL NOT NULL DEFAULT 0,
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+                metadata_json TEXT,
+                usage_json TEXT,
+                pricing_json TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_openai_usage_user_created
+                ON openai_usage_events(user_id, created_at);
+        """)
+
+
+        await _add_column_if_missing(db, "openai_usage_events", "endpoint", "TEXT")
+        await _add_column_if_missing(db, "openai_usage_events", "operation", "TEXT")
+        await _add_column_if_missing(db, "openai_usage_events", "stage", "TEXT")
+        await _add_column_if_missing(db, "openai_usage_events", "item_key", "TEXT")
+        await _add_column_if_missing(db, "openai_usage_events", "item_index", "INTEGER")
+        await _add_column_if_missing(db, "openai_usage_events", "request_id", "TEXT")
+        await _add_column_if_missing(db, "openai_usage_events", "usage_json", "TEXT")
+        await _add_column_if_missing(db, "openai_usage_events", "pricing_json", "TEXT")
+
         await db.executescript("""
             CREATE TABLE IF NOT EXISTS lecture_jobs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

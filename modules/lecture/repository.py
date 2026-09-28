@@ -27,8 +27,6 @@ async def create_lecture(
     review_before_video: bool = False,
     source_files: list[dict] | None = None,
     reference_mode: str = "rag",
-    max_cost_usd: float | None = None,
-    estimated_cost_usd: float = 0.0,
     initial_status: str = "queued",
 ) -> int:
     if reference_mode not in {"rag", "full"}:
@@ -64,8 +62,6 @@ async def create_lecture(
                 review_status,
                 source_files_json,
                 reference_mode,
-                max_cost_usd,
-                estimated_cost_usd,
                 moodle_course_id,
                 moodle_section_num,
                 moodle_deploy_mode,
@@ -73,7 +69,7 @@ async def create_lecture(
                 upload_to_moodle,
                 portrait_path
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -91,8 +87,6 @@ async def create_lecture(
                 "pending" if review_before_video else "not_required",
                 json.dumps(source_files or [], ensure_ascii=False),
                 reference_mode,
-                float(max_cost_usd) if max_cost_usd is not None else None,
-                float(estimated_cost_usd),
                 moodle_course_id,
                 moodle_section_num,
                 moodle_deploy_mode,
@@ -136,8 +130,6 @@ async def update_lecture(
         "review_before_video",
         "source_files_json",
         "reference_mode",
-        "max_cost_usd",
-        "estimated_cost_usd",
 
         "pptx_path",
         "narration_path",

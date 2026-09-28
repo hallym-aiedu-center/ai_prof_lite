@@ -2,7 +2,7 @@
 
 {% block title %}회원정보 · AI Professor Lite{% endblock %}
 {% block header_title %}회원정보{% endblock %}
-{% block header_subtitle %}프로필 및 기본 언어 설정{% endblock %}
+{% block header_subtitle %}프로필 · 기본 언어 · OpenAI 비용 한도{% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-3xl">
@@ -56,12 +56,94 @@
                 </div>
             </div>
 
+
+            <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div class="flex-1">
+                        <label class="mb-2 block text-sm font-semibold">OpenAI 누적 비용 한도 (USD)</label>
+                        <input name="openai_budget_usd" type="number" min="0.01" max="100000" step="0.01"
+                               value="{{ '%.2f'|format(user.openai_budget_usd) if user.openai_budget_usd is not none else '' }}"
+                               placeholder="비워두면 제한 없음"
+                               class="w-full rounded-xl border border-indigo-200 bg-white px-4 py-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                        <p class="mt-2 text-xs leading-5 text-slate-500">이 계정이 OpenAI API에 누적으로 부담할 최대 금액입니다. Responses, Embeddings, Image, TTS 사용액이 모두 합산됩니다.</p>
+                    </div>
+                    <div class="grid min-w-56 grid-cols-2 gap-2 text-xs">
+                        <div class="rounded-xl bg-white p-3"><div class="text-slate-400">누적 사용액</div><div class="mt-1 font-bold">${{ '%.4f'|format(openai_usage.spent) }}</div></div>
+                        <div class="rounded-xl bg-white p-3"><div class="text-slate-400">남은 한도</div><div class="mt-1 font-bold">{% if openai_usage.remaining is none %}무제한{% else %}${{ '%.4f'|format(openai_usage.remaining) }}{% endif %}</div></div>
+                    </div>
+                </div>
+            </div>
+
+            {% if openai_usage.breakdown %}
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <h2 class="text-sm font-semibold text-slate-700">누적 사용액 유형별 합계</h2>
+                <div class="mt-3 grid gap-3 sm:grid-cols-4">
+                    {% for kind, amount in openai_usage.breakdown.items() %}
+                    <div class="rounded-xl bg-white p-3 text-xs">
+                        <div class="uppercase tracking-wide text-slate-400">{{ kind }}</div>
+                        <div class="mt-1 text-sm font-bold">${{ '%.4f'|format(amount) }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <div class="flex justify-end">
                 <button class="rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800">
                     저장
                 </button>
             </div>
         </form>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white shadow-panel">
+        <div class="border-b border-slate-200 px-6 py-5">
+            <h2 class="font-semibold">최근 OpenAI 사용 내역</h2>
+            <p class="mt-1 text-sm text-slate-500">어디서 어떤 API가 호출되었고, 어떤 방식으로 과금되었는지 최근 내역을 확인할 수 있습니다.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-left text-slate-500">
+                    <tr>
+                        <th class="px-4 py-3 font-medium">시각</th>
+                        <th class="px-4 py-3 font-medium">위치</th>
+                        <th class="px-4 py-3 font-medium">API/모델</th>
+                        <th class="px-4 py-3 font-medium">토큰/과금 방식</th>
+                        <th class="px-4 py-3 font-medium text-right">비용</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if usage_events %}
+                        {% for event in usage_events %}
+                        <tr class="border-t border-slate-100 align-top">
+                            <td class="px-4 py-3 text-xs text-slate-500">{{ event.created_at }}</td>
+                            <td class="px-4 py-3">
+                                <div class="font-medium text-slate-800">{{ event.operation or event.kind }}</div>
+                                <div class="mt-1 text-xs text-slate-500">
+                                    {{ event.endpoint or '-' }}
+                                    {% if event.stage %} · {{ event.stage }}{% endif %}
+                                    {% if event.item_key %}<br>{{ event.item_key }}{% endif %}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="font-medium text-slate-800">{{ event.model }}</div>
+                                <div class="mt-1 text-xs text-slate-500">{{ event.kind }}{% if event.request_id %} · req {{ event.request_id }}{% endif %}</div>
+                            </td>
+                            <td class="px-4 py-3 text-xs text-slate-600">
+                                <div>입력 {{ event.input_tokens }} / 출력 {{ event.output_tokens }}{% if event.cached_input_tokens %} / 캐시 {{ event.cached_input_tokens }}{% endif %}</div>
+                                <div class="mt-1">{{ event.metadata.billing_basis or '-' }}</div>
+                            </td>
+                            <td class="px-4 py-3 text-right font-semibold">${{ '%.4f'|format(event.cost_usd) }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">아직 저장된 OpenAI 사용 내역이 없습니다.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from core.jobs.factory import get_queue
+from core.openai.usage import usage_summary
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -76,6 +77,7 @@ async def lecture_detail(
             "csrf_token": get_csrf_token(
                 request
             ),
+            "openai_usage": await usage_summary(user_id),
         },
     )
 

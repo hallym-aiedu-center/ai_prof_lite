@@ -1,10 +1,10 @@
 import hashlib
-import inspect
 import os
 from pathlib import Path
 from uuid import uuid4
 
 from core.openai.client import get_client
+from core.openai.usage import speech_create_bytes
 from modules.lecture.composer import FFMPEG_BIN, run_process
 
 TTS_API_MAX_CHARS = 4096
@@ -100,36 +100,23 @@ async def _speech_bytes(
     model: str,
     voice: str,
     text: str,
+    user_id: int | None = None,
+    lecture_id: int | None = None,
+    usage_context: dict | None = None,
 ) -> bytes:
+    if user_id is None:
+        raise ValueError("Tracked OpenAI TTS calls require user_id.")
     client = get_client(api_key=api_key)
-
     async with client:
-        response = await client.audio.speech.create(
+        return await speech_create_bytes(
+            client,
+            user_id=user_id,
+            lecture_id=lecture_id,
             model=model,
             voice=voice,
             input=text,
             response_format="wav",
-        )
-
-        if hasattr(response, "aread"):
-            result = response.aread()
-            if inspect.isawaitable(result):
-                return await result
-            return result
-
-        content = getattr(response, "content", None)
-
-        if content is not None:
-            return content
-
-        if hasattr(response, "read"):
-            result = response.read()
-            if inspect.isawaitable(result):
-                return await result
-            return result
-
-        raise RuntimeError(
-            "Unable to read audio response bytes."
+            usage_context=usage_context,
         )
 
 
@@ -179,6 +166,8 @@ async def build_narration(
     voice: str,
     check_lease=None,
     cache_dir: Path | None = None,
+    user_id: int | None = None,
+    lecture_id: int | None = None,
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
     if cache_dir is not None:
@@ -224,6 +213,15 @@ async def build_narration(
                             model=model,
                             voice=voice,
                             text=chunk_text,
+                            user_id=user_id,
+                            lecture_id=lecture_id,
+                            usage_context={
+                                "operation": "lecture_narration_tts",
+                                "stage": "narration.chunk",
+                                "item_key": f"slide_{idx:03d}_chunk_{chunk_index:03d}",
+                                "item_index": chunk_index,
+                                "metadata": {"slide_index": idx, "chunk_count": len(chunks)},
+                            },
                         )
                         _atomic_write(chunk_path, audio)
                     chunk_paths.append(chunk_path)

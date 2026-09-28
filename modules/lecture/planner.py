@@ -9,6 +9,13 @@ from jsonschema import validate
 from openai import BadRequestError
 
 from core.openai.client import get_client
+from core.openai.usage import responses_create
+
+
+async def _responses_create(client, *, user_id: int | None, lecture_id: int | None = None, usage_context: dict | None = None, **kwargs):
+    if user_id is None:
+        raise ValueError("Tracked OpenAI Responses calls require user_id.")
+    return await responses_create(client, user_id=user_id, lecture_id=lecture_id, usage_context=usage_context, **kwargs)
 
 LECTURE_SCHEMA = {
     "type": "object",
@@ -191,6 +198,8 @@ async def create_lecture_plan(
     reference_context: str = "",
     reference_files: list[dict] | None = None,
     reference_mode: str = "rag",
+    user_id: int | None = None,
+    lecture_id: int | None = None,
 ) -> dict:
     client = get_client(api_key=api_key)
     target_duration_minutes = max(10, min(180, int(target_duration_minutes)))
@@ -205,6 +214,17 @@ async def create_lecture_plan(
 
     reference_context = str(reference_context or "").strip()
     has_reference_files = bool(reference_files)
+    reference_input_bytes = 0
+    for item in reference_files or []:
+        try:
+            size = int(item.get("size") or 0)
+        except (TypeError, ValueError):
+            size = 0
+        if size <= 0:
+            path = Path(str(item.get("path") or ""))
+            if path.is_file():
+                size = path.stat().st_size
+        reference_input_bytes += max(0, size)
     if reference_mode == "rag" and reference_context:
         grounding = (
             "\n\n참고자료는 RAG 방식으로 분할·검색한 관련 청크입니다. "
@@ -255,11 +275,14 @@ async def create_lecture_plan(
                 uploaded_file_ids = await _upload_reference_files(client, reference_files)
 
             try:
-                response = await client.responses.create(
+                response = await _responses_create(client, user_id=user_id, lecture_id=lecture_id,
                     model=model,
                     input=_responses_input(prompt, uploaded_file_ids),
+                    max_output_tokens=30000,
+                    budget_input_bytes=reference_input_bytes if uploaded_file_ids else 0,
                     text={"format": {"type": "json_schema", "name": "lecture_plan",
                                      "strict": True, "schema": schema}},
+                    usage_context={"operation": "lecture_plan", "stage": "planner.initial"},
                 )
             except BadRequestError as exc:
                 if not structured_output_unsupported(exc):
@@ -269,9 +292,12 @@ async def create_lecture_plan(
                     + "\n반드시 JSON만 출력하세요. 스키마:\n"
                     + json.dumps(schema, ensure_ascii=False)
                 )
-                response = await client.responses.create(
+                response = await _responses_create(client, user_id=user_id, lecture_id=lecture_id,
                     model=model,
                     input=_responses_input(fallback_prompt, uploaded_file_ids),
+                    max_output_tokens=30000,
+                    budget_input_bytes=reference_input_bytes if uploaded_file_ids else 0,
+                    usage_context={"operation": "lecture_plan", "stage": "planner.initial_fallback"},
                 )
         finally:
             for file_id in uploaded_file_ids:
@@ -290,6 +316,8 @@ async def expand_lecture_narrations(
     actual_duration_seconds: float,
     minimum_duration_seconds: float,
     attempt: int = 1,
+    user_id: int | None = None,
+    lecture_id: int | None = None,
 ) -> dict:
     """Expand narration only, preserving slide structure and quiz content."""
     slides = list(plan.get("slides") or [])
@@ -340,9 +368,10 @@ async def expand_lecture_narrations(
     client = get_client(api_key=api_key)
     async with client:
         try:
-            response = await client.responses.create(
+            response = await _responses_create(client, user_id=user_id, lecture_id=lecture_id,
                 model=model,
                 input=prompt,
+                max_output_tokens=26000,
                 text={
                     "format": {
                         "type": "json_schema",
@@ -351,13 +380,16 @@ async def expand_lecture_narrations(
                         "schema": schema,
                     }
                 },
+                usage_context={"operation": "lecture_narration_revision", "stage": "planner.duration_retry", "metadata": {"attempt": max(1, int(attempt))}},
             )
         except BadRequestError as exc:
             if not structured_output_unsupported(exc):
                 raise
-            response = await client.responses.create(
+            response = await _responses_create(client, user_id=user_id, lecture_id=lecture_id,
                 model=model,
                 input=prompt + "\n반드시 JSON만 출력하세요. 스키마:\n" + json.dumps(schema, ensure_ascii=False),
+                max_output_tokens=26000,
+                usage_context={"operation": "lecture_narration_revision", "stage": "planner.duration_retry_fallback", "metadata": {"attempt": max(1, int(attempt))}},
             )
 
     revised = _parse_json(response.output_text)

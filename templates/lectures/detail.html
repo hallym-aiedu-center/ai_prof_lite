@@ -71,9 +71,9 @@
             </div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs uppercase tracking-wider text-slate-400">비용 한도</div>
-            <div class="mt-2 font-medium">{% if lecture.max_cost_usd is not none %}${{ '%.2f'|format(lecture.max_cost_usd) }}{% else %}미설정{% endif %}</div>
-            <div class="mt-1 text-xs text-slate-400">예상 약 ${{ '%.2f'|format(lecture.estimated_cost_usd or 0) }}</div>
+            <div class="text-xs uppercase tracking-wider text-slate-400">OpenAI 비용</div>
+            <div class="mt-2 font-medium">누적 ${{ '%.4f'|format(openai_usage.spent) }}</div>
+            <div class="mt-1 text-xs text-slate-400">{% if openai_usage.budget is none %}사용자 한도 없음{% else %}사용자 한도 ${{ '%.2f'|format(openai_usage.budget) }}{% endif %}</div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
             <div class="text-xs uppercase tracking-wider text-slate-400">PPT 검토</div>
