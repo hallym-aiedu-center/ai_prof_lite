@@ -36,9 +36,11 @@ def normalize_portrait(content: bytes, content_type: str):
         raise HTTPException(status_code=422, detail=f'유효한 교수 사진이 아닙니다: {exc}') from exc
 
 
-async def save_portrait(upload: UploadFile):
-    if upload.content_type not in FORMATS:
+async def normalize_uploaded_portrait(upload: UploadFile) -> bytes:
+    content_type = upload.content_type or ''
+    if content_type not in FORMATS:
         raise HTTPException(status_code=422, detail='PNG, JPEG, WebP 사진만 업로드할 수 있습니다.')
+
     maximum = positive_int('MAX_PORTRAIT_BYTES', 10 * 1024 * 1024)
     content = bytearray()
     try:
@@ -48,7 +50,19 @@ async def save_portrait(upload: UploadFile):
                 raise HTTPException(status_code=413, detail='사진 파일이 허용 크기를 초과했습니다.')
     finally:
         await upload.close()
-    normalized = await asyncio.to_thread(normalize_portrait, bytes(content), upload.content_type)
+
+    if not content:
+        raise HTTPException(status_code=422, detail='사진 파일이 비어 있습니다.')
+
+    return await asyncio.to_thread(
+        normalize_portrait,
+        bytes(content),
+        content_type,
+    )
+
+
+async def save_portrait(upload: UploadFile):
+    normalized = await normalize_uploaded_portrait(upload)
     directory = data_dir() / 'uploads'
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f'{uuid4().hex}.png'

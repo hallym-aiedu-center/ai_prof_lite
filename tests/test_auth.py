@@ -48,6 +48,31 @@ async def test_password_hashing_and_verification_are_offloaded(database, monkeyp
     assert calls == ["hash", "verify", "check_needs_rehash"]
 
 
+async def test_missing_user_still_runs_password_verify(database, monkeypatch):
+    calls = []
+
+    class FakeHasher:
+        def verify(self, password_hash, password):
+            calls.append((password_hash, password))
+            return False
+
+    async def fake_to_thread(func, *args):
+        return func(*args)
+
+    monkeypatch.setattr(service, "_password_hasher", FakeHasher())
+    monkeypatch.setattr(service.asyncio, "to_thread", fake_to_thread)
+
+    user = await service.authenticate_user(
+        email="missing@example.test",
+        password="password-123",
+    )
+
+    assert user is None
+    assert calls == [
+        (service._DUMMY_PASSWORD_HASH, "password-123"),
+    ]
+
+
 def test_registration_code_blocks_wrong_code(monkeypatch):
     import re
 

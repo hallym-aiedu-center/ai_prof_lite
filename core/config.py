@@ -66,6 +66,12 @@ def openai_key_mode() -> str:
 
 def session_secret() -> str:
     secret = os.getenv("SESSION_SECRET", "").strip()
-    if len(secret) < 32 or secret in {"dev-only-change-me", "change-me"}:
-        raise RuntimeError("SESSION_SECRET must be a random secret of at least 32 characters.")
+    if (
+        len(secret) < 32
+        or secret in {"dev-only-change-me", "change-me"}
+        or secret.startswith("replace-with")
+    ):
+        raise RuntimeError(
+            "SESSION_SECRET must be a random secret of at least 32 characters."
+        )
     return secret

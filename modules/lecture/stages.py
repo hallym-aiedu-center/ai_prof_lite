@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import os
 import shutil
@@ -128,20 +129,69 @@ async def plan_stage(ctx):
     return {'plan': plan, 'files': [str(plan_path), str(quiz_path)]}
 
 
+_IMAGE_SIZE = "1536x1024"
+_IMAGE_QUALITY = "medium"
+
+
+def _image_cache_key(*, slide_index: int, model: str, prompt: str) -> str:
+    # Stable across retries, but distinct per slide even when prompts match.
+    payload = (
+        f"v2\0{slide_index}\0{model}\0{_IMAGE_SIZE}\0{_IMAGE_QUALITY}\0{prompt}"
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _copy_image_atomic(source: Path, destination: Path) -> bool:
+    if not source.is_file() or source.stat().st_size <= 0:
+        return False
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
+    try:
+        shutil.copyfile(source, temporary)
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return True
+
+
 async def image_stage(ctx):
     if use_image_model_slide_rendering() and bool(ctx.lecture['generate_images']):
         slides = ctx.outputs['plan']['plan']['slides']
         return {'images': [None for _ in slides], 'files': []}
 
     paths = []
+    cache_dir = ctx.cache_directory / 'images'
     for index, slide in enumerate(ctx.outputs['plan']['plan']['slides'], 1):
         await ctx.check()
-        if ctx.lecture['generate_images'] and slide['image_prompt'].strip():
+        image_prompt = str(slide.get('image_prompt') or '').strip()
+        if ctx.lecture['generate_images'] and image_prompt:
             path = ctx.directory / 'images' / f'slide_{index:03d}.png'
-            # generate_image commits atomically; existing files are complete.
-            if not path.is_file() or not path.stat().st_size:
-                await generate_image(api_key=ctx.api_key, model=ctx.lecture['image_model'],
-                                     prompt=slide['image_prompt'] + '\\nEducational visual. No text or logos.', output_path=path)
+            prompt = image_prompt + '\\nEducational visual. No text or logos.'
+            cache_path = cache_dir / (
+                _image_cache_key(
+                    slide_index=index,
+                    model=ctx.lecture['image_model'],
+                    prompt=prompt,
+                ) + '.png'
+            )
+
+            # Run outputs remain isolated by run_token, but paid image results are
+            # content-addressed and shared across attempts for this lecture.
+            if not path.is_file() or path.stat().st_size <= 0:
+                if not _copy_image_atomic(cache_path, path):
+                    await generate_image(
+                        api_key=ctx.api_key,
+                        model=ctx.lecture['image_model'],
+                        prompt=prompt,
+                        output_path=path,
+                        size=_IMAGE_SIZE,
+                        quality=_IMAGE_QUALITY,
+                    )
+                    _copy_image_atomic(path, cache_path)
+            elif not cache_path.is_file() or cache_path.stat().st_size <= 0:
+                # Backfill the shared cache if an older/current attempt already has
+                # a complete run-local image but no cache entry yet.
+                _copy_image_atomic(path, cache_path)
             paths.append(str(path))
         else:
             paths.append(None)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -23,6 +24,8 @@ from modules.moodle.videotracker.service import (
     create_activity,
     set_video_from_file,
 )
+
+logger = logging.getLogger(__name__)
 
 WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
 
@@ -153,6 +156,10 @@ async def choose_ai_publish_plan(
     except Exception:  # noqa: BLE001
         # Scheduling must never make an otherwise completed lecture fail just
         # because structured output is unavailable. Use a deterministic fallback.
+        logger.warning(
+            "AI publish-plan generation failed; using deterministic fallback",
+            exc_info=True,
+        )
         weekday = (now_local.weekday() + 1) % 7
         payload = {
             "weekday": weekday,

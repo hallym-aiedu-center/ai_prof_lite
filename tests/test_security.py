@@ -16,7 +16,10 @@ from core.moodle.url_policy import resolve_target
 from modules.lecture.uploads import save_portrait
 
 
-@pytest.mark.parametrize('value', ['', 'dev-only-change-me', 'short'])
+@pytest.mark.parametrize(
+    'value',
+    ['', 'dev-only-change-me', 'short', 'replace-with-at-least-32-random-characters'],
+)
 def test_unsafe_session_key_fails_startup(monkeypatch, value):
     monkeypatch.setenv('APP_ENV', 'production')
     monkeypatch.setenv('SESSION_SECRET', value)

@@ -10,6 +10,11 @@ from argon2.exceptions import (
 from core.database.client import get_connection
 
 _password_hasher = PasswordHasher()
+_DUMMY_PASSWORD_HASH = (
+    "$argon2id$v=19$m=65536,t=3,p=4$"
+    "QsO9zHFzARjesHdrYVMbxQ$"
+    "XCvxnO0QKc8+P8qmGD8IwjehFNedxrzGUocASYklqx8"
+)
 
 
 class EmailAlreadyExistsError(ValueError):
@@ -122,19 +127,23 @@ async def authenticate_user(
 
         row = await cursor.fetchone()
 
-        if row is None:
-            return None
-
-        if row["status"] != "active":
-            return None
+        active_row = row is not None and row["status"] == "active"
+        password_hash = (
+            row["password_hash"]
+            if active_row
+            else _DUMMY_PASSWORD_HASH
+        )
 
         try:
-            await asyncio.to_thread(
+            verified = await asyncio.to_thread(
                 _password_hasher.verify,
-                row["password_hash"],
+                password_hash,
                 password,
             )
         except (VerifyMismatchError, InvalidHashError):
+            verified = False
+
+        if not active_row or not verified:
             return None
 
         needs_rehash = await asyncio.to_thread(

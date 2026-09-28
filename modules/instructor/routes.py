@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import io
 import os
 import re
 from datetime import date, datetime, timedelta, timezone
@@ -11,7 +10,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from PIL import Image, ImageOps, UnidentifiedImageError
 
 from core.config import PROJECT_ROOT, data_dir
 from modules.auth.session import (
@@ -24,6 +22,7 @@ from modules.credentials.required import (
     MissingCredentialError,
     require_user_openai_api_key,
 )
+from modules.lecture.uploads import normalize_uploaded_portrait
 from modules.instructor.repository import (
     get_instructor_profile,
     list_instructor_runs,
@@ -54,40 +53,6 @@ def _validate_model(value: str, field: str) -> str:
     if not _MODEL_RE.fullmatch(value):
         raise HTTPException(status_code=400, detail=f"잘못된 {field} 값입니다.")
     return value
-
-
-async def _read_avatar(upload: UploadFile) -> bytes:
-    max_mb = max(1, int(os.getenv("PORTRAIT_MAX_MB", "10")))
-    limit = max_mb * 1024 * 1024
-    data = await upload.read(limit + 1)
-    await upload.close()
-    if not data:
-        raise HTTPException(status_code=400, detail="아바타 이미지가 비어 있습니다.")
-    if len(data) > limit:
-        raise HTTPException(status_code=413, detail=f"아바타 이미지는 {max_mb}MB 이하여야 합니다.")
-    return data
-
-
-def _normalize_avatar(raw: bytes) -> bytes:
-    max_pixels = max(1_000_000, int(os.getenv("PORTRAIT_MAX_PIXELS", "20000000")))
-    max_side = max(512, int(os.getenv("PORTRAIT_MAX_SIDE", "2048")))
-    try:
-        with Image.open(io.BytesIO(raw)) as probe:
-            probe.verify()
-        with Image.open(io.BytesIO(raw)) as image:
-            if image.width * image.height > max_pixels:
-                raise HTTPException(status_code=400, detail="아바타 이미지 해상도가 너무 큽니다.")
-            image = ImageOps.exif_transpose(image)
-            has_alpha = image.mode in {"RGBA", "LA"} or "transparency" in image.info
-            image = image.convert("RGBA" if has_alpha else "RGB")
-            image.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
-            output = io.BytesIO()
-            image.save(output, "PNG", optimize=True)
-            return output.getvalue()
-    except HTTPException:
-        raise
-    except (UnidentifiedImageError, OSError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail="유효한 PNG/JPEG/WebP 이미지를 업로드하세요.") from exc
 
 
 def _default_semester_start(timezone_name: str) -> str:
@@ -313,12 +278,11 @@ async def save_instructor(
     old = await get_instructor_profile(user_id) or _default_profile(user_id)
     avatar_path: str | None = None
     if avatar is not None and getattr(avatar, "filename", ""):
-        raw = await _read_avatar(avatar)
-        normalized = await asyncio.to_thread(_normalize_avatar, raw)
+        normalized = await normalize_uploaded_portrait(avatar)
         avatar_dir = data_dir() / "instructor" / str(user_id)
         avatar_dir.mkdir(parents=True, exist_ok=True)
         target = avatar_dir / "avatar.png"
-        target.write_bytes(normalized)
+        await asyncio.to_thread(target.write_bytes, normalized)
         avatar_path = str(target)
     if enabled is not None and not (avatar_path or old.get("avatar_path")):
         raise HTTPException(status_code=400, detail="AI 강사를 켜려면 기본 아바타 이미지를 등록하세요.")

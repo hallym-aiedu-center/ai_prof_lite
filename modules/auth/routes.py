@@ -161,7 +161,20 @@ async def register(
             password=password,
             name=name,
         )
-    except (EmailAlreadyExistsError, ValueError) as exc:
+    except EmailAlreadyExistsError:
+        return templates.TemplateResponse(
+            request=request,
+            name="auth/register.html",
+            context={
+                "csrf_token": get_csrf_token(request),
+                "error": "가입 요청을 처리할 수 없습니다. 입력 정보를 확인하세요.",
+                "name": name,
+                "email": email,
+                "registration_required": bool(required_code),
+            },
+            status_code=400,
+        )
+    except ValueError as exc:
         return templates.TemplateResponse(
             request=request,
             name="auth/register.html",
