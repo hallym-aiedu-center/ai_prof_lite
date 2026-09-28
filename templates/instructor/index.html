@@ -246,7 +246,7 @@
     </section>
 </div>
 
-<script>
+<script nonce="{{ request.state.csp_nonce }}">
 (() => {
     const radios = document.querySelectorAll('input[name="course_scope"]');
     const picker = document.getElementById('coursePicker');

@@ -29,9 +29,11 @@
                         <span>{{ lecture.status_message or lecture.status }}</span>
                         <span>{{ lecture.progress }}%</span>
                     </div>
-                    <div class="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                        <div class="h-full {% if lecture.status == 'failed' %}bg-rose-500{% else %}bg-indigo-500{% endif %}" style="width: {{ lecture.progress }}%"></div>
-                    </div>
+                    <progress
+                        class="app-progress {% if lecture.status == 'failed' %}app-progress-danger{% endif %}"
+                        max="100"
+                        value="{{ lecture.progress }}"
+                        aria-label="강의 생성 진행률">{{ lecture.progress }}%</progress>
                 </div>
                 <div class="text-right text-xs text-slate-400">{{ lecture.created_at }}</div>
             </a>

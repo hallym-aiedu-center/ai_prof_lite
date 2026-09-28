@@ -55,6 +55,16 @@ class SlidingWindowRateLimiter:
         with self._lock:
             self._events.pop(key, None)
 
+    def clear(self) -> None:
+        """Drop all in-process limiter state.
+
+        Production code normally never needs this; it exists so a fresh test
+        case starts with a deterministic limiter state.
+        """
+        with self._lock:
+            self._events.clear()
+            self._expiries.clear()
+
 
 # Keep both a per-source and per-account budget.  These values are deliberately
 # conservative enough for normal users while bounding expensive password work.
@@ -63,6 +73,16 @@ _LOGIN_ACCOUNT = SlidingWindowRateLimiter(limit=10, window_seconds=300)
 # Registration performs Argon2 hashing and persists new accounts, so bound burst
 # creation separately from login. Keep this source-IP-only for the Lite build.
 _REGISTER_IP = SlidingWindowRateLimiter(limit=5, window_seconds=600)
+
+
+def reset_all_rate_limits() -> None:
+    """Reset process-local authentication limiter state.
+
+    Intended for deterministic test setup. Multi-process production rate
+    limiting still belongs at a reverse proxy or shared store.
+    """
+    for limiter in (_LOGIN_IP, _LOGIN_ACCOUNT, _REGISTER_IP):
+        limiter.clear()
 
 
 def _client_key(request) -> str:

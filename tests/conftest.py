@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from core.database.client import get_connection
 from core.database.migrations import init_database
+from modules.auth.rate_limit import reset_all_rate_limits
 from modules.lecture.repository import create_lecture
 
 
@@ -35,6 +36,31 @@ def isolated_environment(monkeypatch, tmp_path):
     from core.database.secrets import _get_cipher
 
     _get_cipher.cache_clear()
+    reset_all_rate_limits()
+
+    # rembg는 첫 실행 시 segmentation model 다운로드를 시도한다.
+    # 테스트 suite는 offline이어야 하므로 preparation layer에서만
+    # deterministic RGBA copy로 대체한다.
+    from modules.lecture.avatar_background import preparation as avatar_preparation
+
+    def fake_remove_portrait_background(*, source_path, transparent_path):
+        transparent_path = Path(transparent_path)
+        transparent_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with Image.open(source_path) as image:
+            image.convert("RGBA").save(
+                transparent_path,
+                format="PNG",
+            )
+
+        return transparent_path
+
+    monkeypatch.setattr(
+        avatar_preparation,
+        "remove_portrait_background",
+        fake_remove_portrait_background,
+    )
+
     original_connect = socket.socket.connect
 
     def blocked_connect(sock, address):

@@ -287,7 +287,7 @@
     </section>
 </div>
 
-<script>
+<script nonce="{{ request.state.csp_nonce }}">
 (() => {
     const input = document.getElementById("portraitInput");
     const preview = document.getElementById("portraitPreview");
@@ -311,7 +311,7 @@
 })();
 </script>
 
-<script>
+<script nonce="{{ request.state.csp_nonce }}">
 (() => {
     const lectureForm = document.getElementById("lectureForm");
     const submitLectureButton = document.getElementById("submitLectureButton");
@@ -815,13 +815,19 @@
 
             const progressLine = document.createElement("div");
             progressLine.className = "mt-3 flex items-center gap-3";
-            const bar = document.createElement("div");
-            bar.className = "h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100";
-            const fill = document.createElement("div");
-            fill.className = item.status === "failed" ? "h-full bg-rose-500" : "h-full bg-indigo-500";
-            const progress = Math.max(0, Math.min(100, Number(item.progress || 0)));
-            fill.style.width = `${progress}%`;
-            bar.appendChild(fill);
+            const bar = document.createElement("progress");
+            bar.className = item.status === "failed"
+                ? "app-progress app-progress-danger flex-1"
+                : "app-progress flex-1";
+            bar.max = 100;
+
+            const progress = Math.max(
+                0,
+                Math.min(100, Number(item.progress || 0)),
+            );
+
+            bar.value = progress;
+            bar.setAttribute("aria-label", "강의 생성 진행률");
             const percentage = document.createElement("span");
             percentage.className = "w-10 text-right text-xs text-slate-400";
             percentage.textContent = `${progress}%`;

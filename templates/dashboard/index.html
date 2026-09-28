@@ -84,9 +84,11 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <div class="hidden w-28 sm:block">
-                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                            <div class="h-full bg-indigo-500" style="width: {{ lecture.progress }}%"></div>
-                        </div>
+                        <progress
+                            class="app-progress"
+                            max="100"
+                            value="{{ lecture.progress }}"
+                            aria-label="강의 생성 진행률">{{ lecture.progress }}%</progress>
                     </div>
                     <span class="rounded-full px-2.5 py-1 text-xs font-medium
                         {% if lecture.status == 'completed' %}bg-emerald-50 text-emerald-700

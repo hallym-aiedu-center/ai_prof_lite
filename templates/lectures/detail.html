@@ -25,9 +25,12 @@
                 <span id="statusMessage" class="text-slate-600">{{ lecture.status_message or lecture.status }}</span>
                 <span id="progressText" class="font-medium">{{ lecture.progress }}%</span>
             </div>
-            <div class="h-2 overflow-hidden rounded-full bg-slate-100">
-                <div id="progressBar" class="h-full bg-indigo-500 transition-all duration-500" style="width: {{ lecture.progress }}%"></div>
-            </div>
+            <progress
+                id="progressBar"
+                class="app-progress app-progress-lg"
+                max="100"
+                value="{{ lecture.progress }}"
+                aria-label="강의 생성 진행률">{{ lecture.progress }}%</progress>
         </div>
 
         <div id="errorBox" class="{% if not lecture.error_message %}hidden {% endif %}mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -122,7 +125,7 @@
 </div>
 
 {% if lecture.status in ['queued', 'running'] %}
-<script>
+<script nonce="{{ request.state.csp_nonce }}">
 const lectureId = {{ lecture.id }};
 const timer = setInterval(async () => {
     try {
@@ -130,7 +133,7 @@ const timer = setInterval(async () => {
         if (!response.ok) return;
         const data = await response.json();
 
-        document.getElementById('progressBar').style.width = `${data.progress}%`;
+        document.getElementById('progressBar').value = Math.max(0, Math.min(100, Number(data.progress || 0)));
         document.getElementById('progressText').textContent = `${data.progress}%`;
         document.getElementById('statusMessage').textContent = data.status_message || data.status;
         document.getElementById('statusBadge').textContent = data.status;
