@@ -61,11 +61,17 @@
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div class="flex-1">
                         <label class="mb-2 block text-sm font-semibold">OpenAI 누적 비용 한도 (USD)</label>
+                        {% if openai_server_mode %}
+                        <input value="{% if openai_usage.budget is none %}제한 없음{% else %}${{ '%.2f'|format(openai_usage.budget) }}{% endif %}" disabled
+                               class="w-full rounded-xl border border-indigo-200 bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                        <p class="mt-2 text-xs leading-5 text-slate-500">서버 중앙제어 모드입니다. 모든 계정에 동일한 한도값이 적용되며, 각 계정의 사용액은 서로 독립적으로 계산됩니다.</p>
+                        {% else %}
                         <input name="openai_budget_usd" type="number" min="0.01" max="100000" step="0.01"
                                value="{{ '%.2f'|format(user.openai_budget_usd) if user.openai_budget_usd is not none else '' }}"
                                placeholder="비워두면 제한 없음"
                                class="w-full rounded-xl border border-indigo-200 bg-white px-4 py-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
                         <p class="mt-2 text-xs leading-5 text-slate-500">이 계정이 OpenAI API에 누적으로 부담할 최대 금액입니다. Responses, Embeddings, Image, TTS 사용액이 모두 합산됩니다.</p>
+                        {% endif %}
                     </div>
                     <div class="grid min-w-56 grid-cols-2 gap-2 text-xs">
                         <div class="rounded-xl bg-white p-3"><div class="text-slate-400">누적 사용액</div><div class="mt-1 font-bold">${{ '%.4f'|format(openai_usage.spent) }}</div></div>

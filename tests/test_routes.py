@@ -231,3 +231,43 @@ async def test_profile_saves_account_openai_budget(client):
         await db.close()
     assert row is not None
     assert row['openai_budget_usd'] == pytest.approx(12.34)
+
+
+async def test_instructor_avatar_upload_saves_immediately(client, portrait_bytes):
+    page = client.get('/instructor')
+    assert page.status_code == 200
+    token = csrf(page)
+    response = client.post(
+        '/instructor/avatar',
+        data={'csrf_token': token},
+        files={'avatar': ('professor.png', portrait_bytes, 'image/png')},
+    )
+    assert response.status_code == 200
+    assert response.json()['ok'] is True
+
+    db = await get_connection()
+    try:
+        row = await (await db.execute(
+            """SELECT p.avatar_path
+               FROM ai_instructor_profiles p
+               JOIN users u ON u.id=p.user_id
+               WHERE u.email='route@example.test'"""
+        )).fetchone()
+    finally:
+        await db.close()
+    assert row is not None
+    assert row['avatar_path']
+
+    image = client.get('/instructor/avatar')
+    assert image.status_code == 200
+    assert image.headers['content-type'].startswith('image/png')
+
+
+def test_server_mode_profile_uses_environment_budget_and_hides_user_budget_input(client, monkeypatch):
+    monkeypatch.setenv('OPENAI_KEY_MODE', 'server')
+    monkeypatch.setenv('SERVER_OPENAI_ACCOUNT_BUDGET_USD', '25.00')
+    response = client.get('/settings/profile')
+    assert response.status_code == 200
+    assert 'name="openai_budget_usd"' not in response.text
+    assert '$25.00' in response.text
+    assert '각 계정의 사용액은 서로 독립적으로 계산됩니다.' in response.text

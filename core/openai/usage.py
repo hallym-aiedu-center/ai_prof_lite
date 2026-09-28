@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import inspect
 import io
 import json
@@ -9,11 +10,19 @@ import wave
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any
 
+import httpx
+from openai import APIConnectionError, APIStatusError
+
+from core.config import openai_key_mode, server_openai_account_budget_usd
 from core.database.client import get_connection
 
 
 class OpenAIBudgetExceeded(RuntimeError):
     """Raised before a paid OpenAI request when the user's budget is exhausted."""
+
+
+class OpenAIAmbiguousRequestError(RuntimeError):
+    """A paid request may have reached OpenAI; automatic replay is unsafe."""
 
 
 @dataclass(frozen=True)
@@ -147,6 +156,27 @@ async def _fetchone(db, sql: str, params: tuple = ()):
     return await (await db.execute(sql, params)).fetchone()
 
 
+async def _account_budget(db, *, user_id: int) -> float | None:
+    if openai_key_mode() == "server":
+        return server_openai_account_budget_usd()
+    setting = await _fetchone(
+        db,
+        "SELECT openai_budget_usd FROM user_settings WHERE user_id = ?",
+        (user_id,),
+    )
+    if not setting or setting["openai_budget_usd"] is None:
+        return None
+    return _number(setting["openai_budget_usd"])
+
+
+def _ambiguous_provider_error(exc: BaseException) -> bool:
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError, APIConnectionError, httpx.TransportError)):
+        return True
+    if isinstance(exc, APIStatusError):
+        return exc.status_code == 408 or exc.status_code >= 500
+    return False
+
+
 def _rough_tokens(value: Any) -> int:
     if value is None:
         return 0
@@ -161,22 +191,17 @@ def _rough_tokens(value: Any) -> int:
     return _rough_tokens(str(value))
 
 
-async def usage_summary(user_id: int) -> dict[str, float | None]:
+async def usage_summary(user_id: int) -> dict[str, Any]:
     db = await get_connection()
     try:
         await _delete_stale_reservations(db, user_id=user_id)
         await db.commit()
-        setting = await _fetchone(
-            db,
-            "SELECT openai_budget_usd FROM user_settings WHERE user_id = ?",
-            (user_id,),
-        )
         row = await _fetchone(
             db,
             """
             SELECT
               COALESCE(SUM(CASE WHEN status='finalized' THEN cost_usd ELSE 0 END), 0) AS spent,
-              COALESCE(SUM(CASE WHEN status='reserved' THEN reserved_cost_usd ELSE 0 END), 0) AS reserved
+              COALESCE(SUM(CASE WHEN status IN ('reserved','ambiguous') THEN reserved_cost_usd ELSE 0 END), 0) AS reserved
             FROM openai_usage_events WHERE user_id = ?
             """,
             (user_id,),
@@ -193,7 +218,7 @@ async def usage_summary(user_id: int) -> dict[str, float | None]:
                 (user_id,),
             )
         ).fetchall()
-        budget = _number(setting["openai_budget_usd"]) if setting and setting["openai_budget_usd"] is not None else None
+        budget = await _account_budget(db, user_id=user_id)
         spent = _number(row["spent"] if row else 0)
         reserved = _number(row["reserved"] if row else 0)
         remaining = None if budget is None else max(0.0, budget - spent - reserved)
@@ -289,17 +314,12 @@ async def reserve_usage(
     try:
         await db.execute("BEGIN IMMEDIATE")
         await _delete_stale_reservations(db, user_id=user_id)
-        setting = await _fetchone(
-            db,
-            "SELECT openai_budget_usd FROM user_settings WHERE user_id = ?",
-            (user_id,),
-        )
-        budget = _number(setting["openai_budget_usd"]) if setting and setting["openai_budget_usd"] is not None else None
+        budget = await _account_budget(db, user_id=user_id)
         totals = await _fetchone(
             db,
             """SELECT
               COALESCE(SUM(CASE WHEN status='finalized' THEN cost_usd ELSE 0 END), 0) AS spent,
-              COALESCE(SUM(CASE WHEN status='reserved' THEN reserved_cost_usd ELSE 0 END), 0) AS reserved
+              COALESCE(SUM(CASE WHEN status IN ('reserved','ambiguous') THEN reserved_cost_usd ELSE 0 END), 0) AS reserved
             FROM openai_usage_events WHERE user_id = ?""",
             (user_id,),
         )
@@ -342,6 +362,41 @@ async def cancel_reservation(event_id: int) -> None:
         await db.commit()
     finally:
         await db.close()
+
+
+async def mark_ambiguous_usage(event_id: int, exc: BaseException) -> None:
+    db = await get_connection()
+    try:
+        row = await _fetchone(db, "SELECT metadata_json FROM openai_usage_events WHERE id=?", (event_id,))
+        existing = {}
+        raw = row["metadata_json"] if row else None
+        if raw:
+            try:
+                existing = json.loads(raw)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                existing = {}
+        existing["billing_state"] = "ambiguous"
+        existing["provider_error_type"] = type(exc).__name__
+        existing["provider_error"] = str(exc)[:1000]
+        await db.execute(
+            """UPDATE openai_usage_events
+               SET status='ambiguous', metadata_json=?
+               WHERE id=? AND status='reserved'""",
+            (json.dumps(_jsonable(existing), ensure_ascii=False), event_id),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+
+async def _raise_after_provider_error(event_id: int, exc: BaseException) -> None:
+    if _ambiguous_provider_error(exc):
+        await mark_ambiguous_usage(event_id, exc)
+        raise OpenAIAmbiguousRequestError(
+            "OpenAI 요청 결과가 불명확하여 비용 예약을 보존했습니다. 자동 재시도하지 않습니다."
+        ) from exc
+    await cancel_reservation(event_id)
+    raise exc
 
 
 async def finalize_usage(
@@ -556,12 +611,23 @@ async def responses_create(
     )
     try:
         response = await client.responses.create(**kwargs)
+    except asyncio.CancelledError as exc:
+        await mark_ambiguous_usage(event, exc)
+        raise
+    except Exception as exc:
+        await _raise_after_provider_error(event, exc)
+    try:
         cost, values = _response_usage_cost(model, getattr(response, "usage", None))
         await finalize_usage(event, request_id=_request_id(response), **values, cost_usd=cost)
-        return response
-    except BaseException:
-        await cancel_reservation(event)
+    except asyncio.CancelledError as exc:
+        await mark_ambiguous_usage(event, exc)
         raise
+    except Exception as exc:
+        await mark_ambiguous_usage(event, exc)
+        raise OpenAIAmbiguousRequestError(
+            "OpenAI 요청은 완료됐지만 비용 기록을 확정하지 못해 자동 재시도하지 않습니다."
+        ) from exc
+    return response
 
 
 async def embeddings_create(client, *, user_id: int, lecture_id: int | None = None, usage_context: dict | None = None, **kwargs):
@@ -587,6 +653,12 @@ async def embeddings_create(client, *, user_id: int, lecture_id: int | None = No
     )
     try:
         response = await client.embeddings.create(**kwargs)
+    except asyncio.CancelledError as exc:
+        await mark_ambiguous_usage(event, exc)
+        raise
+    except Exception as exc:
+        await _raise_after_provider_error(event, exc)
+    try:
         usage = getattr(response, "usage", None)
         tokens = int(_number(_field(usage, "prompt_tokens", _field(usage, "total_tokens", 0))))
         await finalize_usage(
@@ -598,10 +670,15 @@ async def embeddings_create(client, *, user_id: int, lecture_id: int | None = No
             pricing=_pricing_snapshot("embeddings", model),
             metadata={"billing_basis": "embedding_usage"},
         )
-        return response
-    except BaseException:
-        await cancel_reservation(event)
+    except asyncio.CancelledError as exc:
+        await mark_ambiguous_usage(event, exc)
         raise
+    except Exception as exc:
+        await mark_ambiguous_usage(event, exc)
+        raise OpenAIAmbiguousRequestError(
+            "OpenAI 요청은 완료됐지만 비용 기록을 확정하지 못해 자동 재시도하지 않습니다."
+        ) from exc
+    return response
 
 
 def _image_output_fallback_cost(model: str, *, size: str, quality: str) -> float:
@@ -695,6 +772,12 @@ async def images_generate(client, *, user_id: int, lecture_id: int | None = None
     )
     try:
         response = await client.images.generate(**kwargs)
+    except asyncio.CancelledError as exc:
+        await mark_ambiguous_usage(event, exc)
+        raise
+    except Exception as exc:
+        await _raise_after_provider_error(event, exc)
+    try:
         measured = _image_usage_cost(model, getattr(response, "usage", None))
         if measured:
             cost, values = measured
@@ -711,10 +794,15 @@ async def images_generate(client, *, user_id: int, lecture_id: int | None = None
                     "quality": quality,
                 },
             )
-        return response
-    except BaseException:
-        await cancel_reservation(event)
+    except asyncio.CancelledError as exc:
+        await mark_ambiguous_usage(event, exc)
         raise
+    except Exception as exc:
+        await mark_ambiguous_usage(event, exc)
+        raise OpenAIAmbiguousRequestError(
+            "OpenAI 요청은 완료됐지만 비용 기록을 확정하지 못해 자동 재시도하지 않습니다."
+        ) from exc
+    return response
 
 
 def _wav_seconds(content: bytes) -> float:
@@ -835,6 +923,12 @@ async def speech_create_bytes(
     )
     try:
         response = await client.audio.speech.create(**kwargs)
+    except asyncio.CancelledError as exc:
+        await mark_ambiguous_usage(event, exc)
+        raise
+    except Exception as exc:
+        await _raise_after_provider_error(event, exc)
+    try:
         content = await _read_audio_response(response)
         measured = _tts_usage_cost(model, getattr(response, "usage", None))
         if measured:
@@ -843,7 +937,12 @@ async def speech_create_bytes(
         else:
             cost, values = tts_cost(model, text=text, audio_bytes=content)
             await finalize_usage(event, request_id=_request_id(response), cost_usd=cost, **values)
-        return content
-    except BaseException:
-        await cancel_reservation(event)
+    except asyncio.CancelledError as exc:
+        await mark_ambiguous_usage(event, exc)
         raise
+    except Exception as exc:
+        await mark_ambiguous_usage(event, exc)
+        raise OpenAIAmbiguousRequestError(
+            "OpenAI 요청은 완료됐지만 비용 기록을 확정하지 못해 자동 재시도하지 않습니다."
+        ) from exc
+    return content

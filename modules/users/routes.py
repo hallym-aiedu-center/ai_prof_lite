@@ -2,7 +2,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT
+from core.config import PROJECT_ROOT as TEMPLATE_ROOT, openai_key_mode
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -35,6 +35,7 @@ async def profile_page(request: Request):
             "saved": request.query_params.get("saved") == "1",
             "openai_usage": await usage_summary(user_id),
             "usage_events": await list_usage_events(user_id, limit=30),
+            "openai_server_mode": openai_key_mode() == "server",
         },
     )
 
@@ -56,16 +57,20 @@ async def save_profile(
 
     verify_csrf(request, csrf_token)
 
-    budget = None
-    if openai_budget_usd.strip():
-        try:
-            budget = round(float(openai_budget_usd), 2)
-        except ValueError as exc:
-            from fastapi import HTTPException
-            raise HTTPException(422, "OpenAI 비용 한도는 숫자로 입력하세요.") from exc
-        if budget <= 0 or budget > 100000:
-            from fastapi import HTTPException
-            raise HTTPException(422, "OpenAI 비용 한도는 $0 초과 $100,000 이하로 입력하세요.")
+    if openai_key_mode() == "server":
+        current = await get_user(user_id)
+        budget = current.get("openai_budget_usd") if current else None
+    else:
+        budget = None
+        if openai_budget_usd.strip():
+            try:
+                budget = round(float(openai_budget_usd), 2)
+            except ValueError as exc:
+                from fastapi import HTTPException
+                raise HTTPException(422, "OpenAI 비용 한도는 숫자로 입력하세요.") from exc
+            if budget <= 0 or budget > 100000:
+                from fastapi import HTTPException
+                raise HTTPException(422, "OpenAI 비용 한도는 $0 초과 $100,000 이하로 입력하세요.")
 
     await update_profile(
         user_id=user_id,

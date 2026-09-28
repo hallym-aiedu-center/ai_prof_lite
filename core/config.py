@@ -64,6 +64,26 @@ def openai_key_mode() -> str:
     return mode
 
 
+def server_openai_account_budget_usd() -> float | None:
+    """Return the per-account budget enforced in server-key mode.
+
+    Every account receives the same configured ceiling, but usage is still
+    accounted independently per user. An empty value disables the ceiling.
+    """
+    raw = os.getenv("SERVER_OPENAI_ACCOUNT_BUDGET_USD", "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError("SERVER_OPENAI_ACCOUNT_BUDGET_USD must be a number") from exc
+    if value <= 0 or value > 100000:
+        raise ValueError(
+            "SERVER_OPENAI_ACCOUNT_BUDGET_USD must be greater than 0 and at most 100000"
+        )
+    return round(value, 2)
+
+
 def session_secret() -> str:
     secret = os.getenv("SESSION_SECRET", "").strip()
     if (

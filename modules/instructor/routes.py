@@ -8,7 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from core.config import PROJECT_ROOT, data_dir
@@ -26,6 +26,7 @@ from modules.lecture.uploads import normalize_uploaded_portrait
 from modules.instructor.repository import (
     get_instructor_profile,
     list_instructor_runs,
+    set_instructor_avatar,
     upsert_instructor_profile,
 )
 from modules.moodle.courses.service import get_my_courses
@@ -161,6 +162,20 @@ async def _load_courses(user_id: int) -> tuple[list[dict], str | None]:
         return [], str(exc)
 
 
+async def _save_avatar_file(user_id: int, avatar: UploadFile) -> str:
+    normalized = await normalize_uploaded_portrait(avatar)
+    avatar_dir = data_dir() / "instructor" / str(user_id)
+    avatar_dir.mkdir(parents=True, exist_ok=True)
+    target = avatar_dir / "avatar.png"
+    temporary = avatar_dir / "avatar.tmp"
+    try:
+        await asyncio.to_thread(temporary.write_bytes, normalized)
+        await asyncio.to_thread(temporary.replace, target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return str(target)
+
+
 @router.get("")
 async def instructor_home(request: Request):
     user_id = current_user_id(request)
@@ -278,12 +293,7 @@ async def save_instructor(
     old = await get_instructor_profile(user_id) or _default_profile(user_id)
     avatar_path: str | None = None
     if avatar is not None and getattr(avatar, "filename", ""):
-        normalized = await normalize_uploaded_portrait(avatar)
-        avatar_dir = data_dir() / "instructor" / str(user_id)
-        avatar_dir.mkdir(parents=True, exist_ok=True)
-        target = avatar_dir / "avatar.png"
-        await asyncio.to_thread(target.write_bytes, normalized)
-        avatar_path = str(target)
+        avatar_path = await _save_avatar_file(user_id, avatar)
     if enabled is not None and not (avatar_path or old.get("avatar_path")):
         raise HTTPException(status_code=400, detail="AI 강사를 켜려면 기본 아바타 이미지를 등록하세요.")
 
@@ -311,6 +321,21 @@ async def save_instructor(
         target_slide_count=target_slide_count,
     )
     return RedirectResponse(url="/instructor?saved=1", status_code=303)
+
+
+@router.post("/avatar")
+async def upload_instructor_avatar(
+    request: Request,
+    csrf_token: str = Form(...),
+    avatar: UploadFile = File(...),
+):
+    user_id = current_user_id(request)
+    if user_id is None:
+        return JSONResponse({"detail": "로그인이 필요합니다."}, status_code=401)
+    verify_csrf(request, csrf_token)
+    avatar_path = await _save_avatar_file(user_id, avatar)
+    await set_instructor_avatar(user_id, avatar_path)
+    return JSONResponse({"ok": True, "avatar_url": "/instructor/avatar"})
 
 
 @router.get("/avatar")

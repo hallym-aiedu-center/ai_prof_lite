@@ -307,3 +307,62 @@ def test_paid_openai_calls_are_centralized_in_usage_layer():
             if any(pattern in text for pattern in direct_patterns):
                 offenders.append(str(path.relative_to(root)))
     assert offenders == []
+
+
+async def test_server_mode_applies_same_budget_independently_per_account(database, monkeypatch):
+    db = await get_connection()
+    try:
+        await db.execute("INSERT INTO users(id,email,password_hash) VALUES(2,'second@example.test','unused')")
+        await db.commit()
+    finally:
+        await db.close()
+
+    monkeypatch.setenv("OPENAI_KEY_MODE", "server")
+    monkeypatch.setenv("SERVER_OPENAI_ACCOUNT_BUDGET_USD", "1.00")
+
+    first = await reserve_usage(user_id=1, kind="responses", model="gpt-5.1", reserve_usd=0.80)
+    second = await reserve_usage(user_id=2, kind="responses", model="gpt-5.1", reserve_usd=0.80)
+    assert first != second
+
+    with pytest.raises(OpenAIBudgetExceeded):
+        await reserve_usage(user_id=1, kind="images", model="gpt-image-2", reserve_usd=0.21)
+    with pytest.raises(OpenAIBudgetExceeded):
+        await reserve_usage(user_id=2, kind="images", model="gpt-image-2", reserve_usd=0.21)
+
+    summary1 = await usage_summary(1)
+    summary2 = await usage_summary(2)
+    assert summary1["budget"] == pytest.approx(1.0)
+    assert summary2["budget"] == pytest.approx(1.0)
+    assert summary1["reserved"] == pytest.approx(0.8)
+    assert summary2["reserved"] == pytest.approx(0.8)
+
+
+async def test_ambiguous_openai_failure_preserves_reservation_and_is_not_retryable(database):
+    import httpx
+
+    from core.jobs.errors import retryable
+    from core.openai.usage import OpenAIAmbiguousRequestError
+
+    await _set_budget(1, 1.00)
+
+    class Responses:
+        async def create(self, **kwargs):
+            request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+            raise httpx.ReadTimeout("response timed out", request=request)
+
+    client = SimpleNamespace(responses=Responses())
+    with pytest.raises(OpenAIAmbiguousRequestError) as caught:
+        await responses_create(
+            client,
+            user_id=1,
+            model="gpt-5.1",
+            input="ambiguous",
+            max_output_tokens=100,
+        )
+
+    assert retryable(caught.value) is False
+    rows = await _events(1)
+    assert rows[-1]["status"] == "ambiguous"
+    assert rows[-1]["reserved_cost_usd"] > 0
+    summary = await usage_summary(1)
+    assert summary["reserved"] == pytest.approx(rows[-1]["reserved_cost_usd"])

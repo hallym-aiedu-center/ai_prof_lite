@@ -7,6 +7,7 @@ modules while existing imports continue to work unchanged.
 from .repository_profiles import (
     get_instructor_profile,
     list_enabled_profiles,
+    set_instructor_avatar,
     upsert_instructor_profile,
 )
 from .repository_run_lifecycle import (
@@ -38,6 +39,7 @@ __all__ = [
     "recover_stale_instructor_runs",
     "renew_instructor_run_lease",
     "reserve_instructor_run",
+    "set_instructor_avatar",
     "update_instructor_run",
     "upsert_instructor_profile",
 ]

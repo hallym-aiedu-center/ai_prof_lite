@@ -32,6 +32,24 @@ async def get_instructor_profile(user_id: int) -> dict | None:
         await db.close()
 
 
+async def set_instructor_avatar(user_id: int, avatar_path: str) -> None:
+    db = await get_connection()
+    try:
+        await db.execute(
+            """
+            INSERT INTO ai_instructor_profiles (user_id, avatar_path)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                avatar_path = excluded.avatar_path,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (user_id, avatar_path),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+
 async def upsert_instructor_profile(
     *,
     user_id: int,

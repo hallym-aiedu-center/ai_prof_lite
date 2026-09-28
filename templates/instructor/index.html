@@ -191,16 +191,14 @@
                 <section class="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
                     <div class="text-xs font-black uppercase tracking-[.15em] text-slate-400">Professor Avatar</div>
                     <div class="mt-4 overflow-hidden rounded-[22px] bg-gradient-to-b from-slate-100 to-slate-50">
-                        {% if profile.avatar_path %}
-                        <img src="/instructor/avatar" class="aspect-[4/3] w-full object-contain p-3" alt="AI 강사 아바타">
-                        {% else %}
-                        <div class="grid aspect-[4/3] place-items-center text-center text-xs leading-5 text-slate-400">AI 강사가 영상에 사용할<br>기본 아바타를 등록하세요.</div>
-                        {% endif %}
+                        <img id="avatarPreview" src="{% if profile.avatar_path %}/instructor/avatar{% endif %}" class="aspect-[4/3] w-full object-contain p-3 {% if not profile.avatar_path %}hidden{% endif %}" alt="AI 강사 아바타">
+                        <div id="avatarPlaceholder" class="grid aspect-[4/3] place-items-center text-center text-xs leading-5 text-slate-400 {% if profile.avatar_path %}hidden{% endif %}">AI 강사가 영상에 사용할<br>기본 아바타를 등록하세요.</div>
                     </div>
                     <label class="mt-4 block cursor-pointer rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-center text-xs font-bold text-slate-600 hover:border-indigo-400 hover:text-indigo-600">
                         아바타 이미지 변경
-                        <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp" class="hidden">
+                        <input id="avatarInput" type="file" name="avatar" accept="image/png,image/jpeg,image/webp" class="hidden">
                     </label>
+                    <div id="avatarUploadStatus" class="mt-2 min-h-5 text-center text-[11px] text-slate-400"></div>
                 </section>
 
                 <section class="rounded-[24px] border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-5 shadow-sm">
@@ -256,6 +254,46 @@
     }
     radios.forEach(radio => radio.addEventListener('change', updateScope));
     updateScope();
+
+    const avatarInput = document.getElementById('avatarInput');
+    const avatarPreview = document.getElementById('avatarPreview');
+    const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+    const avatarStatus = document.getElementById('avatarUploadStatus');
+    const csrfInput = document.querySelector('input[name="csrf_token"]');
+
+    avatarInput?.addEventListener('change', async () => {
+        const file = avatarInput.files?.[0];
+        if (!file || !csrfInput) return;
+
+        const localUrl = URL.createObjectURL(file);
+        avatarPreview.src = localUrl;
+        avatarPreview.classList.remove('hidden');
+        avatarPlaceholder.classList.add('hidden');
+        avatarStatus.textContent = '업로드 중...';
+        avatarStatus.className = 'mt-2 min-h-5 text-center text-[11px] text-indigo-600';
+
+        const body = new FormData();
+        body.append('csrf_token', csrfInput.value);
+        body.append('avatar', file, file.name);
+        try {
+            const response = await fetch('/instructor/avatar', {
+                method: 'POST',
+                body,
+                credentials: 'same-origin',
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.detail || '아바타 업로드에 실패했습니다.');
+            avatarPreview.src = `${payload.avatar_url}?v=${Date.now()}`;
+            avatarInput.value = '';
+            avatarStatus.textContent = '아바타를 저장했습니다.';
+            avatarStatus.className = 'mt-2 min-h-5 text-center text-[11px] text-emerald-600';
+        } catch (error) {
+            avatarStatus.textContent = error?.message || '아바타 업로드에 실패했습니다.';
+            avatarStatus.className = 'mt-2 min-h-5 text-center text-[11px] text-rose-600';
+        } finally {
+            URL.revokeObjectURL(localUrl);
+        }
+    });
 })();
 </script>
 {% endblock %}

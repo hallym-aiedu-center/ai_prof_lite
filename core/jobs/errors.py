@@ -3,6 +3,8 @@ import asyncio
 import httpx
 from openai import APIConnectionError, APIStatusError
 
+from core.openai.usage import OpenAIAmbiguousRequestError
+
 
 class AmbiguousDeploymentError(RuntimeError):
     """A remote creation might have succeeded; never blindly repeat it."""
@@ -17,6 +19,8 @@ class PublishSourceFailedError(RuntimeError):
 
 
 def retryable(error: Exception) -> bool:
+    if isinstance(error, OpenAIAmbiguousRequestError):
+        return False
     if isinstance(error, AmbiguousDeploymentError):
         return False
     if isinstance(error, PublishSourceFailedError):
