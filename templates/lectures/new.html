@@ -63,6 +63,32 @@
                             <textarea name="topic" rows="8" required placeholder="학습 대상, 학습 목표, 반드시 설명할 내용, 난이도, 사례 등을 입력하세요."
                                       class="w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"></textarea>
                         </div>
+                        <div>
+                            <label class="mb-2 block text-xs font-black text-slate-700">참고자료 <span class="font-medium text-slate-400">(선택)</span></label>
+                            <label class="block cursor-pointer rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 transition hover:border-indigo-400 hover:bg-indigo-50/40">
+                                <span class="block text-sm font-black text-slate-700">PDF · TXT · Markdown · DOCX · PPTX 첨부</span>
+                                <span class="mt-1 block text-[11px] leading-5 text-slate-500">첨부가 없으면 기존처럼 LLM 지식만 사용합니다. 파일이 있으면 아래에서 RAG 검색 또는 전체 파일 전달 방식을 선택합니다.</span>
+                                <input id="referenceFiles" type="file" name="reference_files" multiple accept=".pdf,.txt,.md,.docx,.pptx,application/pdf,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="mt-3 block w-full text-xs text-slate-500">
+                            </label>
+                            <div id="referenceFilesHint" class="mt-2 text-[11px] text-slate-400">최대 5개 · 파일당 10MB · 전체 25MB</div>
+
+                            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4">
+                                    <input type="radio" name="reference_mode" value="rag" checked class="mt-0.5 h-4 w-4 border-slate-300 text-indigo-600">
+                                    <span>
+                                        <span class="block text-sm font-black text-slate-800">RAG · 분할 검색</span>
+                                        <span class="mt-1 block text-[11px] leading-5 text-slate-500">파일을 텍스트로 추출·청크 분할한 뒤 강의 제목/주제와 관련된 청크만 찾아 GPT 입력에 넣습니다.</span>
+                                    </span>
+                                </label>
+                                <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <input type="radio" name="reference_mode" value="full" class="mt-0.5 h-4 w-4 border-slate-300 text-indigo-600">
+                                    <span>
+                                        <span class="block text-sm font-black text-slate-800">전체 파일 · GPT에 직접 전달</span>
+                                        <span class="mt-1 block text-[11px] leading-5 text-slate-500">로컬 발췌 없이 첨부 원본을 OpenAI에 업로드하고 Responses API의 파일 입력으로 함께 전달합니다.</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -95,6 +121,37 @@
                     </div>
                     <div id="lectureFormatHint" class="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-xs leading-5 text-indigo-800">
                         예: <strong>10장 · 40분</strong>이면 평균 약 4분/장. 도입은 짧게, 핵심 개념·사례는 더 길게 설명하도록 AI가 자동 배분합니다.
+                    </div>
+                </section>
+
+                <section class="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                    <div class="mb-5">
+                        <div class="text-xs font-black uppercase tracking-[.15em] text-slate-400">Generation Control</div>
+                        <h2 class="mt-1 text-lg font-black">PPT 확인 · 비용 한도</h2>
+                        <p class="mt-1 text-xs leading-5 text-slate-500">기존처럼 바로 영상까지 만들지, PPT에서 한 번 멈춰 페이지별로 확인·수정할지 선택합니다.</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <input id="reviewBeforeVideo" type="checkbox" name="review_before_video" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600">
+                            <span>
+                                <span class="block text-sm font-black text-slate-800">PPT 생성 후 확인/수정하고 영상으로 진행</span>
+                                <span class="mt-1 block text-[11px] leading-5 text-slate-500">체크하지 않으면 기존 프로세스대로 PPT 생성 후 곧바로 TTS·TalkingHead·영상 합성으로 진행합니다. 체크하면 PPT 생성 직후 멈추고 페이지별 에디터가 열립니다.</span>
+                            </span>
+                        </label>
+
+                        <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                            <div>
+                                <label for="maxCostUsd" class="mb-2 block text-xs font-black text-slate-700">이번 강의 비용 한도 (USD)</label>
+                                <input id="maxCostUsd" name="max_cost_usd" type="number" min="0.01" max="1000" step="0.01" inputmode="decimal"
+                                       class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50">
+                            </div>
+                            <div class="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 sm:min-w-44">
+                                <div class="text-[10px] font-black uppercase tracking-wider text-indigo-500">현재 예상</div>
+                                <div id="estimatedCost" class="mt-1 text-lg font-black text-indigo-950">-</div>
+                            </div>
+                        </div>
+                        <p class="text-[11px] leading-5 text-slate-400">예상 비용은 설정된 모델별 추정 단가와 재시도 버퍼를 사용한 작업 진입 한도입니다. 실제 OpenAI 청구 금액과 완전히 동일하지 않을 수 있습니다.</p>
                     </div>
                 </section>
 
@@ -233,7 +290,7 @@
                     </div>
 
                     <label class="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
-                        <input type="checkbox" name="generate_images" checked class="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600">
+                        <input id="generateImages" type="checkbox" name="generate_images" checked class="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600">
                         <span>
                             <span class="block text-sm font-black text-indigo-950">GPT 이미지로 PPT 시각자료 생성</span>
                             <span class="mt-1 block text-[11px] leading-5 text-indigo-700">생성 이미지 비율은 그대로 유지하고 PPT 이미지 박스 안에 contain 방식으로 중앙 정렬합니다. 크롭하거나 늘이지 않습니다.</span>
@@ -318,9 +375,43 @@
     const lectureSubmitState = document.getElementById("lectureSubmitState");
     const lectureQueueList = document.getElementById("lectureQueueList");
     const lectureQueueEmpty = document.getElementById("lectureQueueEmpty");
+    const csrfToken = lectureForm?.querySelector('input[name="csrf_token"]')?.value || "";
     const targetDurationSelect = document.getElementById("targetDurationMinutes");
     const targetSlideCountSelect = document.getElementById("targetSlideCount");
     const lectureFormatHint = document.getElementById("lectureFormatHint");
+    const generateImagesInput = document.getElementById("generateImages");
+    const maxCostInput = document.getElementById("maxCostUsd");
+    const estimatedCost = document.getElementById("estimatedCost");
+    const referenceFiles = document.getElementById("referenceFiles");
+    const referenceFilesHint = document.getElementById("referenceFilesHint");
+    const costConfig = {{ cost_config | tojson }};
+    let budgetTouched = false;
+
+    function estimateCost() {
+        const minutes = Number(targetDurationSelect?.value || 40);
+        const slides = Number(targetSlideCountSelect?.value || 10);
+        let subtotal = Number(costConfig.text_base || 0) + minutes * Number(costConfig.tts_per_minute || 0);
+        if (generateImagesInput?.checked) {
+            subtotal += slides * Number(costConfig.image_per_slide || 0);
+        }
+        return Math.round(subtotal * (1 + Number(costConfig.retry_buffer_ratio || 0)) * 100) / 100;
+    }
+
+    function updateCostEstimate() {
+        const value = estimateCost();
+        if (estimatedCost) estimatedCost.textContent = `$${value.toFixed(2)}`;
+        if (maxCostInput && (!budgetTouched || !maxCostInput.value)) {
+            maxCostInput.value = value.toFixed(2);
+        }
+    }
+
+    maxCostInput?.addEventListener("input", () => { budgetTouched = true; });
+    generateImagesInput?.addEventListener("change", updateCostEstimate);
+    referenceFiles?.addEventListener("change", () => {
+        if (!referenceFilesHint) return;
+        const names = [...(referenceFiles.files || [])].map(file => file.name);
+        referenceFilesHint.textContent = names.length ? `${names.length}개 선택 · ${names.join(", ")}` : "최대 5개 · 파일당 10MB · 전체 25MB";
+    });
 
     function updateLectureFormatHint() {
         if (!targetDurationSelect || !targetSlideCountSelect || !lectureFormatHint) return;
@@ -328,6 +419,7 @@
         const slides = Number(targetSlideCountSelect.value || 10);
         const average = slides > 0 ? (minutes / slides).toFixed(1) : "-";
         lectureFormatHint.innerHTML = `선택: <strong>${slides}장 · ${minutes}분</strong> · 평균 약 ${average}분/장. 도입은 짧게, 핵심 개념·사례는 더 길게 설명하도록 AI가 자동 배분합니다.`;
+        updateCostEstimate();
     }
 
     targetDurationSelect?.addEventListener("change", updateLectureFormatHint);
@@ -735,6 +827,8 @@
         running: "생성 중",
         completed: "완료",
         failed: "실패",
+        awaiting_review: "PPT 확인 대기",
+        cancelled: "취소",
     };
 
     function submitState(type, message) {
@@ -785,9 +879,12 @@
         lectureQueueList.classList.remove("hidden");
 
         for (const item of items) {
-            const row = document.createElement("a");
-            row.href = item.detail_url;
-            row.className = "block px-6 py-4 hover:bg-slate-50";
+            const row = document.createElement("div");
+            row.className = "flex items-stretch gap-2 pr-4 hover:bg-slate-50";
+
+            const link = document.createElement("a");
+            link.href = item.detail_url;
+            link.className = "min-w-0 flex-1 px-6 py-4";
 
             const top = document.createElement("div");
             top.className = "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between";
@@ -833,7 +930,35 @@
             percentage.textContent = `${progress}%`;
             progressLine.append(bar, percentage);
 
-            row.append(top, progressLine);
+            link.append(top, progressLine);
+            row.appendChild(link);
+
+            if (item.status === "queued") {
+                const cancelButton = document.createElement("button");
+                cancelButton.type = "button";
+                cancelButton.className = "my-auto shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 hover:bg-rose-100";
+                cancelButton.textContent = "취소";
+                cancelButton.addEventListener("click", async () => {
+                    cancelButton.disabled = true;
+                    try {
+                        const body = new FormData();
+                        body.append("csrf_token", csrfToken);
+                        const response = await fetch(`/lectures/${item.id}/cancel`, {
+                            method: "POST",
+                            body,
+                            headers: {"Accept": "application/json"},
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) throw new Error(data.detail || "대기 작업을 취소하지 못했습니다.");
+                        await refreshQueue();
+                    } catch (error) {
+                        submitState("error", error.message || "대기 작업을 취소하지 못했습니다.");
+                        cancelButton.disabled = false;
+                    }
+                });
+                row.appendChild(cancelButton);
+            }
+
             lectureQueueList.appendChild(row);
         }
     }
@@ -889,6 +1014,8 @@
             const topicInput = lectureForm.querySelector('textarea[name="topic"]');
             if (titleInput) titleInput.value = "";
             if (topicInput) topicInput.value = "";
+            if (referenceFiles) referenceFiles.value = "";
+            if (referenceFilesHint) referenceFilesHint.textContent = "최대 5개 · 파일당 10MB · 전체 25MB";
             await refreshQueue();
             if (titleInput) titleInput.focus();
         } catch (error) {

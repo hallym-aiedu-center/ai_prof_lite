@@ -350,6 +350,92 @@ class SQLiteJobQueue:
         # Graceful shutdown does not spend a retry attempt.
         return await self._settle(job, 'queued', refund=True)
 
+    async def pause_for_review(self, job: Job) -> bool:
+        db = await get_connection()
+        try:
+            await db.execute('BEGIN IMMEDIATE')
+            now = time.time()
+            cursor = await db.execute("""
+                UPDATE lecture_jobs
+                SET status='paused', lease_token=NULL, lease_until=NULL,
+                    worker_id=NULL, gpu_id=NULL, last_error=NULL, updated_at=?,
+                    attempts=CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END
+                WHERE id=? AND status='running' AND lease_token=? AND lease_until>?
+            """, (now, job.id, job.token, now))
+            if cursor.rowcount != 1:
+                await db.rollback()
+                return False
+            await db.execute("""
+                UPDATE lectures
+                SET status='awaiting_review', run_token=NULL,
+                    review_status='awaiting_review',
+                    status_message='PPT 검토 대기 중 · 승인하면 영상 생성을 이어갑니다.',
+                    error_message=NULL, updated_at=CURRENT_TIMESTAMP
+                WHERE id=? AND run_token=?
+            """, (job.lecture_id, job.token))
+            await db.commit()
+            return True
+        except BaseException:
+            await db.rollback()
+            raise
+        finally:
+            await db.close()
+
+    async def resume_review(self, lecture_id: int) -> bool:
+        db = await get_connection()
+        try:
+            await db.execute('BEGIN IMMEDIATE')
+            now = time.time()
+            cursor = await db.execute("""
+                UPDATE lecture_jobs
+                SET status='queued', available_at=?, lease_token=NULL, lease_until=NULL,
+                    worker_id=NULL, gpu_id=NULL, last_error=NULL, updated_at=?
+                WHERE lecture_id=? AND status='paused'
+            """, (now, now, lecture_id))
+            if cursor.rowcount:
+                await db.execute("""
+                    UPDATE lectures
+                    SET status='queued', run_token=NULL, error_message=NULL,
+                        status_message='검토 반영 · 작업 재개 대기 중',
+                        updated_at=CURRENT_TIMESTAMP
+                    WHERE id=? AND status='awaiting_review'
+                """, (lecture_id,))
+            await db.commit()
+            return cursor.rowcount == 1
+        except BaseException:
+            await db.rollback()
+            raise
+        finally:
+            await db.close()
+
+    async def cancel(self, lecture_id: int) -> bool:
+        """Cancel only jobs that are still waiting in the durable queue."""
+        db = await get_connection()
+        try:
+            await db.execute('BEGIN IMMEDIATE')
+            now = time.time()
+            cursor = await db.execute("""
+                UPDATE lecture_jobs
+                SET status='cancelled', lease_token=NULL, lease_until=NULL,
+                    worker_id=NULL, gpu_id=NULL, last_error=NULL, updated_at=?
+                WHERE lecture_id=? AND status='queued'
+            """, (now, lecture_id))
+            if cursor.rowcount:
+                await db.execute("""
+                    UPDATE lectures
+                    SET status='cancelled', run_token=NULL,
+                        status_message='사용자가 대기 중인 작업을 취소했습니다.',
+                        error_message=NULL, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=? AND status='queued'
+                """, (lecture_id,))
+            await db.commit()
+            return cursor.rowcount == 1
+        except BaseException:
+            await db.rollback()
+            raise
+        finally:
+            await db.close()
+
     async def retry(self, lecture_id: int) -> bool:
         db = await get_connection()
         try:

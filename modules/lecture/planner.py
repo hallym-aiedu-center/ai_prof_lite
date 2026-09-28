@@ -2,6 +2,8 @@ import copy
 import json
 import os
 import re
+from contextlib import suppress
+from pathlib import Path
 
 from jsonschema import validate
 from openai import BadRequestError
@@ -95,6 +97,38 @@ def _parse_json(text: str) -> dict:
     return json.loads(text)
 
 
+def _responses_input(prompt: str, file_ids: list[str]) -> str | list[dict]:
+    if not file_ids:
+        return prompt
+    return [
+        {
+            "role": "user",
+            "content": [
+                *({"type": "input_file", "file_id": file_id} for file_id in file_ids),
+                {"type": "input_text", "text": prompt},
+            ],
+        }
+    ]
+
+
+async def _upload_reference_files(client, files: list[dict] | None) -> list[str]:
+    uploaded: list[str] = []
+    try:
+        for item in files or []:
+            path = Path(str(item.get("path") or ""))
+            if not path.is_file():
+                raise FileNotFoundError(f"참고자료 파일을 찾을 수 없습니다: {path}")
+            with path.open("rb") as handle:
+                created = await client.files.create(file=handle, purpose="user_data")
+            uploaded.append(str(created.id))
+        return uploaded
+    except BaseException:
+        for file_id in uploaded:
+            with suppress(Exception):
+                await client.files.delete(file_id)
+        raise
+
+
 def structured_output_unsupported(error: BadRequestError) -> bool:
     body = error.body if isinstance(error.body, dict) else {}
     body = body.get("error", body)
@@ -154,6 +188,9 @@ async def create_lecture_plan(
     model: str,
     target_duration_minutes: int = 40,
     target_slide_count: int = 10,
+    reference_context: str = "",
+    reference_files: list[dict] | None = None,
+    reference_mode: str = "rag",
 ) -> dict:
     client = get_client(api_key=api_key)
     target_duration_minutes = max(10, min(180, int(target_duration_minutes)))
@@ -161,6 +198,25 @@ async def create_lecture_plan(
     generation_minutes = target_duration_minutes * duration_generation_ratio()
     average_minutes = generation_minutes / target_slide_count
     schema = lecture_schema_for_slide_count(target_slide_count)
+
+    reference_mode = str(reference_mode or "rag").strip().lower()
+    if reference_mode not in {"rag", "full"}:
+        raise ValueError("reference_mode must be 'rag' or 'full'.")
+
+    reference_context = str(reference_context or "").strip()
+    has_reference_files = bool(reference_files)
+    if reference_mode == "rag" and reference_context:
+        grounding = (
+            "\n\n참고자료는 RAG 방식으로 분할·검색한 관련 청크입니다. "
+            "다음 발췌를 사실 근거로 우선 사용하세요:\n" + reference_context
+        )
+    elif reference_mode == "full" and has_reference_files:
+        grounding = (
+            "\n\n첨부 참고자료 원본 파일이 이 요청에 함께 전달됩니다. "
+            "파일 전체 내용을 사실 근거로 우선 사용하고, 자료와 충돌하는 내용을 만들지 마세요."
+        )
+    else:
+        grounding = "\n\n첨부 참고자료가 없습니다. 일반 지식으로 작성하되 불확실한 사실은 단정하지 마세요."
 
     prompt = f"""
 대학/전문교육용 강의 콘텐츠를 설계하세요.
@@ -188,22 +244,39 @@ async def create_lecture_plan(
 - quiz는 실제 slides/narration에서 가르친 내용만 출제.
 - quiz는 4지선다형으로 작성.
 - 과장된 마케팅 문구 대신 교육적으로 명확한 문체 사용.
+- 참고자료가 있으면 참고자료와 충돌하는 내용을 만들지 말고, 참고자료에 없는 세부 수치나 고유 사실은 신중하게 다룰 것.
+{grounding}
 """
 
     async with client:
+        uploaded_file_ids: list[str] = []
         try:
-            response = await client.responses.create(
-                model=model, input=prompt,
-                text={"format": {"type": "json_schema", "name": "lecture_plan",
-                                 "strict": True, "schema": schema}},
-            )
-        except BadRequestError as exc:
-            if not structured_output_unsupported(exc):
-                raise
-            response = await client.responses.create(
-                model=model,
-                input=prompt + "\n반드시 JSON만 출력하세요. 스키마:\n" + json.dumps(schema, ensure_ascii=False),
-            )
+            if reference_mode == "full" and has_reference_files:
+                uploaded_file_ids = await _upload_reference_files(client, reference_files)
+
+            try:
+                response = await client.responses.create(
+                    model=model,
+                    input=_responses_input(prompt, uploaded_file_ids),
+                    text={"format": {"type": "json_schema", "name": "lecture_plan",
+                                     "strict": True, "schema": schema}},
+                )
+            except BadRequestError as exc:
+                if not structured_output_unsupported(exc):
+                    raise
+                fallback_prompt = (
+                    prompt
+                    + "\n반드시 JSON만 출력하세요. 스키마:\n"
+                    + json.dumps(schema, ensure_ascii=False)
+                )
+                response = await client.responses.create(
+                    model=model,
+                    input=_responses_input(fallback_prompt, uploaded_file_ids),
+                )
+        finally:
+            for file_id in uploaded_file_ids:
+                with suppress(Exception):
+                    await client.files.delete(file_id)
     plan = _parse_json(response.output_text)
     validate(instance=plan, schema=schema)
     return plan

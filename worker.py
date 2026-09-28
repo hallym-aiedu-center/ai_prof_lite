@@ -183,6 +183,8 @@ async def supervise(queue, job, stop: asyncio.Event, gpu_id: str, gpu_pool: asyn
             if wait_task in done:
                 if process.returncode == 0:
                     await queue.finish(job)
+                elif process.returncode == 3:
+                    await queue.pause_for_review(job)
                 else:
                     await queue.fail(
                         job,

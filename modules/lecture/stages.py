@@ -21,6 +21,7 @@ from modules.lecture.composer import (
 )
 from modules.lecture.narration import build_narration
 from modules.lecture.planner import create_lecture_plan, expand_lecture_narrations
+from modules.lecture.references import build_reference_context
 from modules.lecture.repository import get_publish_schedule, update_lecture
 from modules.lecture.slides import build_slide_assets, use_image_model_slide_rendering
 from modules.moodle.service import get_user_moodle_client
@@ -61,6 +62,12 @@ class StageContext:
 
     async def preflight(self):
         await self.check()
+        maximum_cost = self.lecture.get("max_cost_usd")
+        estimated_cost = float(self.lecture.get("estimated_cost_usd") or 0.0)
+        if maximum_cost is not None and estimated_cost > float(maximum_cost) + 1e-9:
+            raise ValueError(
+                f"예상 생성비용 ${estimated_cost:.2f}이 사용자가 설정한 한도 ${float(maximum_cost):.2f}를 초과합니다."
+            )
         done = set()
         for name, *_ in STAGES:
             saved = await get_stage(self.job.lecture_id, name)
@@ -113,6 +120,17 @@ def write_json(path, value):
 
 
 async def plan_stage(ctx):
+    source_files = ctx.lecture.get("source_files_json") or []
+    reference_mode = str(ctx.lecture.get("reference_mode") or "rag").lower()
+    reference_context = ""
+    if source_files and reference_mode == "rag":
+        reference_context = await asyncio.to_thread(
+            build_reference_context,
+            source_files,
+            title=ctx.lecture["title"],
+            topic=ctx.lecture["topic"],
+        )
+
     plan = await create_lecture_plan(
         api_key=ctx.api_key,
         title=ctx.lecture['title'],
@@ -120,6 +138,9 @@ async def plan_stage(ctx):
         model=ctx.lecture['text_model'],
         target_duration_minutes=int(ctx.lecture.get('target_duration_minutes') or 40),
         target_slide_count=int(ctx.lecture.get('target_slide_count') or 10),
+        reference_context=reference_context,
+        reference_files=source_files if reference_mode == "full" else None,
+        reference_mode=reference_mode,
     )
     plan_path, quiz_path = ctx.directory / 'lecture_plan.json', ctx.directory / 'quiz.json'
     await ctx.check()

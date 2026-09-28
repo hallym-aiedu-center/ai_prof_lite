@@ -184,8 +184,14 @@ if trusted_hosts:
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 app.include_router(auth_router)
-app.add_middleware(BodyLimitMiddleware,
-                   max_bytes=positive_int('MAX_PORTRAIT_BYTES', 10 * 1024 * 1024) + 128 * 1024)
+app.add_middleware(
+    BodyLimitMiddleware,
+    max_bytes=(
+        positive_int('MAX_PORTRAIT_BYTES', 10 * 1024 * 1024)
+        + positive_int('MAX_REFERENCE_UPLOAD_BYTES', 25 * 1024 * 1024)
+        + 512 * 1024
+    ),
+)
 app.include_router(dashboard_router)
 app.include_router(users_router)
 app.include_router(credentials_router)

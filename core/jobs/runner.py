@@ -50,9 +50,12 @@ async def run(job: Job) -> int:
     try:
         await assert_owned()
         done, _ = await asyncio.wait({pipeline, watchdog}, return_when=asyncio.FIRST_COMPLETED)
+        result = None
         for task in done:
-            task.result()
-        return 0
+            value = task.result()
+            if task is pipeline:
+                result = value
+        return 3 if result == 'awaiting_review' else 0
     except LeaseLost:
         # Also clean descendants if the supervisor itself was killed.
         if os.name == 'posix' and os.getpgrp() == os.getpid():

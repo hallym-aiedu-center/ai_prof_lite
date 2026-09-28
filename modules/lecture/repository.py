@@ -24,8 +24,16 @@ async def create_lecture(
     portrait_path: str | None = None,
     target_duration_minutes: int = 40,
     target_slide_count: int = 10,
+    review_before_video: bool = False,
+    source_files: list[dict] | None = None,
+    reference_mode: str = "rag",
+    max_cost_usd: float | None = None,
+    estimated_cost_usd: float = 0.0,
     initial_status: str = "queued",
 ) -> int:
+    if reference_mode not in {"rag", "full"}:
+        raise ValueError("reference_mode must be 'rag' or 'full'.")
+
     if moodle_deploy_mode not in {
         "create",
         "existing",
@@ -52,6 +60,12 @@ async def create_lecture(
                 generate_images,
                 target_duration_minutes,
                 target_slide_count,
+                review_before_video,
+                review_status,
+                source_files_json,
+                reference_mode,
+                max_cost_usd,
+                estimated_cost_usd,
                 moodle_course_id,
                 moodle_section_num,
                 moodle_deploy_mode,
@@ -59,7 +73,7 @@ async def create_lecture(
                 upload_to_moodle,
                 portrait_path
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -73,6 +87,12 @@ async def create_lecture(
                 1 if generate_images else 0,
                 int(target_duration_minutes),
                 int(target_slide_count),
+                1 if review_before_video else 0,
+                "pending" if review_before_video else "not_required",
+                json.dumps(source_files or [], ensure_ascii=False),
+                reference_mode,
+                float(max_cost_usd) if max_cost_usd is not None else None,
+                float(estimated_cost_usd),
                 moodle_course_id,
                 moodle_section_num,
                 moodle_deploy_mode,
@@ -112,6 +132,12 @@ async def update_lecture(
         "portrait_path",
         "plan_json",
         "quiz_json",
+        "review_status",
+        "review_before_video",
+        "source_files_json",
+        "reference_mode",
+        "max_cost_usd",
+        "estimated_cost_usd",
 
         "pptx_path",
         "narration_path",
@@ -191,6 +217,7 @@ def _deserialize(row):
         "plan_json",
         "quiz_json",
         "moodle_result_json",
+        "source_files_json",
     ):
         if item.get(key):
             try:

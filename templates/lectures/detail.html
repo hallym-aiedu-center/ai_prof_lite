@@ -14,7 +14,8 @@
             </div>
             <span id="statusBadge" class="rounded-full px-3 py-1.5 text-xs font-medium
                 {% if lecture.status == 'completed' %}bg-emerald-50 text-emerald-700
-                {% elif lecture.status == 'failed' %}bg-rose-50 text-rose-700
+                {% elif lecture.status in ['failed', 'cancelled'] %}bg-rose-50 text-rose-700
+                {% elif lecture.status == 'awaiting_review' %}bg-amber-50 text-amber-700
                 {% else %}bg-indigo-50 text-indigo-700{% endif %}">
                 {{ lecture.status }}
             </span>
@@ -36,43 +37,124 @@
         <div id="errorBox" class="{% if not lecture.error_message %}hidden {% endif %}mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {{ lecture.error_message or '' }}
         </div>
-        {% if lecture.status == 'failed' %}
-        <form method="post" action="/lectures/{{ lecture.id }}/retry" class="mt-4">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="rounded-lg bg-indigo-600 px-4 py-2 text-white">완료한 단계부터 재시도</button>
-        </form>
-        {% endif %}
+        <div class="mt-4 flex flex-wrap gap-2">
+            {% if lecture.status == 'failed' %}
+            <form method="post" action="/lectures/{{ lecture.id }}/retry">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="rounded-lg bg-indigo-600 px-4 py-2 text-white">완료한 단계부터 재시도</button>
+            </form>
+            {% endif %}
+            {% if lecture.status == 'queued' %}
+            <form method="post" action="/lectures/{{ lecture.id }}/cancel">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100">대기 작업 취소</button>
+            </form>
+            {% endif %}
+        </div>
     </section>
 
-    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
             <div class="text-xs uppercase tracking-wider text-slate-400">강의 설계</div>
             <div class="mt-2 font-medium">{{ lecture.text_model }}</div>
+            <div class="mt-1 text-xs text-slate-400">강의안·퀴즈를 한 번에 생성</div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs uppercase tracking-wider text-slate-400">Image</div>
+            <div class="text-xs uppercase tracking-wider text-slate-400">참고자료</div>
+            <div class="mt-2 font-medium">{{ (lecture.source_files_json or []) | length }}개</div>
+            <div class="mt-1 text-xs text-slate-400">
+                {% if lecture.source_files_json %}
+                    {% if lecture.reference_mode == 'full' %}전체 파일을 GPT에 직접 전달{% else %}RAG 분할·검색으로 관련 내용 사용{% endif %}
+                {% else %}
+                    첨부자료 없이 LLM 지식으로 생성
+                {% endif %}
+            </div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">비용 한도</div>
+            <div class="mt-2 font-medium">{% if lecture.max_cost_usd is not none %}${{ '%.2f'|format(lecture.max_cost_usd) }}{% else %}미설정{% endif %}</div>
+            <div class="mt-1 text-xs text-slate-400">예상 약 ${{ '%.2f'|format(lecture.estimated_cost_usd or 0) }}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">PPT 검토</div>
+            <div class="mt-2 font-medium">{% if lecture.review_before_video %}사용{% else %}자동 진행{% endif %}</div>
+            <div class="mt-1 text-xs text-slate-400">{{ lecture.review_status or 'not_required' }}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div class="text-xs uppercase tracking-wider text-slate-400">Image / TTS</div>
             <div class="mt-2 font-medium">{{ lecture.image_model }}</div>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs uppercase tracking-wider text-slate-400">TTS</div>
-            <div class="mt-2 font-medium">{{ lecture.tts_model }}</div>
+            <div class="mt-1 text-xs text-slate-400">{{ lecture.tts_model }} · {{ lecture.tts_voice }}</div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
             <div class="text-xs uppercase tracking-wider text-slate-400">Moodle</div>
             <div class="mt-2 font-medium">
-                {% if lecture.moodle_videotracker_cmid %}
-                    CMID {{ lecture.moodle_videotracker_cmid }}
-                {% elif lecture.upload_to_moodle %}
-                    생성 대기
-                {% else %}
-                    미사용
-                {% endif %}
+                {% if lecture.moodle_videotracker_cmid %}CMID {{ lecture.moodle_videotracker_cmid }}
+                {% elif lecture.upload_to_moodle %}생성 대기{% else %}미사용{% endif %}
             </div>
-            <div class="mt-1 text-xs text-slate-400">
-                {{ lecture.moodle_deploy_mode or 'create' }}
-            </div>
+            <div class="mt-1 text-xs text-slate-400">{{ lecture.moodle_deploy_mode or 'create' }}</div>
         </div>
     </section>
+
+    {% if lecture.status == 'awaiting_review' and lecture.plan_json %}
+    <section class="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-panel">
+        <div class="border-b border-amber-100 bg-amber-50 px-6 py-5">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <div class="text-xs font-black uppercase tracking-[.15em] text-amber-700">PPT Review Gate</div>
+                    <h2 class="mt-1 text-lg font-semibold text-slate-900">슬라이드를 확인한 뒤 영상 생성 여부를 결정하세요.</h2>
+                    <p class="mt-1 text-sm text-slate-600">그대로 승인하면 TTS·TalkingHead·영상 합성 단계로 이어집니다. 수정 후 저장하면 PPT만 다시 생성한 뒤 다시 검토 상태로 돌아옵니다.</p>
+                </div>
+                <div class="flex shrink-0 flex-wrap gap-2">
+                    <a href="/lectures/{{ lecture.id }}/download/pptx" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">PPTX 보기</a>
+                    <form method="post" action="/lectures/{{ lecture.id }}/review/approve">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">이대로 승인하고 영상 생성</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" action="/lectures/{{ lecture.id }}/review/update" class="divide-y divide-slate-100">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {% for slide in lecture.plan_json.slides %}
+            <details class="group" {% if loop.first %}open{% endif %}>
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-4 hover:bg-slate-50">
+                    <div>
+                        <span class="text-xs font-black text-indigo-600">SLIDE {{ '%02d'|format(loop.index) }}</span>
+                        <span class="ml-2 text-sm font-semibold text-slate-900">{{ slide.title }}</span>
+                    </div>
+                    <span class="text-xs font-semibold text-slate-400 group-open:hidden">편집 열기</span>
+                    <span class="hidden text-xs font-semibold text-slate-400 group-open:inline">접기</span>
+                </summary>
+                <div class="grid gap-5 border-t border-slate-100 bg-slate-50/40 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                    <div>
+                        <img src="/lectures/{{ lecture.id }}/slides/{{ loop.index }}.png" alt="{{ loop.index }}번 슬라이드 미리보기" class="aspect-video w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm">
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="mb-1.5 block text-xs font-bold text-slate-600">제목</label>
+                            <input name="slide_{{ loop.index }}_title" value="{{ slide.title }}" required maxlength="300" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400">
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-xs font-bold text-slate-600">Bullet · 한 줄에 하나</label>
+                            <textarea name="slide_{{ loop.index }}_bullets" rows="5" required class="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-indigo-400">{% for bullet in slide.bullets %}{{ bullet }}{% if not loop.last %}
+{% endif %}{% endfor %}</textarea>
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-xs font-bold text-slate-600">설명 대본</label>
+                            <textarea name="slide_{{ loop.index }}_narration" rows="9" required maxlength="20000" class="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-indigo-400">{{ slide.narration }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </details>
+            {% endfor %}
+            <div class="flex flex-col gap-2 bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-xs leading-5 text-slate-500">수정 저장 시 슬라이드/PPT 체크포인트만 다시 만들고, 아직 시작하지 않은 영상 단계는 실행하지 않습니다.</p>
+                <button class="shrink-0 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500">수정사항 저장 · PPT 다시 생성</button>
+            </div>
+        </form>
+    </section>
+    {% endif %}
 
     <section id="artifactSection" class="rounded-2xl border border-slate-200 bg-white shadow-panel">
         <div class="border-b border-slate-200 px-6 py-5">
@@ -144,7 +226,7 @@ const timer = setInterval(async () => {
             box.classList.remove('hidden');
         }
 
-        if (data.completed || data.failed) {
+        if (data.completed || data.failed || data.awaiting_review || data.cancelled) {
             clearInterval(timer);
             setTimeout(() => window.location.reload(), 700);
         }

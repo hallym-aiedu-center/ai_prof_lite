@@ -42,3 +42,5 @@ typing-extensions==4.16.0
 typing-inspection==0.4.4
 uvicorn==0.54.0
 xlsxwriter==3.2.9
+
+pypdf==6.0.0

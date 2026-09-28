@@ -12,3 +12,5 @@ openai[realtime]
 python-pptx
 Pillow
 rembg[cpu]==2.0.69
+
+pypdf

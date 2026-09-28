@@ -180,6 +180,13 @@ async def init_database() -> None:
                 target_duration_minutes INTEGER NOT NULL DEFAULT 40,
                 target_slide_count INTEGER NOT NULL DEFAULT 10,
 
+                review_before_video INTEGER NOT NULL DEFAULT 0,
+                review_status TEXT NOT NULL DEFAULT 'not_required',
+                source_files_json TEXT,
+                reference_mode TEXT NOT NULL DEFAULT 'rag',
+                max_cost_usd REAL,
+                estimated_cost_usd REAL NOT NULL DEFAULT 0,
+
                 moodle_course_id INTEGER,
                 moodle_section_num INTEGER,
                 moodle_deploy_mode TEXT NOT NULL DEFAULT 'create',
@@ -250,6 +257,32 @@ async def init_database() -> None:
             "lectures",
             "moodle_deploy_mode",
             "TEXT NOT NULL DEFAULT 'create'",
+        )
+        await _add_column_if_missing(
+            db,
+            "lectures",
+            "review_before_video",
+            "INTEGER NOT NULL DEFAULT 0",
+        )
+        await _add_column_if_missing(
+            db,
+            "lectures",
+            "review_status",
+            "TEXT NOT NULL DEFAULT 'not_required'",
+        )
+        await _add_column_if_missing(db, "lectures", "source_files_json", "TEXT")
+        await _add_column_if_missing(
+            db,
+            "lectures",
+            "reference_mode",
+            "TEXT NOT NULL DEFAULT 'rag'",
+        )
+        await _add_column_if_missing(db, "lectures", "max_cost_usd", "REAL")
+        await _add_column_if_missing(
+            db,
+            "lectures",
+            "estimated_cost_usd",
+            "REAL NOT NULL DEFAULT 0",
         )
 
         await _add_column_if_missing(db, "lectures", "run_token", "TEXT")
