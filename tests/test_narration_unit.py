@@ -156,3 +156,22 @@ async def test_build_narration_uses_chunk_cache_and_full_cache(tmp_path, monkeyp
     )
     assert all(path.is_file() for path in rebuilt)
     speech.assert_not_awaited()
+
+    # Change only one slide's narration. The content key must invalidate only
+    # that run-local WAV while the unchanged slide is reused without a paid call.
+    changed_plan = {
+        "slides": [
+            {"narration": "A" * 650},
+            {"narration": "changed narration"},
+        ]
+    }
+    speech.reset_mock()
+    await narration.build_narration(
+        api_key="key",
+        plan=changed_plan,
+        output_dir=output_dir,
+        model="tts",
+        voice="alloy",
+        cache_dir=cache_dir,
+    )
+    assert speech.await_count == 1

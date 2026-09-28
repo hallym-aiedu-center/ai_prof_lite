@@ -70,3 +70,34 @@ async def test_malformed_success_does_not_make_extra_call(monkeypatch):
     with pytest.raises(json.JSONDecodeError):
         await operation
     assert client.responses.create.await_count == 1
+
+async def test_expand_narrations_preserves_structure_and_never_shortens(monkeypatch, plan):
+    revised = {
+        "narrations": [
+            "짧음",
+            "test narration " + "상세 설명 " * 8,
+            "test narration " + "사례 설명 " * 8,
+            "test narration " + "정리 설명 " * 8,
+        ]
+    }
+    client = Client([SimpleNamespace(output_text=json.dumps(revised, ensure_ascii=False))])
+    monkeypatch.setattr(planner, 'get_client', lambda **_: client)
+
+    result = await planner.expand_lecture_narrations(
+        api_key='test',
+        plan=plan,
+        model='test',
+        actual_duration_seconds=1800,
+        minimum_duration_seconds=2400,
+        attempt=1,
+    )
+
+    assert result is not plan
+    assert result['slides'][0]['narration'] == plan['slides'][0]['narration']
+    assert len(result['slides'][1]['narration']) > len(plan['slides'][1]['narration'])
+    assert [s['title'] for s in result['slides']] == [s['title'] for s in plan['slides']]
+    assert result['quiz'] == plan['quiz']
+    assert client.responses.create.await_count == 1
+    prompt = client.responses.create.call_args.kwargs['input']
+    assert '최소 재생시간: 40.00분' in prompt
+    assert '안전 목표: 약 42.00분' in prompt

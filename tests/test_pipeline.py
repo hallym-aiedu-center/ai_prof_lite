@@ -45,6 +45,9 @@ async def ready(make_lecture, **overrides):
 
 async def test_pipeline_retry_reuses_paid_stages_and_real_ffmpeg(make_lecture, monkeypatch, plan):
     monkeypatch.setenv("LECTURE_RENDER_SLIDES_WITH_IMAGE_MODEL", "false")
+    # This integration test intentionally uses sub-second fixture audio. Duration
+    # guarantee behavior is covered separately with deterministic stage tests.
+    monkeypatch.setattr(stages, '_minimum_duration_seconds', lambda ctx: 0.5)
     plan = dict(plan)
     plan["slides"] = [
         dict(slide, narration=f"test narration {idx}")

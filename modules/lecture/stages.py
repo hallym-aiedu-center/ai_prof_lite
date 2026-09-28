@@ -20,7 +20,7 @@ from modules.lecture.composer import (
     media_duration,
 )
 from modules.lecture.narration import build_narration
-from modules.lecture.planner import create_lecture_plan
+from modules.lecture.planner import create_lecture_plan, expand_lecture_narrations
 from modules.lecture.repository import get_publish_schedule, update_lecture
 from modules.lecture.slides import build_slide_assets, use_image_model_slide_rendering
 from modules.moodle.service import get_user_moodle_client
@@ -215,15 +215,83 @@ async def slides_stage(ctx):
     return {'pptx': str(pptx), 'pngs': list(map(str, pngs)), 'files': [str(pptx), *map(str, pngs)]}
 
 
+def _duration_max_retries() -> int:
+    try:
+        value = int(os.getenv("LECTURE_DURATION_MAX_RETRIES", "3"))
+    except ValueError:
+        value = 3
+    return max(0, min(5, value))
+
+
+def _minimum_duration_seconds(ctx) -> float:
+    minutes = max(1, int(ctx.lecture.get("target_duration_minutes") or 40))
+    return float(minutes * 60)
+
+
 async def narration_stage(ctx):
-    narration, audios = await build_narration(
-        api_key=ctx.api_key, plan=ctx.outputs['plan']['plan'], output_dir=ctx.directory / 'audio',
-        model=ctx.lecture['tts_model'], voice=ctx.lecture['tts_voice'], check_lease=ctx.check,
-        cache_dir=ctx.cache_directory / 'tts',
-    )
+    minimum_seconds = _minimum_duration_seconds(ctx)
+    max_retries = _duration_max_retries()
+    plan = ctx.outputs['plan']['plan']
+    duration = 0.0
+    narration = None
+    audios = []
+
+    for attempt in range(max_retries + 1):
+        narration, audios = await build_narration(
+            api_key=ctx.api_key,
+            plan=plan,
+            output_dir=ctx.directory / 'audio',
+            model=ctx.lecture['tts_model'],
+            voice=ctx.lecture['tts_voice'],
+            check_lease=ctx.check,
+            cache_dir=ctx.cache_directory / 'tts',
+        )
+        duration = await media_duration(narration)
+        if duration >= minimum_seconds:
+            break
+
+        if attempt >= max_retries:
+            raise RuntimeError(
+                '목표 강의시간을 충족하지 못했습니다. '
+                f'목표={minimum_seconds / 60:.1f}분, 실제={duration / 60:.1f}분, '
+                f'보강 시도={max_retries}회'
+            )
+
+        await ctx.check()
+        await ctx.update(
+            status_message=(
+                '강의 시간이 부족해 설명을 보강하는 중 '
+                f'({duration / 60:.1f}/{minimum_seconds / 60:.1f}분, '
+                f'{attempt + 1}/{max_retries}회)'
+            )
+        )
+        plan = await expand_lecture_narrations(
+            api_key=ctx.api_key,
+            plan=plan,
+            model=ctx.lecture['text_model'],
+            actual_duration_seconds=duration,
+            minimum_duration_seconds=minimum_seconds,
+            attempt=attempt + 1,
+        )
+
+        # Keep the corrected narration durable across worker retries.  Slides and
+        # quiz content are untouched, so already-rendered slide assets remain valid.
+        ctx.outputs['plan']['plan'] = plan
+        plan_path = ctx.directory / 'lecture_plan.json'
+        write_json(plan_path, plan)
+        await ctx.update(plan_json=plan)
+        await ctx.checkpoint('plan', 'completed', ctx.outputs['plan'])
+
+    assert narration is not None
     await ctx.update(narration_path=str(narration))
-    return {'narration': str(narration), 'audios': list(map(str, audios)),
-            'files': [str(narration), *map(str, audios)]}
+    return {
+        'narration': str(narration),
+        'audios': list(map(str, audios)),
+        'duration': duration,
+        'target_duration': minimum_seconds,
+        'duration_corrections': attempt,
+        'files': [str(narration), *map(str, audios)],
+    }
 
 
 async def timeline_stage(ctx):
@@ -263,8 +331,19 @@ async def compose_stage(ctx):
                                      output_path=ctx.directory / 'final_lecture.mp4',
                                      chroma_color=ctx.outputs['avatar']['chroma_color'])
     duration = await media_duration(path)
+    minimum_seconds = _minimum_duration_seconds(ctx)
+    if duration < minimum_seconds:
+        raise RuntimeError(
+            '최종 강의 영상이 목표 강의시간보다 짧습니다. '
+            f'목표={minimum_seconds / 60:.1f}분, 실제={duration / 60:.1f}분'
+        )
     await ctx.update(final_video_path=str(path))
-    return {'video': str(path), 'duration': duration, 'files': [str(path)]}
+    return {
+        'video': str(path),
+        'duration': duration,
+        'target_duration': minimum_seconds,
+        'files': [str(path)],
+    }
 
 
 async def deploy_stage(ctx):
