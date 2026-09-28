@@ -513,7 +513,7 @@ async def _response_reserve_cost(client, model: str, kwargs: dict, *, budget_inp
             f"가격 정보가 없는 OpenAI 텍스트 모델입니다: {model}. "
             "OPENAI_PRICING_JSON에 단가를 등록하세요."
         )
-    input_tokens = await _count_response_input_tokens(client, model=model, **kwargs)
+    input_tokens = await _count_response_input_tokens(client, **kwargs)
     if input_tokens is None:
         input_tokens = _rough_tokens(kwargs.get("input"))
     input_tokens += max(0, math.ceil(int(budget_input_bytes) / 2.0))
