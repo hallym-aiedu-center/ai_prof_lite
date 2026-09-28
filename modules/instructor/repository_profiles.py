@@ -123,7 +123,13 @@ async def list_enabled_profiles() -> list[dict]:
     db = await get_connection()
     try:
         cursor = await db.execute(
-            "SELECT * FROM ai_instructor_profiles WHERE enabled = 1 ORDER BY user_id ASC"
+            """
+            SELECT p.*
+            FROM ai_instructor_profiles AS p
+            JOIN users AS u ON u.id = p.user_id
+            WHERE p.enabled = 1 AND u.status = 'active'
+            ORDER BY p.user_id ASC
+            """
         )
         return [_decode_profile(row) for row in await cursor.fetchall()]
     finally:

@@ -47,7 +47,10 @@ class SQLiteJobQueue:
             await db.execute("""
                 INSERT OR IGNORE INTO lecture_jobs
                     (lecture_id, max_attempts, available_at, updated_at)
-                SELECT id, ?, ?, ? FROM lectures WHERE id=? AND status='queued'
+                SELECT l.id, ?, ?, ?
+                FROM lectures AS l
+                JOIN users AS u ON u.id = l.user_id
+                WHERE l.id=? AND l.status='queued' AND u.status='active'
             """, (self.max_attempts, now, now, lecture_id))
             await db.commit()
         finally:
@@ -61,8 +64,12 @@ class SQLiteJobQueue:
             await db.execute("""
                 INSERT OR IGNORE INTO lecture_jobs
                     (lecture_id, max_attempts, available_at, updated_at)
-                SELECT id, ?, ?, ? FROM lectures
-                WHERE status IN ('queued', 'running') AND portrait_path IS NOT NULL
+                SELECT l.id, ?, ?, ?
+                FROM lectures AS l
+                JOIN users AS u ON u.id = l.user_id
+                WHERE l.status IN ('queued', 'running')
+                  AND l.portrait_path IS NOT NULL
+                  AND u.status='active'
             """, (self.max_attempts, now, now))
             await db.commit()
         finally:
@@ -199,8 +206,10 @@ class SQLiteJobQueue:
                 SELECT queued.*
                 FROM lecture_jobs AS queued
                 JOIN lectures AS queued_lecture ON queued_lecture.id = queued.lecture_id
+                JOIN users AS queued_user ON queued_user.id = queued_lecture.user_id
                 WHERE queued.status='queued'
                   AND queued.available_at<=?
+                  AND queued_user.status='active'
                   AND (
                       SELECT COUNT(*)
                       FROM lecture_jobs AS running
@@ -236,8 +245,13 @@ class SQLiteJobQueue:
         db = await get_connection()
         try:
             row = await (await db.execute("""
-                SELECT 1 FROM lecture_jobs WHERE id=? AND status='running'
-                    AND lease_token=? AND lease_until>?
+                SELECT 1
+                FROM lecture_jobs AS j
+                JOIN lectures AS l ON l.id = j.lecture_id
+                JOIN users AS u ON u.id = l.user_id
+                WHERE j.id=? AND j.status='running'
+                  AND j.lease_token=? AND j.lease_until>?
+                  AND u.status='active'
             """, (job.id, job.token, time.time()))).fetchone()
             return row is not None
         finally:
@@ -248,8 +262,16 @@ class SQLiteJobQueue:
         try:
             now = time.time()
             cursor = await db.execute("""
-                UPDATE lecture_jobs SET lease_until=?, updated_at=? WHERE id=?
-                AND status='running' AND lease_token=? AND lease_until>?
+                UPDATE lecture_jobs
+                SET lease_until=?, updated_at=?
+                WHERE id=? AND status='running' AND lease_token=? AND lease_until>?
+                  AND EXISTS (
+                        SELECT 1
+                        FROM lectures AS l
+                        JOIN users AS u ON u.id = l.user_id
+                        WHERE l.id = lecture_jobs.lecture_id
+                          AND u.status='active'
+                  )
             """, (now + self.lease_seconds, now, job.id, job.token, now))
             await db.commit()
             return cursor.rowcount == 1
@@ -261,8 +283,16 @@ class SQLiteJobQueue:
         try:
             now = time.time()
             cursor = await db.execute("""
-                UPDATE lecture_jobs SET gpu_id=?, updated_at=? WHERE id=?
-                AND status='running' AND lease_token=? AND lease_until>?
+                UPDATE lecture_jobs
+                SET gpu_id=?, updated_at=?
+                WHERE id=? AND status='running' AND lease_token=? AND lease_until>?
+                  AND EXISTS (
+                        SELECT 1
+                        FROM lectures AS l
+                        JOIN users AS u ON u.id = l.user_id
+                        WHERE l.id = lecture_jobs.lecture_id
+                          AND u.status='active'
+                  )
             """, (gpu_id, now, job.id, job.token, now))
             await db.commit()
             return cursor.rowcount == 1
@@ -327,7 +357,15 @@ class SQLiteJobQueue:
             now = time.time()
             cursor = await db.execute("""
                 UPDATE lecture_jobs SET status='queued', attempts=0, available_at=?,
-                    last_error=NULL, updated_at=? WHERE lecture_id=? AND status='failed'
+                    last_error=NULL, updated_at=?
+                WHERE lecture_id=? AND status='failed'
+                  AND EXISTS (
+                        SELECT 1
+                        FROM lectures AS l
+                        JOIN users AS u ON u.id = l.user_id
+                        WHERE l.id = lecture_jobs.lecture_id
+                          AND u.status='active'
+                  )
             """, (now, now, lecture_id))
             if cursor.rowcount:
                 await db.execute("""

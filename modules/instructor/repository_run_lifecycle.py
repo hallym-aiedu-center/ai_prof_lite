@@ -14,9 +14,11 @@ async def finalize_instructor_run(
         await db.execute("BEGIN IMMEDIATE")
         owner = await (await db.execute(
             """
-            SELECT 1 FROM ai_instructor_runs
-            WHERE id = ? AND status = 'planning' AND planning_token = ?
-              AND planning_lease_until > CURRENT_TIMESTAMP
+            SELECT 1 FROM ai_instructor_runs AS r
+            JOIN users AS u ON u.id = r.user_id
+            WHERE r.id = ? AND r.status = 'planning' AND r.planning_token = ?
+              AND r.planning_lease_until > CURRENT_TIMESTAMP
+              AND u.status = 'active'
             """,
             (run_id, planning_token),
         )).fetchone()
@@ -126,8 +128,10 @@ async def recover_stale_instructor_runs() -> list[int]:
         await db.execute("BEGIN IMMEDIATE")
         rows = await (await db.execute(
             """
-            SELECT r.id, r.lecture_id, l.status AS lecture_status
+            SELECT r.id, r.lecture_id, l.status AS lecture_status,
+                   u.status AS user_status
             FROM ai_instructor_runs AS r
+            JOIN users AS u ON u.id = r.user_id
             LEFT JOIN lectures AS l ON l.id = r.lecture_id
             WHERE r.status = 'planning'
               AND (r.planning_lease_until IS NULL
@@ -140,6 +144,26 @@ async def recover_stale_instructor_runs() -> list[int]:
             run_id = int(row["id"])
             lecture_id = row["lecture_id"]
             lecture_status = str(row["lecture_status"] or "")
+            user_status = str(row["user_status"] or "")
+
+            if user_status != "active":
+                if lecture_id is not None and lecture_status == "planning":
+                    await db.execute(
+                        "DELETE FROM lectures WHERE id = ? AND status = 'planning'",
+                        (int(lecture_id),),
+                    )
+                await db.execute(
+                    """
+                    UPDATE ai_instructor_runs
+                    SET status = 'cancelled', planning_token = NULL,
+                        planning_lease_until = NULL,
+                        last_error = 'account inactive',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND status = 'planning'
+                    """,
+                    (run_id,),
+                )
+                continue
 
             if lecture_id is not None and lecture_status in {"queued", "running", "completed"}:
                 await db.execute(

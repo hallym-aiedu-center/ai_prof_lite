@@ -118,7 +118,7 @@ async def _planning_heartbeat(run_id: int, planning_token: str) -> None:
             planning_token,
             lease_seconds=_planning_lease_seconds(),
         ):
-            return
+            raise LeaseLost("AI instructor planning lease was lost or account became inactive.")
 
 
 async def _plan_profile(profile: dict) -> None:
@@ -167,15 +167,25 @@ async def _plan_profile(profile: dict) -> None:
             _planning_heartbeat(run_id, planning_token),
             name=f"instructor-planning-heartbeat-{run_id}",
         )
-        try:
-            await create_delegated_lecture(
+        planning = asyncio.create_task(
+            create_delegated_lecture(
                 run_id=run_id,
                 planning_token=planning_token,
                 profile=profile,
                 scheduled_at_utc=scheduled_at,
                 week_number=week_number,
                 total_weeks=total_weeks,
+            ),
+            name=f"instructor-planning-{run_id}",
+        )
+        try:
+            done, _ = await asyncio.wait(
+                {planning, heartbeat},
+                return_when=asyncio.FIRST_COMPLETED,
             )
+            if heartbeat in done:
+                heartbeat.result()
+            planning.result()
         except asyncio.CancelledError:
             with contextlib.suppress(Exception):
                 await fail_instructor_run(
@@ -185,7 +195,7 @@ async def _plan_profile(profile: dict) -> None:
                 )
             raise
         except LeaseLost:
-            # A different scheduler recovered the expired planning lease.
+            # Ownership can be lost to lease recovery or immediate account deactivation.
             pass
         except Exception as exc:  # noqa: BLE001
             with contextlib.suppress(Exception):
@@ -195,8 +205,9 @@ async def _plan_profile(profile: dict) -> None:
                     error=f"{type(exc).__name__}: {exc}"[:1200],
                 )
         finally:
-            heartbeat.cancel()
-            await asyncio.gather(heartbeat, return_exceptions=True)
+            for task in (planning, heartbeat):
+                task.cancel()
+            await asyncio.gather(planning, heartbeat, return_exceptions=True)
 
 
 async def _recover_abandoned_plans() -> None:

@@ -8,6 +8,7 @@ from core.config import PROJECT_ROOT as TEMPLATE_ROOT
 from core.config import registration_code
 from modules.auth.rate_limit import (
     check_login_rate_limit,
+    check_register_rate_limit,
     reset_login_account,
 )
 from modules.auth.service import (
@@ -125,6 +126,23 @@ async def register(
     csrf_token: str = Form(...),
 ):
     verify_csrf(request, csrf_token)
+
+    allowed, retry_after = check_register_rate_limit(request)
+    if not allowed:
+        response = templates.TemplateResponse(
+            request=request,
+            name="auth/register.html",
+            context={
+                "csrf_token": get_csrf_token(request),
+                "error": "회원가입 요청이 많습니다. 잠시 후 다시 시도하세요.",
+                "name": name,
+                "email": email,
+                "registration_required": bool(registration_code()),
+            },
+            status_code=429,
+        )
+        response.headers["Retry-After"] = str(retry_after)
+        return response
 
     required_code = registration_code()
     if required_code and not compare_digest(required_code, registration_code_input.strip()):

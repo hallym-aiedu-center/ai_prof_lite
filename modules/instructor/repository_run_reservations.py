@@ -30,6 +30,14 @@ async def reserve_instructor_run(
     db = await get_connection()
     try:
         await db.execute("BEGIN IMMEDIATE")
+        active = await (await db.execute(
+            "SELECT 1 FROM users WHERE id = ? AND status = 'active' LIMIT 1",
+            (user_id,),
+        )).fetchone()
+        if active is None:
+            await db.commit()
+            return None
+
         row = await (await db.execute(
             """
             SELECT id, status, planning_attempts, lecture_id, updated_at
@@ -127,6 +135,12 @@ async def renew_instructor_run_lease(
               AND status = 'planning'
               AND planning_token = ?
               AND planning_lease_until > CURRENT_TIMESTAMP
+              AND EXISTS (
+                    SELECT 1
+                    FROM users AS u
+                    WHERE u.id = ai_instructor_runs.user_id
+                      AND u.status = 'active'
+              )
             """,
             (modifier, run_id, planning_token),
         )
@@ -157,7 +171,11 @@ async def update_instructor_run(
     where = "id = ?"
     params.append(run_id)
     if planning_token is not None:
-        where += " AND status = 'planning' AND planning_token = ?"
+        where += (
+            " AND status = 'planning' AND planning_token = ?"
+            " AND EXISTS (SELECT 1 FROM users AS u"
+            " WHERE u.id = ai_instructor_runs.user_id AND u.status = 'active')"
+        )
         params.append(planning_token)
 
     db = await get_connection()

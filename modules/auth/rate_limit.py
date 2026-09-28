@@ -60,6 +60,9 @@ class SlidingWindowRateLimiter:
 # conservative enough for normal users while bounding expensive password work.
 _LOGIN_IP = SlidingWindowRateLimiter(limit=20, window_seconds=60)
 _LOGIN_ACCOUNT = SlidingWindowRateLimiter(limit=10, window_seconds=300)
+# Registration performs Argon2 hashing and persists new accounts, so bound burst
+# creation separately from login. Keep this source-IP-only for the Lite build.
+_REGISTER_IP = SlidingWindowRateLimiter(limit=5, window_seconds=600)
 
 
 def _client_key(request) -> str:
@@ -88,3 +91,8 @@ def check_login_rate_limit(request, email: str) -> tuple[bool, int]:
 def reset_login_account(email: str) -> None:
     account_key = str(email or "").strip().lower() or "<empty>"
     _LOGIN_ACCOUNT.reset(account_key)
+
+
+def check_register_rate_limit(request) -> tuple[bool, int]:
+    """Bound account-creation bursts without changing lecture/job limits."""
+    return _REGISTER_IP.consume(_client_key(request))
