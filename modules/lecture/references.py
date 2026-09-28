@@ -238,7 +238,14 @@ async def build_reference_context(
         raise ValueError("REFERENCE_RAG_CHUNK_OVERLAP_CHARS must be an integer") from exc
     overlap = min(max(0, overlap_value), max(0, chunk_size - 1))
     top_k = positive_int("REFERENCE_RAG_TOP_K", 16)
-    max_chunks = positive_int("REFERENCE_RAG_MAX_CHUNKS", 160)
+    try:
+        max_chunks = int(os.getenv("REFERENCE_RAG_MAX_CHUNKS", "0"))
+    except ValueError as exc:
+        raise ValueError("REFERENCE_RAG_MAX_CHUNKS must be an integer") from exc
+    if max_chunks < 0:
+        raise ValueError(
+            "REFERENCE_RAG_MAX_CHUNKS must be 0 (unlimited) or a positive integer"
+        )
     limit = positive_int("MAX_REFERENCE_CONTEXT_CHARS", 60_000)
     model = os.getenv("REFERENCE_EMBEDDING_MODEL", "text-embedding-3-small").strip() or "text-embedding-3-small"
 
@@ -246,9 +253,9 @@ async def build_reference_context(
     for name, text in documents:
         for chunk in _chunks(text, size=chunk_size, overlap=overlap):
             chunks.append((name, chunk))
-            if len(chunks) >= max_chunks:
+            if max_chunks and len(chunks) >= max_chunks:
                 break
-        if len(chunks) >= max_chunks:
+        if max_chunks and len(chunks) >= max_chunks:
             break
     if not chunks:
         return ""

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 from jsonschema import validate
@@ -83,6 +84,76 @@ async def update_review_plan(lecture_id: int, plan: dict) -> None:
             _write_json_atomic(path, plan)
         elif path.name == "quiz.json":
             _write_json_atomic(path, plan.get("quiz") or [])
+
+
+
+async def approve_and_resume_review(lecture_id: int) -> bool:
+    """PPT 승인과 paused job 재개를 하나의 SQLite 트랜잭션으로 처리한다.
+
+    과거 crash로 review_status='approved'이지만 job이 paused로 남은
+    상태도 동일 요청으로 복구한다.
+    """
+    db = await get_connection()
+    try:
+        await db.execute("BEGIN IMMEDIATE")
+        now = time.time()
+
+        job_cursor = await db.execute(
+            """
+            UPDATE lecture_jobs
+            SET status='queued',
+                available_at=?,
+                lease_token=NULL,
+                lease_until=NULL,
+                worker_id=NULL,
+                gpu_id=NULL,
+                last_error=NULL,
+                updated_at=?
+            WHERE lecture_id=?
+              AND status='paused'
+              AND EXISTS (
+                  SELECT 1
+                  FROM lectures
+                  WHERE id=?
+                    AND status='awaiting_review'
+                    AND review_status IN ('awaiting_review', 'approved')
+              )
+            """,
+            (now, now, lecture_id, lecture_id),
+        )
+
+        if job_cursor.rowcount != 1:
+            await db.rollback()
+            return False
+
+        lecture_cursor = await db.execute(
+            """
+            UPDATE lectures
+            SET review_status='approved',
+                status='queued',
+                run_token=NULL,
+                error_message=NULL,
+                status_message='PPT 승인 · 작업 재개 대기 중',
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+              AND status='awaiting_review'
+              AND review_status IN ('awaiting_review', 'approved')
+            """,
+            (lecture_id,),
+        )
+
+        if lecture_cursor.rowcount != 1:
+            await db.rollback()
+            return False
+
+        await db.commit()
+        return True
+
+    except BaseException:
+        await db.rollback()
+        raise
+    finally:
+        await db.close()
 
 
 async def approve_review(lecture_id: int) -> bool:

@@ -13,8 +13,8 @@ from modules.auth.session import (
     verify_csrf,
 )
 from modules.lecture.checkpoints import get_stage
-from modules.lecture.repository import get_lecture, list_lecture_queue_status, update_lecture
-from modules.lecture.review import approve_review, update_review_plan
+from modules.lecture.repository import get_lecture, list_lecture_queue_status
+from modules.lecture.review import approve_and_resume_review, update_review_plan
 from modules.lecture.route_support import _queue_runtime_config, templates
 from modules.users.service import get_user
 
@@ -271,11 +271,11 @@ async def approve_lecture_review(request: Request, lecture_id: int, csrf_token: 
         raise HTTPException(404, "강의를 찾을 수 없습니다.")
     if lecture.get("status") != "awaiting_review":
         raise HTTPException(409, "현재 PPT 검토 대기 상태가 아닙니다.")
-    if not await approve_review(lecture_id):
-        raise HTTPException(409, "PPT 승인 상태를 변경할 수 없습니다.")
-    if not await get_queue().resume_review(lecture_id):
-        await update_lecture(lecture_id, review_status="awaiting_review")
-        raise HTTPException(409, "검토 대기 작업을 다시 큐에 넣지 못했습니다.")
+    if not await approve_and_resume_review(lecture_id):
+        raise HTTPException(
+            409,
+            "PPT 승인 또는 작업 재개 상태를 변경할 수 없습니다.",
+        )
     return RedirectResponse(f"/lectures/{lecture_id}", status_code=303)
 
 
