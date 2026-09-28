@@ -1,6 +1,8 @@
 # AI Professor Lite
 
-> Version `0.4.7`
+> Version `0.4.8`
+>
+> v0.4.8에서는 실제 TTS 재생시간을 기준으로 목표 강의시간을 검증하고, 부족한 경우 narration을 자동 보강한 뒤 최종 MP4 길이까지 다시 확인하는 강의시간 보장 기능이 추가되었습니다.
 
 AI Professor Lite는 **강의 주제와 교수 아바타 이미지를 입력하면 강의 기획부터 슬라이드, TTS, Talking Head 영상, 최종 MP4, Moodle 배포까지 자동화하는 FastAPI 기반 강의 제작 시스템**입니다.
 
@@ -44,6 +46,7 @@ AI Professor Lite는 **강의 주제와 교수 아바타 이미지를 입력하�
 - GPT Image 기반 전체 슬라이드 이미지 또는 보조 이미지 생성
 - PowerPoint(`.pptx`) 및 1920×1080 슬라이드 PNG 생성
 - OpenAI TTS 기반 슬라이드별 WAV 및 전체 narration 생성
+- 목표 강의시간 보장: 실제 TTS 길이를 측정하고 부족하면 narration을 자동 보강한 뒤 최종 MP4 길이를 재검증
 - Ditto TalkingHead 기반 교수 아바타 영상 생성
 - 자동 배경 제거 / chroma key 전처리
 - FFmpeg 기반 슬라이드 영상 및 최종 강의 MP4 합성
@@ -117,7 +120,7 @@ python app.py
 | `plan` | 10% | 강의 구성, slide narration, Quiz 생성 |
 | `images` | 22% | 슬라이드 시각자료 생성 |
 | `slides` | 42% | PPTX 및 1920×1080 슬라이드 PNG 생성 |
-| `narration` | 50% | 슬라이드별 TTS WAV + 전체 narration 생성 |
+| `narration` | 50% | 슬라이드별 TTS WAV + 전체 narration 생성, 실제 재생시간 검증 및 부족분 자동 보강 |
 | `timeline` | 65% | narration 길이에 맞춘 슬라이드 MP4 생성 |
 | `avatar` | 73% | Ditto TalkingHead 아바타 영상 생성 |
 | `compose` | 86% | 슬라이드 + 아바타 + narration 최종 합성 |
@@ -474,6 +477,8 @@ LECTURE_TTS_VOICE=alloy
 ```env
 LECTURE_TARGET_DURATION_MINUTES=40
 LECTURE_TARGET_SLIDE_COUNT=10
+LECTURE_DURATION_GENERATION_RATIO=1.05
+LECTURE_DURATION_MAX_RETRIES=3
 ```
 
 웹 폼에서는 강의시간 30/40/50/60분, 슬라이드 8~12장을 선택할 수 있습니다.
@@ -485,6 +490,32 @@ LECTURE_TTS_CHUNK_CHARS=3900
 ```
 
 내부 상한은 4096자입니다.
+
+## 목표 강의시간 보장
+
+`target_duration_minutes`는 단순한 LLM 프롬프트 힌트가 아니라 **실제 생성 결과의 최소 강의시간 기준**으로 사용됩니다.
+
+강의 생성 시 다음 순서로 시간을 확인합니다.
+
+1. planner가 목표시간보다 약간 긴 narration을 생성하도록 요청합니다.
+2. TTS 생성 후 FFprobe로 실제 narration 재생시간을 측정합니다.
+3. 목표시간보다 짧으면 슬라이드 구조와 핵심 내용은 유지한 채 narration 설명을 자동 보강합니다.
+4. 보강된 narration으로 필요한 TTS를 다시 생성하고 재생시간을 다시 확인합니다.
+5. 최대 재시도 횟수 안에 목표시간을 충족하지 못하면 작업을 성공 처리하지 않습니다.
+6. 최종 MP4 합성 후에도 실제 영상 길이가 목표시간 이상인지 한 번 더 검증합니다.
+
+관련 설정:
+
+```env
+# 최초 narration 생성 목표에 적용하는 여유 비율
+# 40분 설정 시 기본값 1.05는 약 42분 분량을 목표로 생성
+LECTURE_DURATION_GENERATION_RATIO=1.05
+
+# 실제 TTS가 목표시간보다 짧을 때 narration 자동 보강 최대 횟수
+LECTURE_DURATION_MAX_RETRIES=3
+```
+
+TTS 캐시는 narration 내용 기준으로 검증하므로, 보강 과정에서는 **내용이 변경된 슬라이드의 음성만 다시 생성**하고 변경되지 않은 슬라이드는 기존 결과를 재사용합니다.
 
 ---
 
@@ -817,6 +848,8 @@ LECTURE_PUBLISH_TIMEZONE=Asia/Seoul
 | `LECTURE_TTS_VOICE` | `alloy` |
 | `LECTURE_TARGET_DURATION_MINUTES` | `40` |
 | `LECTURE_TARGET_SLIDE_COUNT` | `10` |
+| `LECTURE_DURATION_GENERATION_RATIO` | `1.05` |
+| `LECTURE_DURATION_MAX_RETRIES` | `3` |
 | `LECTURE_RENDER_SLIDES_WITH_IMAGE_MODEL` | `true` |
 | `OPENAI_SLIDE_IMAGE_QUALITY` | `high` |
 | `OPENAI_TIMEOUT_SECONDS` | `120` |
