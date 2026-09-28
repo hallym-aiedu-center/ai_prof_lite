@@ -11,7 +11,6 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.staticfiles import StaticFiles
 
-
 BASE_DIR = Path(__file__).resolve().parent
 
 load_dotenv(
@@ -19,30 +18,35 @@ load_dotenv(
 )
 
 
-from core.database.migrations import init_database
-from core.config import session_secret, positive_int
-from core.version import __version__
 from core.body_limit import BodyLimitMiddleware
+from core.config import positive_int, session_secret
+from core.database.migrations import init_database
 from core.security_headers import SecurityHeadersMiddleware
-from modules.auth.session import ActiveSessionMiddleware
-
+from core.version import __version__
 from modules.auth.routes import router as auth_router
-from modules.dashboard.routes import router as dashboard_router
-from modules.users.routes import router as users_router
+from modules.auth.session import ActiveSessionMiddleware
 from modules.credentials.routes import router as credentials_router
-from modules.lecture.routes import router as lecture_router
-from modules.lecture.publish_scheduler import start_publish_scheduler, stop_publish_scheduler
-from modules.lecture.cleanup import cleanup_all_orphan_runs
-from modules.instructor.routes import router as instructor_router
+from modules.dashboard.routes import router as dashboard_router
 from modules.instructor.repository import ensure_instructor_schema
-from modules.instructor.scheduler import start_instructor_scheduler, stop_instructor_scheduler
-from worker import serve as serve_lecture_worker
-
+from modules.instructor.routes import router as instructor_router
+from modules.instructor.scheduler import (
+    start_instructor_scheduler,
+    stop_instructor_scheduler,
+)
+from modules.lecture.cleanup import cleanup_all_orphan_runs
+from modules.lecture.publish_scheduler import (
+    start_publish_scheduler,
+    stop_publish_scheduler,
+)
+from modules.lecture.routes import router as lecture_router
 from modules.moodle.courses.routes import (
-    router as moodle_courses_router,
     api_router as moodle_courses_api_router,
 )
-
+from modules.moodle.courses.routes import (
+    router as moodle_courses_router,
+)
+from modules.users.routes import router as users_router
+from worker import serve as serve_lecture_worker
 
 logger = logging.getLogger("uvicorn.error")
 

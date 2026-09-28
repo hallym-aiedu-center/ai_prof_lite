@@ -63,22 +63,22 @@ async def make_lecture(database, tmp_path):
     async def make(**overrides):
         portrait = tmp_path / "portrait.png"
         Image.new("RGB", (16, 16)).save(portrait)
-        values = dict(
-            user_id=1,
-            title="테스트 강의",
-            topic="테스트 주제",
-            text_model="test-model",
-            image_model="test-image",
-            tts_model="test-tts",
-            tts_voice="alloy",
-            generate_images=True,
-            moodle_course_id=None,
-            moodle_section_num=None,
-            moodle_deploy_mode="create",
-            moodle_videotracker_cmid=None,
-            upload_to_moodle=False,
-            portrait_path=str(portrait),
-        )
+        values = {
+            "user_id": 1,
+            "title": "테스트 강의",
+            "topic": "테스트 주제",
+            "text_model": "test-model",
+            "image_model": "test-image",
+            "tts_model": "test-tts",
+            "tts_voice": "alloy",
+            "generate_images": True,
+            "moodle_course_id": None,
+            "moodle_section_num": None,
+            "moodle_deploy_mode": "create",
+            "moodle_videotracker_cmid": None,
+            "upload_to_moodle": False,
+            "portrait_path": str(portrait),
+        }
         values.update(overrides)
         return await create_lecture(**values)
 

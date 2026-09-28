@@ -3,8 +3,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import httpx
 from PIL import Image, ImageDraw, ImageFont, ImageOps
@@ -12,7 +12,6 @@ from pptx import Presentation
 from pptx.util import Inches
 
 from core.openai.client import get_client
-
 
 RAW_IMAGE_SIZE = "1536x1024"
 WIDE_IMAGE_SIZE = "1536x864"
@@ -96,7 +95,7 @@ def _estimate_avatar_safe_zone(avatar_source_path: Path | None) -> dict:
                 width, height = image.size
             if width > 0 and height > 0:
                 avatar_width = round(AVATAR_OVERLAY_HEIGHT * (width / height))
-        except Exception:
+        except (OSError, ValueError):
             avatar_width = AVATAR_SAFE_MIN_WIDTH
 
     avatar_width = max(360, min(avatar_width, AVATAR_SAFE_MAX_WIDTH))
@@ -150,7 +149,7 @@ def _image_request_size(model: str) -> str:
 
 
 def _slide_cache_key(*, model: str, quality: str, size: str, prompt: str) -> str:
-    payload = f"v2\0{model}\0{quality}\0{size}\0{prompt}".encode("utf-8")
+    payload = f"v2\0{model}\0{quality}\0{size}\0{prompt}".encode()
     return hashlib.sha256(payload).hexdigest()
 
 

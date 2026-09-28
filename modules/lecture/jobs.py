@@ -14,9 +14,9 @@ async def enqueue_lecture_job(lecture_id: int) -> None:
 
 async def start_lecture_workers() -> None:
     """Deprecated no-op. Run exactly one ``python worker.py`` supervisor."""
-    return None
+    return
 
 
 async def stop_lecture_workers() -> None:
     """Deprecated no-op kept for import compatibility."""
-    return None
+    return

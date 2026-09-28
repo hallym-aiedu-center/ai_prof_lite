@@ -1,6 +1,5 @@
 # core/openai/realtime.py
 
-from core.openai.client import get_realtime_connection
 
 
 async def configure_realtime(connection):

@@ -7,7 +7,6 @@ from openai import BadRequestError
 
 from core.openai.client import get_client
 
-
 LECTURE_SCHEMA = {
     "type": "object",
     "additionalProperties": False,

@@ -12,10 +12,14 @@ from modules.credentials.required import require_user_openai_api_key
 from modules.image.service import generate_image
 from modules.lecture.avatar import create_avatar_video, get_ditto_paths
 from modules.lecture.background import prepare_avatar_source
-from modules.lecture.composer import build_slides_video, compose_final_video, media_duration
+from modules.lecture.checkpoints import get_stage, save_stage
+from modules.lecture.composer import (
+    build_slides_video,
+    compose_final_video,
+    media_duration,
+)
 from modules.lecture.narration import build_narration
 from modules.lecture.planner import create_lecture_plan
-from modules.lecture.checkpoints import get_stage, save_stage
 from modules.lecture.repository import get_publish_schedule, update_lecture
 from modules.lecture.slides import build_slide_assets, use_image_model_slide_rendering
 from modules.moodle.service import get_user_moodle_client

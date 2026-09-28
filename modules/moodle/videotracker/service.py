@@ -30,7 +30,7 @@ async def create_activity(
         result,
         dict,
     ):
-        raise RuntimeError(
+        raise RuntimeError(  # noqa: TRY004
             "mod_videotracker_create_activity "
             "returned an unexpected response."
         )

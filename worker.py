@@ -51,7 +51,8 @@ def _is_our_runner(pid: int) -> bool:
         cwd = os.path.realpath(f"{proc}/cwd")
         if cwd != str(PROJECT_ROOT.resolve()):
             return False
-        raw = open(f"{proc}/cmdline", "rb").read()
+        with open(f"{proc}/cmdline", "rb") as file_handle:
+            raw = file_handle.read()
         argv = [part.decode("utf-8", "replace") for part in raw.split(b"\0") if part]
     except (FileNotFoundError, PermissionError, ProcessLookupError, OSError):
         return False

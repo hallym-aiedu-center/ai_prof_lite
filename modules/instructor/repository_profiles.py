@@ -2,6 +2,7 @@ import json
 
 from core.database.client import get_connection
 
+
 def _decode_profile(row) -> dict | None:
     if not row:
         return None
@@ -9,7 +10,7 @@ def _decode_profile(row) -> dict | None:
     for key in ("weekdays_json", "selected_course_ids_json"):
         try:
             item[key] = json.loads(item.get(key) or "[]")
-        except Exception:
+        except (json.JSONDecodeError, TypeError):
             item[key] = []
     item["enabled"] = bool(item.get("enabled"))
     item["generate_images"] = bool(item.get("generate_images"))

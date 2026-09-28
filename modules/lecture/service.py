@@ -1,7 +1,7 @@
 """Small orchestrator; stages and durable checkpoints own individual steps."""
 from core.jobs.base import Job, JobQueue
-from modules.lecture.repository import get_lecture
 from modules.lecture.cleanup import cleanup_lecture_runs
+from modules.lecture.repository import get_lecture
 from modules.lecture.stages import STAGES, StageContext, run_stage
 
 

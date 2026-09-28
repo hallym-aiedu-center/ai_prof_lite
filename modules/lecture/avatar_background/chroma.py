@@ -6,6 +6,7 @@ from PIL import Image, ImageColor
 from .config import _env_int
 from .detection import _hex_color
 
+
 def _auto_chroma_rgb(
     foreground: Image.Image,
 ) -> tuple[int, int, int]:

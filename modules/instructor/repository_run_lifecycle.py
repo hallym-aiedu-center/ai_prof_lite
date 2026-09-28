@@ -1,6 +1,7 @@
 from core.database.client import get_connection
 from core.jobs.base import LeaseLost
 
+
 async def finalize_instructor_run(
     *,
     run_id: int,

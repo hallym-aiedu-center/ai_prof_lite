@@ -197,7 +197,7 @@ def _deserialize(row):
                 item[key] = json.loads(
                     item[key]
                 )
-            except Exception:
+            except (json.JSONDecodeError, TypeError):
                 pass
 
     return item

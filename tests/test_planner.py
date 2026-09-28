@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 from jsonschema import ValidationError
-from openai import AuthenticationError, BadRequestError, RateLimitError, APITimeoutError
+from openai import APITimeoutError, AuthenticationError, BadRequestError, RateLimitError
 
 from modules.lecture import planner
 

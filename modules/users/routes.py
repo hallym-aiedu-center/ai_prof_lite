@@ -1,8 +1,8 @@
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from core.config import PROJECT_ROOT as TEMPLATE_ROOT
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -10,7 +10,6 @@ from modules.auth.session import (
     verify_csrf,
 )
 from modules.users.service import get_user, update_profile
-
 
 router = APIRouter(prefix="/settings")
 templates = Jinja2Templates(directory=str(TEMPLATE_ROOT / "templates"))

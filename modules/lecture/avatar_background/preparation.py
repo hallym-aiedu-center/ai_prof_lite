@@ -9,6 +9,7 @@ from .detection import _resolve_input_decision
 from .removal import remove_portrait_background
 from .types import AvatarPreparation
 
+
 def prepare_avatar_source(
     *,
     source_path: Path,

@@ -5,8 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from core.openai.client import get_client
-from modules.lecture.composer import run_process, FFMPEG_BIN
-
+from modules.lecture.composer import FFMPEG_BIN, run_process
 
 TTS_API_MAX_CHARS = 4096
 DEFAULT_TTS_CHUNK_CHARS = 3900
@@ -38,8 +37,7 @@ def _split_tts_text(text: str, *, max_chars: int | None = None) -> list[str]:
             pos = window.rfind(marker)
             if pos >= minimum_boundary:
                 candidate = pos + len(marker)
-                if candidate > cut:
-                    cut = candidate
+                cut = max(cut, candidate)
         if cut < 0:
             space = window.rfind(" ")
             cut = space + 1 if space >= minimum_boundary else limit
@@ -136,7 +134,7 @@ async def _speech_bytes(
 
 
 def _tts_cache_key(*, model: str, voice: str, text: str) -> str:
-    payload = f"{model}\0{voice}\0{text}".encode("utf-8")
+    payload = f"{model}\0{voice}\0{text}".encode()
     return hashlib.sha256(payload).hexdigest()
 
 

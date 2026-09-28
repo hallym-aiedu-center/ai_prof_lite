@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Form, HTTPException, Request
-
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT, openai_key_mode
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from core.config import PROJECT_ROOT as TEMPLATE_ROOT
+from core.config import openai_key_mode
+from core.moodle.client import get_moodle_client
+from core.moodle.exceptions import MoodleAPIError
+from core.moodle.url_policy import parse_base_url, resolve_target
+from core.openai.client import validate_api_key as validate_openai_api_key
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -16,13 +20,8 @@ from modules.credentials.service import (
     revoke_user_credential,
     save_credential,
 )
-from modules.users.service import get_user
-from core.moodle.client import get_moodle_client
-from core.moodle.exceptions import MoodleAPIError
-from core.moodle.url_policy import parse_base_url, resolve_target
-from core.openai.client import validate_api_key as validate_openai_api_key
 from modules.moodle.courses.service import get_site_info
-
+from modules.users.service import get_user
 
 router = APIRouter(prefix="/settings")
 templates = Jinja2Templates(directory=str(TEMPLATE_ROOT / "templates"))
@@ -182,7 +181,7 @@ async def save_provider(
                 token=resolved_secret,
             )
             await get_site_info(client)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         if provider == "openai":
             message = "OpenAI API Key를 확인할 수 없습니다. 키와 API 접근 권한을 확인하세요."
         else:

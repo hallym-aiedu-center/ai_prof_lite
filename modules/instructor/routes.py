@@ -14,8 +14,16 @@ from fastapi.templating import Jinja2Templates
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from core.config import PROJECT_ROOT, data_dir
-from modules.auth.session import current_user_id, get_csrf_token, login_redirect, verify_csrf
-from modules.credentials.required import MissingCredentialError, require_user_openai_api_key
+from modules.auth.session import (
+    current_user_id,
+    get_csrf_token,
+    login_redirect,
+    verify_csrf,
+)
+from modules.credentials.required import (
+    MissingCredentialError,
+    require_user_openai_api_key,
+)
 from modules.instructor.repository import (
     get_instructor_profile,
     list_instructor_runs,
@@ -24,7 +32,6 @@ from modules.instructor.repository import (
 from modules.moodle.courses.service import get_my_courses
 from modules.moodle.service import get_user_moodle_client
 from modules.users.service import get_user
-
 
 router = APIRouter(prefix="/instructor")
 templates = Jinja2Templates(directory=str(PROJECT_ROOT / "templates"))
@@ -126,7 +133,7 @@ def _decorate_runs(runs: list[dict]) -> list[dict]:
             zone = ZoneInfo(item.get("timezone") or "Asia/Seoul")
             dt = datetime.strptime(item["scheduled_at"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
             item["scheduled_local"] = dt.astimezone(zone).strftime("%m/%d %H:%M")
-        except Exception:
+        except (ValueError, TypeError, ZoneInfoNotFoundError):
             item["scheduled_local"] = item.get("scheduled_at")
     return runs
 
@@ -185,7 +192,7 @@ async def _load_courses(user_id: int) -> tuple[list[dict], str | None]:
             if course.get("id") is not None
         ]
         return normalized, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         return [], str(exc)
 
 
@@ -352,7 +359,7 @@ async def instructor_avatar(request: Request):
     expected_root = (data_dir() / "instructor" / str(user_id)).resolve()
     try:
         resolved = path.resolve()
-    except Exception:
+    except (OSError, RuntimeError):
         raise HTTPException(status_code=404)
     if not resolved.is_file() or expected_root not in resolved.parents:
         raise HTTPException(status_code=404)

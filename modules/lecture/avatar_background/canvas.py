@@ -4,6 +4,7 @@ from PIL import Image
 
 from .config import _env_float, _env_int
 
+
 def _trim_alpha(
     foreground: Image.Image,
 ) -> Image.Image:

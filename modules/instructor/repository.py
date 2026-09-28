@@ -5,7 +5,6 @@ modules while existing imports continue to work unchanged.
 """
 
 from .repository_profiles import (
-    _decode_profile,
     get_instructor_profile,
     list_enabled_profiles,
     upsert_instructor_profile,
@@ -25,7 +24,7 @@ from .repository_run_reservations import (
     reserve_instructor_run,
     update_instructor_run,
 )
-from .repository_schema import _ensure_column, ensure_instructor_schema
+from .repository_schema import ensure_instructor_schema
 
 __all__ = [
     "count_runs_between",

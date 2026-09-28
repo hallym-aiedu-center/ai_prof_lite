@@ -1,5 +1,6 @@
 import os
 
+
 def _env_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:

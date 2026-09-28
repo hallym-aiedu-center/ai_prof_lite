@@ -1,13 +1,13 @@
 import asyncio
+
+from aiosqlite import IntegrityError
 from argon2 import PasswordHasher
 from argon2.exceptions import (
     InvalidHashError,
     VerifyMismatchError,
 )
-from aiosqlite import IntegrityError
 
 from core.database.client import get_connection
-
 
 _password_hasher = PasswordHasher()
 

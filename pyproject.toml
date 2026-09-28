@@ -1,0 +1,8 @@
+[tool.ruff]
+extend-exclude = ["core/ditto-talkinghead"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Form",
+    "fastapi.File",
+]

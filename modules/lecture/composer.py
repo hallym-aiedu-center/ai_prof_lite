@@ -6,7 +6,6 @@ import os
 import tempfile
 from pathlib import Path
 
-
 FFMPEG_BIN = os.getenv(
     "FFMPEG_BIN",
     "ffmpeg",

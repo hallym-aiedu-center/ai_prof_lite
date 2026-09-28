@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from core.jobs.errors import AmbiguousDeploymentError, PublishNotReadyError, PublishSourceFailedError
+from core.jobs.errors import (
+    AmbiguousDeploymentError,
+    PublishNotReadyError,
+    PublishSourceFailedError,
+)
 from core.openai.client import get_client
 from modules.lecture.composer import media_duration
 from modules.lecture.repository import (
@@ -19,7 +23,6 @@ from modules.moodle.videotracker.service import (
     create_activity,
     set_video_from_file,
 )
-
 
 WEEKDAY_KO = ["월", "화", "수", "목", "금", "토", "일"]
 
@@ -147,7 +150,7 @@ async def choose_ai_publish_plan(
             },
         )
         payload = json.loads(response.output_text)
-    except Exception:
+    except Exception:  # noqa: BLE001
         # Scheduling must never make an otherwise completed lecture fail just
         # because structured output is unavailable. Use a deterministic fallback.
         weekday = (now_local.weekday() + 1) % 7

@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from dotenv import load_dotenv
+
 load_dotenv(ROOT / '.env')
 from core.config import openai_key_mode, session_secret
 from core.database.secrets import _get_cipher

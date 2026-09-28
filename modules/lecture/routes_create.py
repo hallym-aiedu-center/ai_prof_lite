@@ -21,7 +21,6 @@ from modules.lecture.route_support import _queue_runtime_config, _wants_json, te
 from modules.lecture.uploads import save_portrait
 from modules.users.service import get_user
 
-
 router = APIRouter()
 
 

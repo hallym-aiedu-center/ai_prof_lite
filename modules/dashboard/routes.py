@@ -1,10 +1,11 @@
 import os
 
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT, openai_key_mode
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from core.config import PROJECT_ROOT as TEMPLATE_ROOT
+from core.config import openai_key_mode
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -13,7 +14,6 @@ from modules.auth.session import (
 from modules.credentials.service import list_user_credentials
 from modules.lecture.repository import list_lectures
 from modules.users.service import get_user
-
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(TEMPLATE_ROOT / "templates"))

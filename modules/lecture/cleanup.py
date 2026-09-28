@@ -4,8 +4,9 @@ import json
 import os
 import shutil
 import time
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from core.config import data_dir
 from core.database.client import get_connection

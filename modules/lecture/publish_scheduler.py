@@ -11,7 +11,10 @@ from core.jobs.errors import (
     PublishNotReadyError,
     PublishSourceFailedError,
 )
-from modules.lecture.publishing import deploy_lecture_to_moodle, ensure_lecture_ready_for_publish
+from modules.lecture.publishing import (
+    deploy_lecture_to_moodle,
+    ensure_lecture_ready_for_publish,
+)
 from modules.lecture.repository import (
     claim_publish_schedule,
     get_publish_schedule,
@@ -21,7 +24,6 @@ from modules.lecture.repository import (
     update_lecture,
     update_publish_schedule,
 )
-
 
 _task: asyncio.Task | None = None
 _stop_event: asyncio.Event | None = None
@@ -172,7 +174,7 @@ async def _run_one(lecture_id: int) -> None:
             lecture_id,
             status_message="강의 생성 완료 · Moodle 활동 생성 결과 수동 확인 필요",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         if attempts < _max_attempts():
             retry_at = (
                 datetime.now(timezone.utc).replace(tzinfo=None)
@@ -220,7 +222,7 @@ async def _scheduler_loop() -> None:
                 await _run_one(lecture_id)
         except asyncio.CancelledError:
             raise
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print(f"[PublishScheduler] error: {exc}")
 
         try:

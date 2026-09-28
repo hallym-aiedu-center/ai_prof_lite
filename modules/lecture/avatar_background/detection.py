@@ -6,6 +6,7 @@ from PIL import Image, ImageColor
 
 from .config import _env_float
 
+
 def _thumbnail_rgba(
     image: Image.Image,
     maximum: int = 512,
@@ -73,7 +74,7 @@ def _representative_color(
 def _hex_color(
     rgb: tuple[int, int, int],
 ) -> str:
-    return "#%02X%02X%02X" % rgb
+    return f"#{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
 
 
 def detect_avatar_input(

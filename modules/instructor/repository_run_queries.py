@@ -1,5 +1,6 @@
 from core.database.client import get_connection
 
+
 async def list_instructor_runs(user_id: int, limit: int = 20) -> list[dict]:
     db = await get_connection()
     try:

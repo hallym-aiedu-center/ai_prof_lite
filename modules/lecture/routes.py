@@ -6,24 +6,25 @@ This module keeps the original ``router`` import stable for the application.
 
 from fastapi import APIRouter
 
-from .route_support import _queue_runtime_config, _wants_json, templates
 from .routes_create import (
     lecture_list,
     new_lecture,
-    router as create_router,
     submit_lecture,
 )
+from .routes_create import (
+    router as create_router,
+)
 from .routes_detail import (
-    ARTIFACT_FIELDS,
     download_artifact,
     download_quiz,
     lecture_detail,
     lecture_queue_status,
     lecture_status,
     retry_lecture,
+)
+from .routes_detail import (
     router as detail_router,
 )
-
 
 router = APIRouter()
 router.include_router(create_router, prefix="/lectures")

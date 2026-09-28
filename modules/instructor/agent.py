@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import shutil
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from core.config import data_dir
+from core.jobs.factory import get_queue
 from core.openai.client import get_client
 from modules.credentials.required import require_user_openai_api_key
 from modules.instructor.repository import (
@@ -16,7 +14,6 @@ from modules.instructor.repository import (
     list_recent_agent_lecture_titles,
     update_instructor_run,
 )
-from core.jobs.factory import get_queue
 from modules.lecture.repository import (
     create_lecture,
     create_publish_schedule_config,

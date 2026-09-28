@@ -2,8 +2,8 @@ import os
 import sys
 from pathlib import Path
 
-from modules.lecture.composer import run_process
 from core.config import project_path
+from modules.lecture.composer import run_process
 
 
 def get_ditto_paths():

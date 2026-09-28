@@ -77,7 +77,7 @@ class MoodleClient:
         if not path.is_file():
             raise FileNotFoundError(path)
 
-        with path.open("rb") as file_handle:
+        with path.open("rb") as file_handle:  # noqa: ASYNC230
             files = {
                 field_name: (
                     path.name,

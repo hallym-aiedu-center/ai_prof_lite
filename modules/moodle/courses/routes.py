@@ -1,8 +1,8 @@
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
+from core.config import PROJECT_ROOT as TEMPLATE_ROOT
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -21,7 +21,6 @@ from modules.moodle.service import (
 from modules.users.service import (
     get_user,
 )
-
 
 router = APIRouter(
     prefix="/moodle",
@@ -100,7 +99,7 @@ async def course_list_page(
 
         error = None
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         courses = []
         error = str(exc)
 
@@ -181,7 +180,7 @@ async def course_detail_page(
 
         error = None
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         course = None
         overview = None
         error = str(exc)
@@ -240,7 +239,7 @@ async def api_courses(
             ]
         }
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         return JSONResponse(
             {
                 "error": "moodle_error",
@@ -288,7 +287,7 @@ async def api_course_sections(
             "sections": sections,
         }
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         return JSONResponse(
             {
                 "error": "moodle_error",
@@ -342,7 +341,7 @@ async def api_videotrackers(
             "videotrackers": trackers,
         }
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         return JSONResponse(
             {
                 "error": "moodle_error",
@@ -385,7 +384,7 @@ async def api_course_contents(
             )
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         return JSONResponse(
             {
                 "error": "moodle_error",

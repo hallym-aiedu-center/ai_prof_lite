@@ -8,10 +8,13 @@ from PIL import Image
 from core.database.client import get_connection
 from core.jobs.errors import AmbiguousDeploymentError, retryable
 from core.jobs.sqlite import SQLiteJobQueue
-from modules.lecture import stages, narration, publish_scheduler
+from modules.lecture import narration, publish_scheduler, stages
 from modules.lecture.checkpoints import get_stage
 from modules.lecture.composer import (
-    detect_video_encoder, encoder_args, media_duration, run_process,
+    detect_video_encoder,
+    encoder_args,
+    media_duration,
+    run_process,
 )
 from modules.lecture.repository import (
     create_publish_schedule_config,

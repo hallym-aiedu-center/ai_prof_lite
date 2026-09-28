@@ -5,7 +5,14 @@ from PIL import Image, ImageDraw
 from pptx import Presentation
 
 from modules.lecture import slides as slides_module
-from modules.lecture.slides import HEIGHT, WIDTH, _contain_size, _fit_image, build_slide_assets, render_local_slide
+from modules.lecture.slides import (
+    HEIGHT,
+    WIDTH,
+    _contain_size,
+    _fit_image,
+    build_slide_assets,
+    render_local_slide,
+)
 
 
 def test_contain_size_preserves_generated_image_ratio():

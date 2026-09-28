@@ -1,11 +1,11 @@
 from hmac import compare_digest
 
 from fastapi import APIRouter, Form, Request
-
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT, registration_code
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from core.config import PROJECT_ROOT as TEMPLATE_ROOT
+from core.config import registration_code
 from modules.auth.rate_limit import (
     check_login_rate_limit,
     reset_login_account,
@@ -20,7 +20,6 @@ from modules.auth.session import (
     get_csrf_token,
     verify_csrf,
 )
-
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(TEMPLATE_ROOT / "templates"))

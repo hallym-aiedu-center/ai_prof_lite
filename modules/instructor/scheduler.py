@@ -18,7 +18,6 @@ from modules.instructor.repository import (
     reserve_instructor_run,
 )
 
-
 _task: asyncio.Task | None = None
 _stop_event: asyncio.Event | None = None
 
@@ -188,7 +187,7 @@ async def _plan_profile(profile: dict) -> None:
         except LeaseLost:
             # A different scheduler recovered the expired planning lease.
             pass
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             with contextlib.suppress(Exception):
                 await fail_instructor_run(
                     run_id=run_id,
@@ -217,7 +216,7 @@ async def _loop() -> None:
                 await _plan_profile(profile)
         except asyncio.CancelledError:
             raise
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print(f"[AIInstructor] scheduler error: {exc}")
 
         try:

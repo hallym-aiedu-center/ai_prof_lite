@@ -39,7 +39,7 @@ async def get_my_courses(
         courses,
         list,
     ):
-        raise RuntimeError(
+        raise RuntimeError(  # noqa: TRY004
             "Moodle 강좌 응답 형식이 "
             "예상과 다릅니다."
         )
@@ -60,7 +60,7 @@ async def get_course_contents(
         result,
         list,
     ):
-        raise RuntimeError(
+        raise RuntimeError(  # noqa: TRY004
             "Moodle 강좌 contents 응답 형식이 "
             "예상과 다릅니다."
         )

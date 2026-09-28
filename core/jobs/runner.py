@@ -1,6 +1,8 @@
 """One isolated process per job, supervised by worker.py."""
 import asyncio
 import logging
+
+logger = logging.getLogger(__name__)
 import os
 import signal
 import sys
@@ -57,7 +59,7 @@ async def run(job: Job) -> int:
             os.killpg(os.getpgrp(), signal.SIGTERM)
         return 1
     except Exception as exc:
-        logging.exception('Lecture %s failed', job.lecture_id)
+        logger.exception('Lecture %s failed', job.lecture_id)
         await queue.record_error(job, f'{type(exc).__name__}: {exc}')
         return 75 if retryable(exc) else 1
     finally:

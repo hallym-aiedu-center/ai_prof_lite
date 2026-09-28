@@ -4,6 +4,7 @@ from uuid import uuid4
 from core.database.client import get_connection
 from core.jobs.base import LeaseLost
 
+
 async def reserve_instructor_run(
     *,
     user_id: int,

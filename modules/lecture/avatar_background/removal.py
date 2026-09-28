@@ -5,6 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
+
 @lru_cache(maxsize=1)
 def _rembg_session():
     try:
@@ -55,7 +56,7 @@ def remove_portrait_background(
     elif isinstance(result, Image.Image):
         foreground = result.convert("RGBA")
     else:
-        raise RuntimeError(
+        raise RuntimeError(  # noqa: TRY004
             "rembg가 예상하지 못한 결과 형식을 반환했습니다."
         )
 

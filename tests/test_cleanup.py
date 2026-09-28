@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from core.config import data_dir
 from core.database.client import get_connection

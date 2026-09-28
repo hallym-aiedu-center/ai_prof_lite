@@ -1,5 +1,6 @@
 from core.database.client import get_connection
 
+
 async def _ensure_column(db, table: str, column: str, ddl: str) -> None:
     cursor = await db.execute(f"PRAGMA table_info({table})")
     columns = {str(row["name"]) for row in await cursor.fetchall()}

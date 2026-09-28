@@ -50,7 +50,9 @@ async def test_password_hashing_and_verification_are_offloaded(database, monkeyp
 
 def test_registration_code_blocks_wrong_code(monkeypatch):
     import re
+
     from fastapi.testclient import TestClient
+
     from app import app
 
     monkeypatch.setenv("REGISTRATION_CODE", "lab-code-123")

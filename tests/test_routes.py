@@ -31,8 +31,8 @@ def client(monkeypatch):
 
 
 def fields(client):
-    return dict(title='Title', topic='Topic', text_model='test', image_model='test',
-                tts_model='test', tts_voice='alloy', csrf_token=csrf(client.get('/lectures/new')))
+    return {'title': 'Title', 'topic': 'Topic', 'text_model': 'test', 'image_model': 'test',
+                'tts_model': 'test', 'tts_voice': 'alloy', 'csrf_token': csrf(client.get('/lectures/new'))}
 
 
 async def test_submit_queues_without_executing_pipeline(client, portrait_bytes):
@@ -135,8 +135,9 @@ def test_login_rate_limit_returns_429():
 
 
 def test_server_openai_key_mode_uses_server_key(monkeypatch):
-    from modules.credentials.required import require_user_openai_api_key
     import asyncio
+
+    from modules.credentials.required import require_user_openai_api_key
 
     monkeypatch.setenv("OPENAI_KEY_MODE", "server")
     monkeypatch.setenv("SERVER_OPENAI_API_KEY", "server-owned-key")

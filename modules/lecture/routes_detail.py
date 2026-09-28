@@ -4,11 +4,15 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from core.jobs.factory import get_queue
-from modules.auth.session import current_user_id, get_csrf_token, login_redirect, verify_csrf
+from modules.auth.session import (
+    current_user_id,
+    get_csrf_token,
+    login_redirect,
+    verify_csrf,
+)
 from modules.lecture.repository import get_lecture, list_lecture_queue_status
 from modules.lecture.route_support import _queue_runtime_config, templates
 from modules.users.service import get_user
-
 
 router = APIRouter()
 
