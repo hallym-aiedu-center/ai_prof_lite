@@ -1,6 +1,5 @@
 import asyncio
 from typing import Any
-import math
 import os
 
 from core.openai.usage_ledger import (
@@ -17,7 +16,6 @@ from core.openai.usage_pricing import (
     _embedding_rate,
     _number,
     _positive_float_env,
-    _rough_tokens,
     _text_rate,
 )
 from core.openai.usage_provider_common import _pricing_snapshot, _request_id
@@ -52,6 +50,8 @@ async def _count_response_input_tokens(client, *, model: str, **kwargs) -> int |
     return tokens if tokens > 0 else None
 
 def _response_usage_cost(model: str, usage: Any) -> tuple[float, dict]:
+    if usage is None:
+        raise RuntimeError("OpenAI Responses 응답에 provider usage가 없습니다.")
     rate = _text_rate(model)
     if not rate:
         raise RuntimeError(
@@ -60,6 +60,8 @@ def _response_usage_cost(model: str, usage: Any) -> tuple[float, dict]:
         )
     input_tokens = int(_number(_field(usage, "input_tokens")))
     output_tokens = int(_number(_field(usage, "output_tokens")))
+    if input_tokens <= 0 and output_tokens <= 0:
+        raise RuntimeError("OpenAI Responses provider usage의 token 수가 비어 있습니다.")
     details = _field(usage, "input_tokens_details", {})
     cached = int(_number(_field(details, "cached_tokens")))
     uncached = max(0, input_tokens - cached)
@@ -74,32 +76,40 @@ def _response_usage_cost(model: str, usage: Any) -> tuple[float, dict]:
         "cached_input_tokens": cached,
         "usage": _jsonable(usage),
         "pricing": _pricing_snapshot("responses", model),
-        "metadata": {"billing_basis": "response_usage"},
+        "metadata": {"billing_basis": "response_usage", "usage_source": "provider"},
     }
 
 
 async def _response_reserve_cost(client, model: str, kwargs: dict, *, budget_input_bytes: int = 0) -> float:
+    """Budget hold only. Never invent token counts when the provider cannot count them."""
     rate = _text_rate(model)
     if not rate:
         raise RuntimeError(
             f"가격 정보가 없는 OpenAI 텍스트 모델입니다: {model}. "
             "OPENAI_PRICING_JSON에 단가를 등록하세요."
         )
+
+    floor = _positive_float_env("OPENAI_RESPONSE_RESERVE_MIN_USD", 0.005)
     input_tokens = await _count_response_input_tokens(client, **kwargs)
     if input_tokens is None:
-        input_tokens = _rough_tokens(kwargs.get("input"))
-    input_tokens += max(0, math.ceil(int(budget_input_bytes) / 2.0))
+        # No token estimate: hold a configurable dollar amount instead.
+        fallback = _positive_float_env("OPENAI_RESPONSE_RESERVE_FALLBACK_USD", 0.25)
+        if int(budget_input_bytes) > 0:
+            fallback += _positive_float_env("OPENAI_RESPONSE_RESERVE_FILE_BUFFER_USD", 0.10)
+        return max(floor, fallback)
+
     max_output_tokens = int(
         kwargs.get("max_output_tokens")
         or os.getenv("OPENAI_RESPONSE_RESERVE_OUTPUT_TOKENS", "32768")
     )
     max_output_tokens = max(1, max_output_tokens)
-    estimated = (
+    hold = (
         input_tokens * rate.input_per_million
         + max_output_tokens * rate.output_per_million
     ) / 1_000_000
-    floor = _positive_float_env("OPENAI_RESPONSE_RESERVE_MIN_USD", 0.005)
-    return max(floor, estimated)
+    if int(budget_input_bytes) > 0:
+        hold += _positive_float_env("OPENAI_RESPONSE_RESERVE_FILE_BUFFER_USD", 0.10)
+    return max(floor, hold)
 
 
 async def responses_create(
@@ -152,8 +162,6 @@ async def embeddings_create(client, *, user_id: int, lecture_id: int | None = No
     rate = _embedding_rate(model)
     if rate is None:
         raise RuntimeError(f"가격 정보가 없는 OpenAI 임베딩 모델입니다: {model}")
-    inputs = kwargs.get("input") or []
-    rough_tokens = _rough_tokens(inputs)
     context = usage_context or {}
     event = await reserve_usage(
         user_id=user_id,
@@ -166,7 +174,7 @@ async def embeddings_create(client, *, user_id: int, lecture_id: int | None = No
         item_index=context.get("item_index"),
         metadata=context.get("metadata") or {},
         model=model,
-        reserve_usd=(rough_tokens * float(rate) / 1_000_000) * 1.25,
+        reserve_usd=_positive_float_env("OPENAI_EMBEDDING_RESERVE_USD", 0.01),
     )
     try:
         response = await client.embeddings.create(**kwargs)
@@ -177,7 +185,11 @@ async def embeddings_create(client, *, user_id: int, lecture_id: int | None = No
         await _raise_after_provider_error(event, exc)
     try:
         usage = getattr(response, "usage", None)
+        if usage is None:
+            raise RuntimeError("OpenAI Embeddings 응답에 provider usage가 없습니다.")
         tokens = int(_number(_field(usage, "prompt_tokens", _field(usage, "total_tokens", 0))))
+        if tokens <= 0:
+            raise RuntimeError("OpenAI Embeddings provider usage의 token 수가 비어 있습니다.")
         await finalize_usage(
             event,
             cost_usd=tokens * float(rate) / 1_000_000,
@@ -185,7 +197,7 @@ async def embeddings_create(client, *, user_id: int, lecture_id: int | None = No
             request_id=_request_id(response),
             usage=_jsonable(usage),
             pricing=_pricing_snapshot("embeddings", model),
-            metadata={"billing_basis": "embedding_usage"},
+            metadata={"billing_basis": "embedding_usage", "usage_source": "provider"},
         )
     except asyncio.CancelledError as exc:
         await mark_ambiguous_usage(event, exc)
