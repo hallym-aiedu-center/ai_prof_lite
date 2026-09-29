@@ -1,5 +1,5 @@
 {
-  "version": "0.5.6",
+  "version": "0.5.7",
   "purpose": "account isolation + configurable OpenAI credentials + fair multi-GPU lecture queue + Ditto + FFmpeg + Moodle VideoTracker overlay",
   "ditto_source_included": true,
   "ditto_model_checkpoints_included": false,

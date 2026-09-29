@@ -69,8 +69,15 @@ async def fail_instructor_run(
     run_id: int,
     planning_token: str,
     error: str,
+    retryable: bool = True,
+    max_attempts: int | None = None,
 ) -> bool:
-    """Fail an owned planning attempt and delete only its not-yet-queued lecture."""
+    """Fail an owned planning attempt and delete only its not-yet-queued lecture.
+
+    Non-retryable failures exhaust the planning attempt budget so the existing
+    reservation logic cannot automatically execute the paid operation again.
+    """
+    terminal_attempts = max(1, int(max_attempts or 1))
     db = await get_connection()
     try:
         await db.execute("BEGIN IMMEDIATE")
@@ -100,11 +107,15 @@ async def fail_instructor_run(
                 lecture_id = NULL,
                 planning_token = NULL,
                 planning_lease_until = NULL,
+                planning_attempts = CASE
+                    WHEN ? THEN planning_attempts
+                    ELSE MAX(planning_attempts, ?)
+                END,
                 last_error = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND status = 'planning' AND planning_token = ?
             """,
-            (error[:1200], run_id, planning_token),
+            (retryable, terminal_attempts, error[:1200], run_id, planning_token),
         )
         await db.commit()
         return cursor.rowcount == 1

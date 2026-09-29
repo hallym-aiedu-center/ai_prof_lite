@@ -28,8 +28,11 @@ ALLOWED_SUFFIXES = {".pdf", ".txt", ".md", ".docx", ".pptx"}
 
 def _safe_name(name: str | None, fallback_suffix: str) -> str:
     raw = Path(name or f"reference{fallback_suffix}").name
-    stem = re.sub(r"[^0-9A-Za-z가-힣._ -]+", "_", raw).strip(" .")
-    return (stem or f"reference{fallback_suffix}")[:160]
+    suffix = fallback_suffix.lower()
+    raw_stem = raw[:-len(suffix)] if suffix and raw.lower().endswith(suffix) else Path(raw).stem
+    stem = re.sub(r"[^0-9A-Za-z가-힣._ -]+", "_", raw_stem).strip(" .") or "reference"
+    maximum_stem = max(1, 160 - len(suffix))
+    return f"{stem[:maximum_stem]}{suffix}"
 
 
 async def save_reference_files(uploads: list[UploadFile] | None) -> list[dict]:
@@ -177,7 +180,24 @@ def _extract_docx(path: Path) -> str:
     return "\n\n".join(paragraphs)
 
 
+def _validate_pptx_xml_size(path: Path) -> None:
+    maximum_xml_bytes = positive_int("MAX_PPTX_XML_BYTES", 8 * 1024 * 1024)
+    total_xml_bytes = 0
+    with zipfile.ZipFile(path) as archive:
+        for info in archive.infolist():
+            member = info.filename.lower()
+            if not (member.endswith(".xml") or member.endswith(".rels")):
+                continue
+            total_xml_bytes += info.file_size
+            if total_xml_bytes > maximum_xml_bytes:
+                raise ValueError(
+                    "PPTX 내부 XML 해제 크기 합계가 허용 범위를 초과했습니다: "
+                    f"{total_xml_bytes} > {maximum_xml_bytes} bytes"
+                )
+
+
 def _extract_pptx(path: Path) -> str:
+    _validate_pptx_xml_size(path)
     presentation = Presentation(path)
     chunks: list[str] = []
     for index, slide in enumerate(presentation.slides, start=1):

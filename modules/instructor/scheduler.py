@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from core.jobs.base import LeaseLost
+from core.jobs.errors import retryable
 from core.jobs.factory import get_queue
 from modules.instructor.agent import create_delegated_lecture
 from modules.instructor.repository import (
@@ -203,6 +204,8 @@ async def _plan_profile(profile: dict) -> None:
                     run_id=run_id,
                     planning_token=planning_token,
                     error=f"{type(exc).__name__}: {exc}"[:1200],
+                    retryable=retryable(exc),
+                    max_attempts=_planning_max_attempts(),
                 )
         finally:
             for task in (planning, heartbeat):

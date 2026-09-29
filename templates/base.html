@@ -250,14 +250,143 @@
                 <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6"></path></svg>
                 <span>AI 강사</span>
             </a>
-            <a href="/settings/credentials"
-               class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page in ['credentials', 'profile', 'openai_usage', 'moodle_courses'] %}text-indigo-600{% else %}text-slate-500{% endif %}">
-                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2.5v2M12 19.5v2M21.5 12h-2M4.5 12h-2M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4M18.7 18.7l-1.4-1.4M6.7 6.7 5.3 5.3"></path></svg>
-                <span>설정</span>
-            </a>
+            <button type="button"
+                    id="mobile-menu-trigger"
+                    aria-controls="mobile-menu-sheet"
+                    aria-expanded="false"
+                    class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page in ['credentials', 'profile', 'openai_usage', 'moodle_courses'] %}text-indigo-600{% else %}text-slate-500{% endif %}">
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <rect x="4" y="4" width="6" height="6" rx="1.5"></rect>
+                    <rect x="14" y="4" width="6" height="6" rx="1.5"></rect>
+                    <rect x="4" y="14" width="6" height="6" rx="1.5"></rect>
+                    <rect x="14" y="14" width="6" height="6" rx="1.5"></rect>
+                </svg>
+                <span>전체메뉴</span>
+            </button>
         </div>
     </nav>
+
+    <div id="mobile-menu-root" class="mobile-menu-root lg:hidden" aria-hidden="true">
+        <button type="button"
+                class="mobile-menu-backdrop"
+                data-mobile-menu-close
+                aria-label="전체메뉴 닫기"></button>
+
+        <section id="mobile-menu-sheet"
+                 class="mobile-menu-sheet"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="mobile-menu-title"
+                 tabindex="-1">
+            <div class="mobile-menu-handle" aria-hidden="true"></div>
+
+            <div class="mobile-menu-header flex items-start justify-between gap-4 px-5 pt-2">
+                <div class="min-w-0">
+                    <div id="mobile-menu-title" class="text-lg font-bold text-slate-900">전체메뉴</div>
+                    <div class="mt-1 truncate text-xs text-slate-500">
+                        {{ user.name or user.nickname or '사용자' }} · {{ user.email }}
+                    </div>
+                </div>
+                <button type="button"
+                        class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-50"
+                        data-mobile-menu-close
+                        aria-label="전체메뉴 닫기">
+                    <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6 6 18"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="mobile-menu-scroll px-4">
+                <div class="grid grid-cols-2 gap-2">
+                    <a href="/dashboard" class="mobile-menu-primary-link {% if active_page == 'dashboard' %}is-active{% endif %}">
+                        <span class="mobile-menu-icon bg-indigo-50 text-indigo-600">
+                            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"></path><path d="M5.5 9.5V21h13V9.5"></path><path d="M9.5 21v-6h5v6"></path></svg>
+                        </span>
+                        <span>
+                            <span class="block text-sm font-semibold text-slate-900">대시보드</span>
+                            <span class="mt-1 block text-[11px] text-slate-500">작업 현황 보기</span>
+                        </span>
+                    </a>
+                    <a href="/lectures" class="mobile-menu-primary-link {% if active_page == 'lectures' %}is-active{% endif %}">
+                        <span class="mobile-menu-icon bg-indigo-50 text-indigo-600">
+                            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 5.5v15A2.5 2.5 0 0 1 6.5 18H20"></path></svg>
+                        </span>
+                        <span>
+                            <span class="block text-sm font-semibold text-slate-900">강의 제작</span>
+                            <span class="mt-1 block text-[11px] text-slate-500">강의 목록 관리</span>
+                        </span>
+                    </a>
+                    <a href="/lectures/new" class="mobile-menu-primary-link">
+                        <span class="mobile-menu-icon bg-slate-950 text-white">
+                            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                        </span>
+                        <span>
+                            <span class="block text-sm font-semibold text-slate-900">새 강의</span>
+                            <span class="mt-1 block text-[11px] text-slate-500">강의 바로 만들기</span>
+                        </span>
+                    </a>
+                    <a href="/instructor" class="mobile-menu-primary-link {% if active_page in ['instructor', 'instructor_activity'] %}is-active{% endif %}">
+                        <span class="mobile-menu-icon bg-emerald-50 text-indigo-600">
+                            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6"></path></svg>
+                        </span>
+                        <span>
+                            <span class="block text-sm font-semibold text-slate-900">AI 강사</span>
+                            <span class="mt-1 block text-[11px] text-slate-500">위임 및 자동화</span>
+                        </span>
+                    </a>
+                </div>
+
+                <div class="mt-5">
+                    <div class="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace</div>
+                    <div class="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        <a href="/instructor/activity" class="mobile-menu-row {% if active_page == 'instructor_activity' %}is-active{% endif %}">
+                            <span>AI 강사 활동</span>
+                            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="mt-5">
+                    <div class="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Moodle</div>
+                    <div class="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        <a href="/moodle/courses" class="mobile-menu-row {% if active_page == 'moodle_courses' %}is-active{% endif %}">
+                            <span>내 강좌</span>
+                            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                        </a>
+                        <a href="/settings/credentials" class="mobile-menu-row border-t border-slate-100 {% if active_page == 'credentials' %}is-active{% endif %}">
+                            <span>API / 연결 설정</span>
+                            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="mt-5">
+                    <div class="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Account</div>
+                    <div class="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        <a href="/settings/profile" class="mobile-menu-row {% if active_page == 'profile' %}is-active{% endif %}">
+                            <span>회원정보</span>
+                            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                        </a>
+                        <a href="/settings/openai-usage" class="mobile-menu-row border-t border-slate-100 {% if active_page == 'openai_usage' %}is-active{% endif %}">
+                            <span>OpenAI 사용 내역</span>
+                            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <form method="post" action="/logout" class="mt-5">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                        로그아웃
+                    </button>
+                </form>
+            </div>
+        </section>
+    </div>
 </div>
+
+<script src="/static/mobile-menu.js" defer></script>
 
 {% else %}
 
