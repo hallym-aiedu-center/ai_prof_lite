@@ -1,8 +1,10 @@
 # AI Professor Lite
 
-> Version `0.5.8`
+> Version `0.5.9`
 
-현재 애플리케이션 버전은 `0.5.8`입니다.
+현재 애플리케이션 버전은 `0.5.9`입니다.
+
+> v0.5.9에서는 OpenAI usage pricing/accounting, 참고자료 파일 처리와 RAG, AI Instructor 선택 로직, Moodle 예약 게시 실행 로직, 기본 DB schema 초기화의 책임을 분리하여 코드 구조와 유지보수성을 개선했습니다.
 >
 > v0.5.7에서는 RAG 참고자료의 160개 chunk 제한을 기본 해제하고, PPT 승인과 작업 큐 재개를 단일 트랜잭션으로 처리하도록 안정성을 개선했습니다.
 

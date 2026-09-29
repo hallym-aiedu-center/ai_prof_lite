@@ -1,7 +1,7 @@
 from core.database.migration_utils import _add_column_if_missing
 
 
-async def ensure_base_schema(db) -> None:
+async def _create_base_tables(db) -> None:
     await db.executescript(
         """
         BEGIN IMMEDIATE;
@@ -197,6 +197,9 @@ async def ensure_base_schema(db) -> None:
         """
     )
 
+
+
+async def _upgrade_base_schema(db) -> None:
     # Upgrade an already-created local SQLite DB in-place.
     await _add_column_if_missing(
         db,
@@ -259,3 +262,11 @@ async def ensure_base_schema(db) -> None:
     )
 
     await _add_column_if_missing(db, "lectures", "run_token", "TEXT")
+
+
+
+async def ensure_base_schema(db) -> None:
+    # Keep the existing transaction boundary: the CREATE script begins the
+    # transaction and the database bootstrapper commits after all schema groups.
+    await _create_base_tables(db)
+    await _upgrade_base_schema(db)
