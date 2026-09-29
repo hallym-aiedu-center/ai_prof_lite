@@ -42,6 +42,22 @@
         {% else %}
         <div class="px-6 py-14 text-center text-sm text-slate-500">강의가 없습니다.</div>
         {% endif %}
+
+        {% if has_previous or has_next %}
+        <div class="flex items-center justify-between border-t border-slate-100 px-4 py-4 sm:px-6">
+            {% if has_previous %}
+            <a href="/lectures?page={{ page - 1 }}" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">← 이전</a>
+            {% else %}
+            <span></span>
+            {% endif %}
+            <span class="text-xs font-semibold text-slate-400">{{ page }} 페이지</span>
+            {% if has_next %}
+            <a href="/lectures?page={{ page + 1 }}" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">다음 →</a>
+            {% else %}
+            <span></span>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

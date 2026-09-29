@@ -218,7 +218,19 @@ async def instructor_activity(request: Request):
     if user_id is None:
         return login_redirect()
 
-    runs = _decorate_runs(await list_instructor_runs(user_id, limit=100))
+    try:
+        page = max(1, int(request.query_params.get("page", "1")))
+    except ValueError:
+        page = 1
+    page_size = 20
+    rows = await list_instructor_runs(
+        user_id,
+        limit=page_size + 1,
+        offset=(page - 1) * page_size,
+    )
+    has_next = len(rows) > page_size
+    runs = _decorate_runs(rows[:page_size])
+
     return templates.TemplateResponse(
         request=request,
         name="instructor/activity.html",
@@ -227,6 +239,9 @@ async def instructor_activity(request: Request):
             "active_page": "instructor_activity",
             "csrf_token": get_csrf_token(request),
             "runs": runs,
+            "page": page,
+            "has_previous": page > 1,
+            "has_next": has_next,
         },
     )
 

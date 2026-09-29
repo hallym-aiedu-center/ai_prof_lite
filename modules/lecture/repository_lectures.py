@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from core.database.client import get_connection
+from core.jobs.base import LeaseLost
 
 
 async def create_lecture(
@@ -265,6 +266,7 @@ async def list_lectures(
     *,
     user_id: int,
     limit: int = 20,
+    offset: int = 0,
 ):
     db = await get_connection()
 
@@ -275,11 +277,12 @@ async def list_lectures(
             FROM lectures
             WHERE user_id = ?
             ORDER BY id DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
             """,
             (
                 user_id,
                 limit,
+                max(0, offset),
             ),
         )
 

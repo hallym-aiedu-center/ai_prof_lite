@@ -1,7 +1,11 @@
 from core.database.client import get_connection
 
 
-async def list_instructor_runs(user_id: int, limit: int = 20) -> list[dict]:
+async def list_instructor_runs(
+    user_id: int,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[dict]:
     db = await get_connection()
     try:
         cursor = await db.execute(
@@ -14,9 +18,9 @@ async def list_instructor_runs(user_id: int, limit: int = 20) -> list[dict]:
             LEFT JOIN lecture_publish_schedules p ON p.lecture_id = r.lecture_id
             WHERE r.user_id = ?
             ORDER BY r.scheduled_at DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
             """,
-            (user_id, limit),
+            (user_id, limit, max(0, offset)),
         )
         return [dict(row) for row in await cursor.fetchall()]
     finally:

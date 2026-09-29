@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import uuid4
 
 from core.database.client import get_connection

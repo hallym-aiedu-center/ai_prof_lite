@@ -43,3 +43,20 @@
 .app-progress.app-progress-danger::-moz-progress-bar {
     background: #f43f5e;
 }
+
+.danger-button {
+    background: #dc2626;
+    color: #ffffff;
+    border: 1px solid #b91c1c;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.danger-button:hover {
+    background: #b91c1c;
+    border-color: #991b1b;
+}
+
+.danger-button:focus-visible {
+    outline: 3px solid rgba(239, 68, 68, 0.3);
+    outline-offset: 2px;
+}

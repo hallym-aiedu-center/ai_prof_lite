@@ -17,7 +17,7 @@ from modules.credentials.required import (
     require_user_openai_api_key,
 )
 from modules.lecture.repository import list_lectures
-from modules.lecture.route_support import _queue_runtime_config, _wants_json, templates
+from modules.lecture.route_support import _wants_json, templates
 from modules.lecture.submission import persist_lecture_submission, validate_lecture_submission
 from core.openai.usage import usage_summary
 from modules.users.service import get_user
@@ -36,6 +36,18 @@ async def lecture_list(
     if user_id is None:
         return login_redirect()
 
+    try:
+        page = max(1, int(request.query_params.get("page", "1")))
+    except ValueError:
+        page = 1
+    page_size = 20
+    rows = await list_lectures(
+        user_id=user_id,
+        limit=page_size + 1,
+        offset=(page - 1) * page_size,
+    )
+    has_next = len(rows) > page_size
+
     return templates.TemplateResponse(
         request=request,
         name="lectures/list.html",
@@ -43,14 +55,14 @@ async def lecture_list(
             "user": await get_user(
                 user_id
             ),
-            "lectures": await list_lectures(
-                user_id=user_id,
-                limit=100,
-            ),
+            "lectures": rows[:page_size],
             "active_page": "lectures",
             "csrf_token": get_csrf_token(
                 request
             ),
+            "page": page,
+            "has_previous": page > 1,
+            "has_next": has_next,
         },
     )
 
@@ -77,7 +89,6 @@ async def new_lecture(
             "csrf_token": get_csrf_token(
                 request
             ),
-            "queue_config": _queue_runtime_config(),
             "openai_usage": await usage_summary(user_id),
             "requested_course_id": (
                 request.query_params.get(
