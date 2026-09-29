@@ -37,18 +37,22 @@ async def referenced_run_tokens(lecture_id: int) -> set[str]:
     runs_dir = data_dir() / "lectures" / str(lecture_id) / "runs"
     db = await get_connection()
     try:
-        lecture = await (await db.execute(
-            """
+        lecture = await (
+            await db.execute(
+                """
             SELECT run_token, portrait_path, pptx_path, narration_path,
                    slides_video_path, avatar_path, final_video_path
             FROM lectures WHERE id=?
             """,
-            (lecture_id,),
-        )).fetchone()
-        stages = await (await db.execute(
-            "SELECT outputs_json FROM lecture_stages WHERE lecture_id=?",
-            (lecture_id,),
-        )).fetchall()
+                (lecture_id,),
+            )
+        ).fetchone()
+        stages = await (
+            await db.execute(
+                "SELECT outputs_json FROM lecture_stages WHERE lecture_id=?",
+                (lecture_id,),
+            )
+        ).fetchall()
     finally:
         await db.close()
 
@@ -57,9 +61,17 @@ async def referenced_run_tokens(lecture_id: int) -> set[str]:
     if lecture:
         if lecture["run_token"]:
             tokens.add(str(lecture["run_token"]))
-        values.extend(lecture[key] for key in (
-            "portrait_path", "pptx_path", "narration_path", "slides_video_path", "avatar_path", "final_video_path"
-        ))
+        values.extend(
+            lecture[key]
+            for key in (
+                "portrait_path",
+                "pptx_path",
+                "narration_path",
+                "slides_video_path",
+                "avatar_path",
+                "final_video_path",
+            )
+        )
     for row in stages:
         try:
             values.append(json.loads(row["outputs_json"] or "{}"))
@@ -79,11 +91,15 @@ def _retention_seconds() -> int:
     try:
         hours = max(0.0, float(raw))
     except ValueError as exc:
-        raise RuntimeError("LECTURE_ORPHAN_RUN_RETENTION_HOURS must be a non-negative number") from exc
+        raise RuntimeError(
+            "LECTURE_ORPHAN_RUN_RETENTION_HOURS must be a non-negative number"
+        ) from exc
     return int(hours * 3600)
 
 
-async def cleanup_lecture_runs(lecture_id: int, *, preserve_tokens: Iterable[str] = ()) -> list[Path]:
+async def cleanup_lecture_runs(
+    lecture_id: int, *, preserve_tokens: Iterable[str] = ()
+) -> list[Path]:
     runs_dir = data_dir() / "lectures" / str(lecture_id) / "runs"
     if not runs_dir.is_dir():
         return []

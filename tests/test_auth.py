@@ -82,25 +82,31 @@ def test_registration_code_blocks_wrong_code(monkeypatch):
 
     monkeypatch.setenv("REGISTRATION_CODE", "lab-code-123")
     with TestClient(app) as client:
-        page = client.get('/register')
-        assert '가입 코드' in page.text
+        page = client.get("/register")
+        assert "가입 코드" in page.text
         token = re.search(r'name="csrf_token"\s+value="([^"]+)"', page.text)[1]
-        denied = client.post('/register', data={
-            'email': 'blocked@example.test',
-            'password': 'password-123',
-            'password_confirm': 'password-123',
-            'registration_code_input': 'wrong',
-            'csrf_token': token,
-        })
+        denied = client.post(
+            "/register",
+            data={
+                "email": "blocked@example.test",
+                "password": "password-123",
+                "password_confirm": "password-123",
+                "registration_code_input": "wrong",
+                "csrf_token": token,
+            },
+        )
         assert denied.status_code == 403
-        assert '가입 코드가 올바르지 않습니다.' in denied.text
+        assert "가입 코드가 올바르지 않습니다." in denied.text
 
         token = re.search(r'name="csrf_token"\s+value="([^"]+)"', denied.text)[1]
-        allowed = client.post('/register', data={
-            'email': 'allowed@example.test',
-            'password': 'password-123',
-            'password_confirm': 'password-123',
-            'registration_code_input': 'lab-code-123',
-            'csrf_token': token,
-        })
+        allowed = client.post(
+            "/register",
+            data={
+                "email": "allowed@example.test",
+                "password": "password-123",
+                "password_confirm": "password-123",
+                "registration_code_input": "lab-code-123",
+                "csrf_token": token,
+            },
+        )
         assert allowed.status_code == 200

@@ -144,7 +144,9 @@ async def _ensure_instructor_foreign_keys(db) -> None:
             """
         )
         await db.execute("DROP TABLE ai_instructor_runs")
-        await db.execute("ALTER TABLE ai_instructor_runs_new RENAME TO ai_instructor_runs")
+        await db.execute(
+            "ALTER TABLE ai_instructor_runs_new RENAME TO ai_instructor_runs"
+        )
 
 
 async def ensure_instructor_schema() -> None:

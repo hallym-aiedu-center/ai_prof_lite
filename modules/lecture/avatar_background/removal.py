@@ -16,10 +16,13 @@ def _rembg_session():
             "`pip install rembg onnxruntime` 후 다시 실행하세요."
         ) from exc
 
-    model = os.getenv(
-        "REMBG_MODEL",
-        "u2net_human_seg",
-    ).strip() or "u2net_human_seg"
+    model = (
+        os.getenv(
+            "REMBG_MODEL",
+            "u2net_human_seg",
+        ).strip()
+        or "u2net_human_seg"
+    )
 
     return new_session(model)
 
@@ -31,9 +34,7 @@ def remove_portrait_background(
 ) -> Path:
     """Remove a non-chroma portrait background and save an RGBA PNG."""
     if not source_path.exists():
-        raise FileNotFoundError(
-            f"Portrait image not found: {source_path}"
-        )
+        raise FileNotFoundError(f"Portrait image not found: {source_path}")
 
     try:
         from rembg import remove

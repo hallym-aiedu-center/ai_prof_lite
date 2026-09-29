@@ -12,10 +12,24 @@ from core.openai.client import get_client
 from core.openai.usage import responses_create
 
 
-async def _responses_create(client, *, user_id: int | None, lecture_id: int | None = None, usage_context: dict | None = None, **kwargs):
+async def _responses_create(
+    client,
+    *,
+    user_id: int | None,
+    lecture_id: int | None = None,
+    usage_context: dict | None = None,
+    **kwargs,
+):
     if user_id is None:
         raise ValueError("Tracked OpenAI Responses calls require user_id.")
-    return await responses_create(client, user_id=user_id, lecture_id=lecture_id, usage_context=usage_context, **kwargs)
+    return await responses_create(
+        client,
+        user_id=user_id,
+        lecture_id=lecture_id,
+        usage_context=usage_context,
+        **kwargs,
+    )
+
 
 LECTURE_SCHEMA = {
     "type": "object",
@@ -125,8 +139,7 @@ async def _upload_reference_files(client, files: list[dict] | None) -> list[str]
             path = Path(str(item.get("path") or ""))
             if not path.is_file():
                 raise FileNotFoundError(f"참고자료 파일을 찾을 수 없습니다: {path}")
-            with path.open("rb") as handle:
-                created = await client.files.create(file=handle, purpose="user_data")
+            created = await client.files.create(file=path, purpose="user_data")
             uploaded.append(str(created.id))
         return uploaded
     except BaseException:
@@ -146,12 +159,18 @@ def structured_output_unsupported(error: BadRequestError) -> bool:
     message = str(body.get("message") or "").lower()
     if code in {"invalid_json_schema", "invalid_api_key"}:
         return False
-    format_related = param in {"text.format", "text.format.type", "response_format"} or "json_schema" in message
-    explicitly_unsupported = code in {"unsupported_parameter", "unsupported_value"} or any(
-        wording in message for wording in ("not supported", "does not support", "unsupported")
+    format_related = (
+        param in {"text.format", "text.format.type", "response_format"}
+        or "json_schema" in message
+    )
+    explicitly_unsupported = code in {
+        "unsupported_parameter",
+        "unsupported_value",
+    } or any(
+        wording in message
+        for wording in ("not supported", "does not support", "unsupported")
     )
     return format_related and explicitly_unsupported
-
 
 
 def duration_generation_ratio() -> float:
@@ -178,6 +197,7 @@ def _narration_revision_schema(slide_count: int) -> dict:
             }
         },
     }
+
 
 def lecture_schema_for_slide_count(slide_count: int) -> dict:
     count = max(4, min(14, int(slide_count)))
@@ -272,17 +292,33 @@ async def create_lecture_plan(
         uploaded_file_ids: list[str] = []
         try:
             if reference_mode == "full" and has_reference_files:
-                uploaded_file_ids = await _upload_reference_files(client, reference_files)
+                uploaded_file_ids = await _upload_reference_files(
+                    client, reference_files
+                )
 
             try:
-                response = await _responses_create(client, user_id=user_id, lecture_id=lecture_id,
+                response = await _responses_create(
+                    client,
+                    user_id=user_id,
+                    lecture_id=lecture_id,
                     model=model,
                     input=_responses_input(prompt, uploaded_file_ids),
                     max_output_tokens=30000,
-                    budget_input_bytes=reference_input_bytes if uploaded_file_ids else 0,
-                    text={"format": {"type": "json_schema", "name": "lecture_plan",
-                                     "strict": True, "schema": schema}},
-                    usage_context={"operation": "lecture_plan", "stage": "planner.initial"},
+                    budget_input_bytes=reference_input_bytes
+                    if uploaded_file_ids
+                    else 0,
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "lecture_plan",
+                            "strict": True,
+                            "schema": schema,
+                        }
+                    },
+                    usage_context={
+                        "operation": "lecture_plan",
+                        "stage": "planner.initial",
+                    },
                 )
             except BadRequestError as exc:
                 if not structured_output_unsupported(exc):
@@ -292,12 +328,20 @@ async def create_lecture_plan(
                     + "\n반드시 JSON만 출력하세요. 스키마:\n"
                     + json.dumps(schema, ensure_ascii=False)
                 )
-                response = await _responses_create(client, user_id=user_id, lecture_id=lecture_id,
+                response = await _responses_create(
+                    client,
+                    user_id=user_id,
+                    lecture_id=lecture_id,
                     model=model,
                     input=_responses_input(fallback_prompt, uploaded_file_ids),
                     max_output_tokens=30000,
-                    budget_input_bytes=reference_input_bytes if uploaded_file_ids else 0,
-                    usage_context={"operation": "lecture_plan", "stage": "planner.initial_fallback"},
+                    budget_input_bytes=reference_input_bytes
+                    if uploaded_file_ids
+                    else 0,
+                    usage_context={
+                        "operation": "lecture_plan",
+                        "stage": "planner.initial_fallback",
+                    },
                 )
         finally:
             for file_id in uploaded_file_ids:
@@ -368,7 +412,10 @@ async def expand_lecture_narrations(
     client = get_client(api_key=api_key)
     async with client:
         try:
-            response = await _responses_create(client, user_id=user_id, lecture_id=lecture_id,
+            response = await _responses_create(
+                client,
+                user_id=user_id,
+                lecture_id=lecture_id,
                 model=model,
                 input=prompt,
                 max_output_tokens=26000,
@@ -380,16 +427,29 @@ async def expand_lecture_narrations(
                         "schema": schema,
                     }
                 },
-                usage_context={"operation": "lecture_narration_revision", "stage": "planner.duration_retry", "metadata": {"attempt": max(1, int(attempt))}},
+                usage_context={
+                    "operation": "lecture_narration_revision",
+                    "stage": "planner.duration_retry",
+                    "metadata": {"attempt": max(1, int(attempt))},
+                },
             )
         except BadRequestError as exc:
             if not structured_output_unsupported(exc):
                 raise
-            response = await _responses_create(client, user_id=user_id, lecture_id=lecture_id,
+            response = await _responses_create(
+                client,
+                user_id=user_id,
+                lecture_id=lecture_id,
                 model=model,
-                input=prompt + "\n반드시 JSON만 출력하세요. 스키마:\n" + json.dumps(schema, ensure_ascii=False),
+                input=prompt
+                + "\n반드시 JSON만 출력하세요. 스키마:\n"
+                + json.dumps(schema, ensure_ascii=False),
                 max_output_tokens=26000,
-                usage_context={"operation": "lecture_narration_revision", "stage": "planner.duration_retry_fallback", "metadata": {"attempt": max(1, int(attempt))}},
+                usage_context={
+                    "operation": "lecture_narration_revision",
+                    "stage": "planner.duration_retry_fallback",
+                    "metadata": {"attempt": max(1, int(attempt))},
+                },
             )
 
     revised = _parse_json(response.output_text)

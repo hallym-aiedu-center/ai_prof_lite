@@ -71,8 +71,13 @@ async def _save_openai_image(
     client = get_client(api_key=api_key)
     async with client:
         result = await images_generate(
-            client, user_id=user_id, lecture_id=lecture_id,
-            model=model, prompt=prompt, size=size, quality=quality,
+            client,
+            user_id=user_id,
+            lecture_id=lecture_id,
+            model=model,
+            prompt=prompt,
+            size=size,
+            quality=quality,
             usage_context=usage_context,
         )
 
@@ -104,8 +109,13 @@ def _estimate_avatar_safe_zone(avatar_source_path: Path | None) -> dict:
             avatar_width = AVATAR_SAFE_MIN_WIDTH
 
     avatar_width = max(360, min(avatar_width, AVATAR_SAFE_MAX_WIDTH))
-    safe_width = min(PPT_IMAGE_WIDTH - 80, max(AVATAR_SAFE_MIN_WIDTH, avatar_width + AVATAR_SAFE_PADDING * 2))
-    safe_height = min(PPT_IMAGE_HEIGHT - 80, AVATAR_OVERLAY_HEIGHT + AVATAR_SAFE_PADDING * 2)
+    safe_width = min(
+        PPT_IMAGE_WIDTH - 80,
+        max(AVATAR_SAFE_MIN_WIDTH, avatar_width + AVATAR_SAFE_PADDING * 2),
+    )
+    safe_height = min(
+        PPT_IMAGE_HEIGHT - 80, AVATAR_OVERLAY_HEIGHT + AVATAR_SAFE_PADDING * 2
+    )
     right = PPT_IMAGE_WIDTH - AVATAR_OVERLAY_MARGIN
     bottom = PPT_IMAGE_HEIGHT - AVATAR_OVERLAY_MARGIN
     left = max(0, right - safe_width)
@@ -123,13 +133,21 @@ def _estimate_avatar_safe_zone(avatar_source_path: Path | None) -> dict:
 
 
 def _build_slide_prompt(
-    *, lecture_title: str, slide_index: int, total_slides: int, slide: dict,
+    *,
+    lecture_title: str,
+    slide_index: int,
+    total_slides: int,
+    slide: dict,
     avatar_safe_zone: dict,
 ) -> str:
     title = str(slide.get("title") or "").strip()
-    bullets = [str(item).strip() for item in slide.get("bullets", []) if str(item).strip()]
+    bullets = [
+        str(item).strip() for item in slide.get("bullets", []) if str(item).strip()
+    ]
     image_prompt = str(slide.get("image_prompt") or "").strip()
-    bullet_block = "\n".join(f"- {item}" for item in bullets) or "- 핵심 내용을 간결하게 정리"
+    bullet_block = (
+        "\n".join(f"- {item}" for item in bullets) or "- 핵심 내용을 간결하게 정리"
+    )
     visual_block = image_prompt or "관련 개념을 보조하는 교육용 시각 요소"
     return f"""
 Create a single finished 16:9 presentation slide image in Korean.
@@ -141,7 +159,7 @@ Body bullet points that must appear in Korean:
 {bullet_block}
 Visual concept:
 {visual_block}
-Keep a talking-presenter safe zone in the lower-right: x={avatar_safe_zone['left']}..{avatar_safe_zone['right']}, y={avatar_safe_zone['top']}..{avatar_safe_zone['bottom']} on a 1920x1080 canvas. Put no important text, labels, faces, charts or critical illustrations there. Do not draw a placeholder box for it.
+Keep a talking-presenter safe zone in the lower-right: x={avatar_safe_zone["left"]}..{avatar_safe_zone["right"]}, y={avatar_safe_zone["top"]}..{avatar_safe_zone["bottom"]} on a 1920x1080 canvas. Put no important text, labels, faces, charts or critical illustrations there. Do not draw a placeholder box for it.
 Professional modern educational PPT style. Strong hierarchy, generous spacing, readable Korean typography, no logos, no watermark, no content cropping. Return one complete slide image only.
 """.strip()
 
@@ -150,7 +168,11 @@ def _image_request_size(model: str) -> str:
     # GPT Image 2 supports arbitrary valid dimensions, so request the final 16:9
     # composition directly. Older selectable models keep their legacy landscape
     # size and are contained without distortion below.
-    return WIDE_IMAGE_SIZE if str(model or "").startswith("gpt-image-2") else RAW_IMAGE_SIZE
+    return (
+        WIDE_IMAGE_SIZE
+        if str(model or "").startswith("gpt-image-2")
+        else RAW_IMAGE_SIZE
+    )
 
 
 def _slide_cache_key(*, model: str, quality: str, size: str, prompt: str) -> str:
@@ -182,10 +204,18 @@ def _fit_to_ppt_canvas(*, source_path: Path, output_path: Path):
 
 
 async def generate_slide_image(
-    *, api_key: str, model: str, lecture_title: str, slide_index: int,
-    total_slides: int, slide: dict, output_path: Path,
-    avatar_source_path: Path | None = None, cache_dir: Path | None = None,
-    user_id: int | None = None, lecture_id: int | None = None,
+    *,
+    api_key: str,
+    model: str,
+    lecture_title: str,
+    slide_index: int,
+    total_slides: int,
+    slide: dict,
+    output_path: Path,
+    avatar_source_path: Path | None = None,
+    cache_dir: Path | None = None,
+    user_id: int | None = None,
+    lecture_id: int | None = None,
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     actual_model = model or DEFAULT_MODEL
@@ -203,8 +233,12 @@ async def generate_slide_image(
         cache_dir.mkdir(parents=True, exist_ok=True)
         cache_path = cache_dir / (
             _slide_cache_key(
-                model=actual_model, quality=DEFAULT_QUALITY, size=request_size, prompt=prompt
-            ) + ".png"
+                model=actual_model,
+                quality=DEFAULT_QUALITY,
+                size=request_size,
+                prompt=prompt,
+            )
+            + ".png"
         )
         if _copy_cached_image(cache_path, output_path):
             return output_path
@@ -235,7 +269,9 @@ async def generate_slide_image(
     return output_path
 
 
-def _contain_size(source_width: int, source_height: int, max_width: int, max_height: int) -> tuple[int, int]:
+def _contain_size(
+    source_width: int, source_height: int, max_width: int, max_height: int
+) -> tuple[int, int]:
     if min(source_width, source_height, max_width, max_height) <= 0:
         raise ValueError("Image dimensions must be positive.")
     scale = min(max_width / source_width, max_height / source_height)
@@ -253,9 +289,15 @@ def _fit_image(source_path: Path, box: tuple[int, int, int, int]) -> Image.Image
 
 def _font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
     candidates = [
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc" if bold else "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansKR-Bold.ttf" if bold else "/usr/share/fonts/truetype/noto/NotoSansKR-Regular.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
+        if bold
+        else "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansKR-Bold.ttf"
+        if bold
+        else "/usr/share/fonts/truetype/noto/NotoSansKR-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if bold
+        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ]
     for candidate in candidates:
         if Path(candidate).is_file():
@@ -263,7 +305,9 @@ def _font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int) -> list[str]:
+def _wrap_text(
+    draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int
+) -> list[str]:
     text = " ".join(str(text).split())
     if not text:
         return []
@@ -294,8 +338,13 @@ def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, 
 
 
 def render_local_slide(
-    *, lecture_title: str, slide_index: int, total_slides: int, slide: dict,
-    output_path: Path, visual_path: Path | None = None,
+    *,
+    lecture_title: str,
+    slide_index: int,
+    total_slides: int,
+    slide: dict,
+    output_path: Path,
+    visual_path: Path | None = None,
     avatar_source_path: Path | None = None,
 ) -> Path:
     canvas = Image.new("RGB", (PPT_IMAGE_WIDTH, PPT_IMAGE_HEIGHT), (248, 250, 252))
@@ -303,8 +352,15 @@ def render_local_slide(
     safe = _estimate_avatar_safe_zone(avatar_source_path)
 
     draw.rectangle((0, 0, PPT_IMAGE_WIDTH, 18), fill=(79, 70, 229))
-    draw.text((90, 55), lecture_title[:100], font=_font(30, bold=True), fill=(100, 116, 139))
-    draw.text((1690, 58), f"{slide_index:02d} / {total_slides:02d}", font=_font(26), fill=(100, 116, 139))
+    draw.text(
+        (90, 55), lecture_title[:100], font=_font(30, bold=True), fill=(100, 116, 139)
+    )
+    draw.text(
+        (1690, 58),
+        f"{slide_index:02d} / {total_slides:02d}",
+        font=_font(26),
+        fill=(100, 116, 139),
+    )
 
     title_font = _font(58, bold=True)
     body_font = _font(34)
@@ -318,7 +374,9 @@ def render_local_slide(
     visual_exists = visual_path is not None and visual_path.is_file()
     content_right = 1160 if visual_exists else min(1320, safe["left"] - 40)
     text_width = max(650, content_right - 155)
-    bullets = [str(item).strip() for item in slide.get("bullets", []) if str(item).strip()]
+    bullets = [
+        str(item).strip() for item in slide.get("bullets", []) if str(item).strip()
+    ]
     for bullet in bullets[:6]:
         lines = _wrap_text(draw, bullet, body_font, text_width)
         if not lines:
@@ -341,35 +399,59 @@ def render_local_slide(
             visual = _fit_image(visual_path, box)
             x = box[0] + (box[2] - box[0] - visual.width) // 2
             vy = box[1] + (box[3] - box[1] - visual.height) // 2
-            draw.rounded_rectangle((box[0] - 12, box[1] - 12, box[2] + 12, box[3] + 12), radius=28, fill=(255, 255, 255), outline=(226, 232, 240), width=3)
+            draw.rounded_rectangle(
+                (box[0] - 12, box[1] - 12, box[2] + 12, box[3] + 12),
+                radius=28,
+                fill=(255, 255, 255),
+                outline=(226, 232, 240),
+                width=3,
+            )
             canvas.paste(visual, (x, vy))
 
     # Keep the presenter region visually quiet without drawing a visible placeholder.
-    draw.rounded_rectangle((safe["left"], safe["top"], safe["right"], safe["bottom"]), radius=40, fill=(241, 245, 249))
-    draw.text((90, 1000), "AI Professor Lite", font=_font(24, bold=True), fill=(148, 163, 184))
+    draw.rounded_rectangle(
+        (safe["left"], safe["top"], safe["right"], safe["bottom"]),
+        radius=40,
+        fill=(241, 245, 249),
+    )
+    draw.text(
+        (90, 1000), "AI Professor Lite", font=_font(24, bold=True), fill=(148, 163, 184)
+    )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(output_path, "PNG")
     return output_path
 
 
-def build_pptx_from_images(*, output_path: Path, slide_image_paths: Sequence[Path]) -> Path:
+def build_pptx_from_images(
+    *, output_path: Path, slide_image_paths: Sequence[Path]
+) -> Path:
     prs = Presentation()
     prs.slide_width = Inches(PPT_WIDTH_INCHES)
     prs.slide_height = Inches(PPT_HEIGHT_INCHES)
     for image_path in slide_image_paths:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
-        slide.shapes.add_picture(str(image_path), 0, 0, width=prs.slide_width, height=prs.slide_height)
+        slide.shapes.add_picture(
+            str(image_path), 0, 0, width=prs.slide_width, height=prs.slide_height
+        )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     prs.save(output_path)
     return output_path
 
 
 async def build_slide_assets(
-    *, api_key: str, title: str, plan: dict, output_dir: Path, image_model: str,
-    generate_images: bool = True, image_paths: Sequence[Path | None] | None = None,
-    avatar_source_path: Path | None = None, cache_dir: Path | None = None,
-    user_id: int | None = None, lecture_id: int | None = None,
+    *,
+    api_key: str,
+    title: str,
+    plan: dict,
+    output_dir: Path,
+    image_model: str,
+    generate_images: bool = True,
+    image_paths: Sequence[Path | None] | None = None,
+    avatar_source_path: Path | None = None,
+    cache_dir: Path | None = None,
+    user_id: int | None = None,
+    lecture_id: int | None = None,
 ) -> tuple[Path, list[Path]]:
     """Create slide PNGs and PPTX.
 
@@ -381,7 +463,9 @@ async def build_slide_assets(
     slides = plan.get("slides", [])
     total_slides = len(slides)
     visuals = list(image_paths or [])
-    render_with_image_model = bool(generate_images and use_image_model_slide_rendering())
+    render_with_image_model = bool(
+        generate_images and use_image_model_slide_rendering()
+    )
 
     slide_png_paths: list[Path] = []
     for idx, slide in enumerate(slides, start=1):

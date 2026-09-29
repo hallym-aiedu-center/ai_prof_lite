@@ -4,8 +4,9 @@ import asyncio
 import os
 
 from core.jobs.base import LeaseLost
-from modules.lecture.publish_attempt import _max_attempts, _retry_minutes, _run_claimed_publish as _run_claimed_publish_impl
-from modules.lecture.publishing import deploy_lecture_to_moodle, ensure_lecture_ready_for_publish
+from modules.lecture.publish_attempt import (
+    _run_claimed_publish as _run_claimed_publish_impl,
+)
 from modules.lecture.publishing import (
     deploy_lecture_to_moodle,
     ensure_lecture_ready_for_publish,
@@ -50,7 +51,7 @@ async def _lease_heartbeat(lecture_id: int, lease_token: str) -> None:
             )
         except asyncio.CancelledError:
             raise
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             # Fail closed: if ownership cannot be renewed/verified, the active
             # publish task must stop rather than continue external Moodle calls.
             raise LeaseLost("예약 게시 lease heartbeat 갱신에 실패했습니다.") from exc

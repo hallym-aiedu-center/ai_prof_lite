@@ -4,6 +4,7 @@ from uuid import uuid4
 from core.database.client import get_connection
 from core.jobs.base import LeaseLost
 
+
 async def create_publish_schedule_config(
     *,
     lecture_id: int,
@@ -54,8 +55,14 @@ async def create_publish_schedule_config(
                 updated_at = CURRENT_TIMESTAMP
             """,
             (
-                lecture_id, user_id, mode, weekday, hour, minute,
-                timezone.strip(), scheduled_at.strip(),
+                lecture_id,
+                user_id,
+                mode,
+                weekday,
+                hour,
+                minute,
+                timezone.strip(),
+                scheduled_at.strip(),
             ),
         )
         await db.commit()
@@ -195,10 +202,12 @@ async def settle_source_failed_publish_schedule(
     db = await get_connection()
     try:
         await db.execute("BEGIN IMMEDIATE")
-        lecture = await (await db.execute(
-            "SELECT status FROM lectures WHERE id = ? LIMIT 1",
-            (lecture_id,),
-        )).fetchone()
+        lecture = await (
+            await db.execute(
+                "SELECT status FROM lectures WHERE id = ? LIMIT 1",
+                (lecture_id,),
+            )
+        ).fetchone()
         still_failed = bool(lecture and lecture["status"] == "failed")
 
         if still_failed:
@@ -255,9 +264,18 @@ async def update_publish_schedule(
     if not values and not clear_lease:
         return
     allowed = {
-        "status", "scheduled_at", "attempts", "last_error", "published_at",
-        "mode", "weekday", "hour", "minute", "timezone",
-        "create_state", "create_result_json",
+        "status",
+        "scheduled_at",
+        "attempts",
+        "last_error",
+        "published_at",
+        "mode",
+        "weekday",
+        "hour",
+        "minute",
+        "timezone",
+        "create_state",
+        "create_result_json",
     }
     invalid = set(values) - allowed
     if invalid:
@@ -280,7 +298,7 @@ async def update_publish_schedule(
         cursor = await db.execute(
             f"""
             UPDATE lecture_publish_schedules
-            SET {', '.join(assignments)}
+            SET {", ".join(assignments)}
             WHERE {where}
             """,
             params,
@@ -292,4 +310,3 @@ async def update_publish_schedule(
         await db.commit()
     finally:
         await db.close()
-

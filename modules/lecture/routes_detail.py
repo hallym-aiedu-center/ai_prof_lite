@@ -40,16 +40,12 @@ async def lecture_queue_status(request: Request):
     }
 
 
-@router.get(
-    "/{lecture_id}"
-)
+@router.get("/{lecture_id}")
 async def lecture_detail(
     request: Request,
     lecture_id: int,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return login_redirect()
@@ -69,35 +65,25 @@ async def lecture_detail(
         request=request,
         name="lectures/detail.html",
         context={
-            "user": await get_user(
-                user_id
-            ),
+            "user": await get_user(user_id),
             "lecture": lecture,
             "active_page": "lectures",
-            "csrf_token": get_csrf_token(
-                request
-            ),
+            "csrf_token": get_csrf_token(request),
             "openai_usage": await usage_summary(user_id),
         },
     )
 
 
-@router.get(
-    "/{lecture_id}/status"
-)
+@router.get("/{lecture_id}/status")
 async def lecture_status(
     request: Request,
     lecture_id: int,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return JSONResponse(
-            {
-                "error": "unauthorized"
-            },
+            {"error": "unauthorized"},
             status_code=401,
         )
 
@@ -108,35 +94,19 @@ async def lecture_status(
 
     if lecture is None:
         return JSONResponse(
-            {
-                "error": "not_found"
-            },
+            {"error": "not_found"},
             status_code=404,
         )
 
     return {
         "id": lecture["id"],
         "status": lecture["status"],
-        "progress": lecture[
-            "progress"
-        ],
-        "status_message": lecture[
-            "status_message"
-        ],
-        "error_message": lecture[
-            "error_message"
-        ],
-        "moodle_videotracker_cmid": lecture.get(
-            "moodle_videotracker_cmid"
-        ),
-        "completed": (
-            lecture["status"]
-            == "completed"
-        ),
-        "failed": (
-            lecture["status"]
-            == "failed"
-        ),
+        "progress": lecture["progress"],
+        "status_message": lecture["status_message"],
+        "error_message": lecture["error_message"],
+        "moodle_videotracker_cmid": lecture.get("moodle_videotracker_cmid"),
+        "completed": (lecture["status"] == "completed"),
+        "failed": (lecture["status"] == "failed"),
         "awaiting_review": lecture["status"] == "awaiting_review",
         "cancelled": lecture["status"] == "cancelled",
     }
@@ -150,17 +120,13 @@ ARTIFACT_FIELDS = {
 }
 
 
-@router.get(
-    "/{lecture_id}/download/{kind}"
-)
+@router.get("/{lecture_id}/download/{kind}")
 async def download_artifact(
     request: Request,
     lecture_id: int,
     kind: str,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return login_redirect()
@@ -176,30 +142,19 @@ async def download_artifact(
             status_code=303,
         )
 
-    field = ARTIFACT_FIELDS.get(
-        kind
-    )
+    field = ARTIFACT_FIELDS.get(kind)
 
-    if (
-        not field
-        or not lecture.get(field)
-    ):
+    if not field or not lecture.get(field):
         return RedirectResponse(
-            url=(
-                f"/lectures/{lecture_id}"
-            ),
+            url=(f"/lectures/{lecture_id}"),
             status_code=303,
         )
 
-    path = Path(
-        lecture[field]
-    )
+    path = Path(lecture[field])
 
     if not path.exists():
         return RedirectResponse(
-            url=(
-                f"/lectures/{lecture_id}"
-            ),
+            url=(f"/lectures/{lecture_id}"),
             status_code=303,
         )
 
@@ -209,16 +164,12 @@ async def download_artifact(
     )
 
 
-@router.get(
-    "/{lecture_id}/quiz.json"
-)
+@router.get("/{lecture_id}/quiz.json")
 async def download_quiz(
     request: Request,
     lecture_id: int,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return login_redirect()
@@ -238,7 +189,9 @@ async def download_quiz(
         raise HTTPException(404, "생성된 퀴즈가 없습니다.")
     return JSONResponse(
         content=lecture["quiz_json"],
-        headers={"Content-Disposition": f'attachment; filename="lecture_{lecture_id}_quiz.json"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="lecture_{lecture_id}_quiz.json"'
+        },
     )
 
 
@@ -261,7 +214,9 @@ async def lecture_slide_preview(request: Request, lecture_id: int, slide_index: 
 
 
 @router.post("/{lecture_id}/review/approve")
-async def approve_lecture_review(request: Request, lecture_id: int, csrf_token: str = Form(...)):
+async def approve_lecture_review(
+    request: Request, lecture_id: int, csrf_token: str = Form(...)
+):
     user_id = current_user_id(request)
     if user_id is None:
         return login_redirect()
@@ -297,13 +252,21 @@ async def update_lecture_review(request: Request, lecture_id: int):
         title = str(form.get(f"slide_{index}_title") or "").strip()
         bullets_raw = str(form.get(f"slide_{index}_bullets") or "")
         narration = str(form.get(f"slide_{index}_narration") or "").strip()
-        bullets = [line.strip().lstrip("-• ").strip() for line in bullets_raw.splitlines() if line.strip()]
+        bullets = [
+            line.strip().lstrip("-• ").strip()
+            for line in bullets_raw.splitlines()
+            if line.strip()
+        ]
         if not title or len(title) > 300:
             raise HTTPException(422, f"{index}번 슬라이드 제목은 1~300자로 입력하세요.")
         if not bullets or len(bullets) > 10 or any(len(item) > 500 for item in bullets):
-            raise HTTPException(422, f"{index}번 슬라이드 bullet은 1~10개, 각 500자 이하로 입력하세요.")
+            raise HTTPException(
+                422, f"{index}번 슬라이드 bullet은 1~10개, 각 500자 이하로 입력하세요."
+            )
         if not narration or len(narration) > 20000:
-            raise HTTPException(422, f"{index}번 슬라이드 대본은 1~20,000자로 입력하세요.")
+            raise HTTPException(
+                422, f"{index}번 슬라이드 대본은 1~20,000자로 입력하세요."
+            )
         slide["title"] = title
         slide["bullets"] = bullets
         slide["narration"] = narration
@@ -316,7 +279,9 @@ async def update_lecture_review(request: Request, lecture_id: int):
 
 
 @router.post("/{lecture_id}/cancel")
-async def cancel_lecture(request: Request, lecture_id: int, csrf_token: str = Form(...)):
+async def cancel_lecture(
+    request: Request, lecture_id: int, csrf_token: str = Form(...)
+):
     user_id = current_user_id(request)
     if user_id is None:
         return login_redirect()

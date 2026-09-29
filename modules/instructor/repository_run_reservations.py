@@ -30,23 +30,27 @@ async def reserve_instructor_run(
     db = await get_connection()
     try:
         await db.execute("BEGIN IMMEDIATE")
-        active = await (await db.execute(
-            "SELECT 1 FROM users WHERE id = ? AND status = 'active' LIMIT 1",
-            (user_id,),
-        )).fetchone()
+        active = await (
+            await db.execute(
+                "SELECT 1 FROM users WHERE id = ? AND status = 'active' LIMIT 1",
+                (user_id,),
+            )
+        ).fetchone()
         if active is None:
             await db.commit()
             return None
 
-        row = await (await db.execute(
-            """
+        row = await (
+            await db.execute(
+                """
             SELECT id, status, planning_attempts, lecture_id, updated_at
             FROM ai_instructor_runs
             WHERE user_id = ? AND scheduled_at = ?
             LIMIT 1
             """,
-            (user_id, scheduled_at),
-        )).fetchone()
+                (user_id, scheduled_at),
+            )
+        ).fetchone()
 
         if row is None:
             cursor = await db.execute(
@@ -70,15 +74,17 @@ async def reserve_instructor_run(
             await db.commit()
             return None
 
-        retryable = await (await db.execute(
-            """
+        retryable = await (
+            await db.execute(
+                """
             SELECT 1
             FROM ai_instructor_runs
             WHERE id = ?
               AND updated_at <= datetime('now', ?)
             """,
-            (int(row["id"]), retry_modifier),
-        )).fetchone()
+                (int(row["id"]), retry_modifier),
+            )
+        ).fetchone()
         if retryable is None:
             await db.commit()
             return None
@@ -159,8 +165,17 @@ async def update_instructor_run(
     if not values:
         return
     allowed = {
-        "status", "lecture_id", "course_id", "course_name", "section_num",
-        "section_name", "title", "topic", "rationale", "last_error", "week_number",
+        "status",
+        "lecture_id",
+        "course_id",
+        "course_name",
+        "section_num",
+        "section_name",
+        "title",
+        "topic",
+        "rationale",
+        "last_error",
+        "week_number",
     }
     invalid = set(values) - allowed
     if invalid:
@@ -183,7 +198,7 @@ async def update_instructor_run(
         cursor = await db.execute(
             f"""
             UPDATE ai_instructor_runs
-            SET {', '.join(assignments)}, updated_at = CURRENT_TIMESTAMP
+            SET {", ".join(assignments)}, updated_at = CURRENT_TIMESTAMP
             WHERE {where}
             """,
             params,
@@ -193,4 +208,3 @@ async def update_instructor_run(
         await db.commit()
     finally:
         await db.close()
-

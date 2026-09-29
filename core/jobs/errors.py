@@ -27,10 +27,16 @@ def retryable(error: Exception) -> bool:
         return False
     if isinstance(error, PublishNotReadyError):
         return True
-    if isinstance(error, (asyncio.TimeoutError, TimeoutError, APIConnectionError, httpx.TransportError)):
+    if isinstance(
+        error,
+        (asyncio.TimeoutError, TimeoutError, APIConnectionError, httpx.TransportError),
+    ):
         return True
     if isinstance(error, APIStatusError):
         return error.status_code in {408, 409, 429} or error.status_code >= 500
     if isinstance(error, httpx.HTTPStatusError):
-        return error.response.status_code in {408, 429} or error.response.status_code >= 500
+        return (
+            error.response.status_code in {408, 429}
+            or error.response.status_code >= 500
+        )
     return False

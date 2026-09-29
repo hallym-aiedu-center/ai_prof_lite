@@ -57,7 +57,7 @@ async def _choose_course(
 가능하면 한 학기 흐름이 자연스럽게 이어지도록 최근 강의 기록을 참고하세요.
 
 사용자 운영 지침:
-{instructions or '강좌의 흐름에 맞게 유용한 강의를 지속적으로 제작한다.'}
+{instructions or "강좌의 흐름에 맞게 유용한 강의를 지속적으로 제작한다."}
 
 최근 자동 강의 제목(중복 회피):
 {json.dumps(recent_titles, ensure_ascii=False)}
@@ -77,22 +77,39 @@ async def _choose_course(
         if user_id is None:
             raise ValueError("Tracked OpenAI Responses calls require user_id.")
         response = await responses_create(
-            client, user_id=user_id, model=model, input=prompt,
+            client,
+            user_id=user_id,
+            model=model,
+            input=prompt,
             max_output_tokens=1200,
-            text={"format": {"type": "json_schema", "name": "ai_instructor_course_choice", "strict": True, "schema": schema}},
-            usage_context={"operation": "ai_instructor_course_choice", "stage": "instructor.course_selection"},
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "ai_instructor_course_choice",
+                    "strict": True,
+                    "schema": schema,
+                }
+            },
+            usage_context={
+                "operation": "ai_instructor_course_choice",
+                "stage": "instructor.course_selection",
+            },
         )
         payload = json.loads(response.output_text)
         course_id = int(payload["course_id"])
         if course_id not in allowed:
             raise ValueError("AI가 허용되지 않은 강좌를 선택했습니다.")
-        selected = next(item for item in courses if int(item.get("id", -1)) == course_id)
+        selected = next(
+            item for item in courses if int(item.get("id", -1)) == course_id
+        )
         return selected, str(payload.get("rationale") or "AI 강좌 선택")
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         # A syntactically invalid structured answer can fall back deterministically.
         # Transport/auth/rate-limit/server failures must propagate so the planner can retry
         # instead of silently creating a lecture for an arbitrary course.
-        return courses[0], "AI 선택 응답 형식을 사용할 수 없어 첫 번째 허용 강좌를 선택했습니다."
+        return courses[
+            0
+        ], "AI 선택 응답 형식을 사용할 수 없어 첫 번째 허용 강좌를 선택했습니다."
 
 
 async def _choose_lesson(
@@ -139,15 +156,15 @@ async def _choose_lesson(
 초반 주차는 기초와 개념 형성, 중반은 적용/심화, 후반은 통합/정리 흐름이 되도록 주차 맥락을 반영하세요.
 
 강좌:
-- id: {course.get('id')}
+- id: {course.get("id")}
 - name: {_course_label(course)}
-- summary: {str(course.get('summary') or '')[:1200]}
+- summary: {str(course.get("summary") or "")[:1200]}
 
 강좌 섹션:
 {json.dumps(usable_sections, ensure_ascii=False)}
 
 사용자 운영 지침:
-{instructions or '강좌의 교육 흐름에 맞고 실무적으로 유용한 강의를 만든다.'}
+{instructions or "강좌의 교육 흐름에 맞고 실무적으로 유용한 강의를 만든다."}
 
 최근 자동 강의 제목:
 {json.dumps(recent_titles, ensure_ascii=False)}
@@ -167,10 +184,23 @@ async def _choose_lesson(
         if user_id is None:
             raise ValueError("Tracked OpenAI Responses calls require user_id.")
         response = await responses_create(
-            client, user_id=user_id, model=model, input=prompt,
+            client,
+            user_id=user_id,
+            model=model,
+            input=prompt,
             max_output_tokens=2000,
-            text={"format": {"type": "json_schema", "name": "ai_instructor_lesson_choice", "strict": True, "schema": schema}},
-            usage_context={"operation": "ai_instructor_lesson_choice", "stage": "instructor.lesson_selection"},
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "ai_instructor_lesson_choice",
+                    "strict": True,
+                    "schema": schema,
+                }
+            },
+            usage_context={
+                "operation": "ai_instructor_lesson_choice",
+                "stage": "instructor.lesson_selection",
+            },
         )
         payload = json.loads(response.output_text)
         section_num = int(payload["section"])

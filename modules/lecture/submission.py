@@ -64,7 +64,12 @@ def validate_lecture_submission(
     if not title or len(title) > 200 or not topic or len(topic) > 20_000:
         raise HTTPException(422, "제목은 1~200자, 강의 요청은 1~20,000자로 입력하세요.")
 
-    models = [text_model.strip(), image_model.strip(), tts_model.strip(), tts_voice.strip()]
+    models = [
+        text_model.strip(),
+        image_model.strip(),
+        tts_model.strip(),
+        tts_voice.strip(),
+    ]
     if any(not value or len(value) > 128 for value in models):
         raise HTTPException(422, "모델과 음성 이름은 1~128자로 입력하세요.")
 
@@ -77,7 +82,9 @@ def validate_lecture_submission(
 
     mode = reference_mode.strip().lower()
     if mode not in {"rag", "full"}:
-        raise HTTPException(422, "참고자료 처리 방식은 RAG 또는 전체 파일 전달 중에서 선택하세요.")
+        raise HTTPException(
+            422, "참고자료 처리 방식은 RAG 또는 전체 파일 전달 중에서 선택하세요."
+        )
     if moodle_deploy_mode not in {"create", "existing"}:
         raise HTTPException(422, "올바른 Moodle 배포 방식을 선택하세요.")
 

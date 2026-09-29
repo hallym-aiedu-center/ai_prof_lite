@@ -35,5 +35,3 @@ def _env_int(
     if minimum is not None and value < minimum:
         raise RuntimeError(f"{name} must be >= {minimum}")
     return value
-
-

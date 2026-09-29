@@ -1,4 +1,5 @@
 """Shared web/worker configuration. Relative paths are project-relative."""
+
 import math
 import os
 from pathlib import Path

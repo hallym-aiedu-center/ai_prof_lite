@@ -30,9 +30,17 @@ async def generate_image(
     client = get_client(api_key=api_key)
     async with client:
         result = await images_generate(
-            client, user_id=user_id, lecture_id=lecture_id,
-            model=model, prompt=prompt, size=size, quality=quality,
-            usage_context={"operation": "standalone_image_generate", "stage": "image.service"},
+            client,
+            user_id=user_id,
+            lecture_id=lecture_id,
+            model=model,
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            usage_context={
+                "operation": "standalone_image_generate",
+                "stage": "image.service",
+            },
         )
 
     item = result.data[0]
@@ -44,9 +52,7 @@ async def generate_image(
     url = getattr(item, "url", None)
 
     if not url:
-        raise RuntimeError(
-            "Image API returned neither b64_json nor url."
-        )
+        raise RuntimeError("Image API returned neither b64_json nor url.")
 
     async with httpx.AsyncClient(timeout=120.0) as http:
         response = await http.get(url)

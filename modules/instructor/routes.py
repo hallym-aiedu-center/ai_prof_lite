@@ -22,13 +22,13 @@ from modules.credentials.required import (
     MissingCredentialError,
     require_user_openai_api_key,
 )
-from modules.lecture.uploads import normalize_uploaded_portrait
 from modules.instructor.repository import (
     get_instructor_profile,
     list_instructor_runs,
     set_instructor_avatar,
     upsert_instructor_profile,
 )
+from modules.lecture.uploads import normalize_uploaded_portrait
 from modules.moodle.courses.service import get_my_courses
 from modules.moodle.service import get_user_moodle_client
 from modules.users.service import get_user
@@ -37,7 +37,13 @@ router = APIRouter(prefix="/instructor")
 templates = Jinja2Templates(directory=str(PROJECT_ROOT / "templates"))
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,79}$")
 WEEKDAYS = [
-    (0, "월"), (1, "화"), (2, "수"), (3, "목"), (4, "금"), (5, "토"), (6, "일"),
+    (0, "월"),
+    (1, "화"),
+    (2, "수"),
+    (3, "목"),
+    (4, "금"),
+    (5, "토"),
+    (6, "일"),
 ]
 
 
@@ -88,7 +94,9 @@ def _default_profile(user_id: int) -> dict:
         "tts_model": os.getenv("LECTURE_TTS_MODEL", "gpt-4o-mini-tts"),
         "tts_voice": os.getenv("LECTURE_TTS_VOICE", "alloy"),
         "generate_images": True,
-        "target_duration_minutes": int(os.getenv("LECTURE_TARGET_DURATION_MINUTES", "40")),
+        "target_duration_minutes": int(
+            os.getenv("LECTURE_TARGET_DURATION_MINUTES", "40")
+        ),
         "target_slide_count": int(os.getenv("LECTURE_TARGET_SLIDE_COUNT", "10")),
     }
 
@@ -97,7 +105,9 @@ def _decorate_runs(runs: list[dict]) -> list[dict]:
     for item in runs:
         try:
             zone = ZoneInfo(item.get("timezone") or "Asia/Seoul")
-            dt = datetime.strptime(item["scheduled_at"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            dt = datetime.strptime(item["scheduled_at"], "%Y-%m-%d %H:%M:%S").replace(
+                tzinfo=timezone.utc
+            )
             item["scheduled_local"] = dt.astimezone(zone).strftime("%m/%d %H:%M")
         except (ValueError, TypeError, ZoneInfoNotFoundError):
             item["scheduled_local"] = item.get("scheduled_at")
@@ -107,9 +117,17 @@ def _decorate_runs(runs: list[dict]) -> list[dict]:
 def _semester_dates(profile: dict) -> tuple[date, date, int]:
     raw = str(profile.get("semester_start_date") or "").strip()
     try:
-        start = date.fromisoformat(raw) if raw else date.fromisoformat(_default_semester_start(profile.get("timezone") or "Asia/Seoul"))
+        start = (
+            date.fromisoformat(raw)
+            if raw
+            else date.fromisoformat(
+                _default_semester_start(profile.get("timezone") or "Asia/Seoul")
+            )
+        )
     except ValueError:
-        start = date.fromisoformat(_default_semester_start(profile.get("timezone") or "Asia/Seoul"))
+        start = date.fromisoformat(
+            _default_semester_start(profile.get("timezone") or "Asia/Seoul")
+        )
     weeks = max(1, min(30, int(profile.get("semester_weeks") or 15)))
     end = start + timedelta(days=weeks * 7 - 1)
     return start, end, weeks
@@ -132,12 +150,14 @@ def _next_slots(profile: dict, count: int = 6) -> list[dict]:
         candidate = datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone)
         if candidate.weekday() in weekdays and candidate > now:
             week_number = ((day - start).days // 7) + 1
-            results.append({
-                "week": week_number,
-                "total_weeks": total_weeks,
-                "label": candidate.strftime("%m/%d %H:%M"),
-                "weekday": WEEKDAYS[candidate.weekday()][1],
-            })
+            results.append(
+                {
+                    "week": week_number,
+                    "total_weeks": total_weeks,
+                    "label": candidate.strftime("%m/%d %H:%M"),
+                    "weekday": WEEKDAYS[candidate.weekday()][1],
+                }
+            )
             if len(results) >= count:
                 break
         day += timedelta(days=1)
@@ -151,7 +171,10 @@ async def _load_courses(user_id: int) -> tuple[list[dict], str | None]:
         normalized = [
             {
                 "id": int(course["id"]),
-                "name": course.get("displayname") or course.get("fullname") or course.get("shortname") or f"Course {course['id']}",
+                "name": course.get("displayname")
+                or course.get("fullname")
+                or course.get("shortname")
+                or f"Course {course['id']}",
                 "shortname": course.get("shortname") or "",
             }
             for course in courses
@@ -184,14 +207,44 @@ async def instructor_home(request: Request):
 
     profile = await get_instructor_profile(user_id) or _default_profile(user_id)
     if not str(profile.get("semester_start_date") or "").strip():
-        profile["semester_start_date"] = _default_semester_start(profile.get("timezone") or "Asia/Seoul")
-    profile["semester_weeks"] = max(1, min(30, int(profile.get("semester_weeks") or 15)))
+        profile["semester_start_date"] = _default_semester_start(
+            profile.get("timezone") or "Asia/Seoul"
+        )
+    profile["semester_weeks"] = max(
+        1, min(30, int(profile.get("semester_weeks") or 15))
+    )
     courses, course_error = await _load_courses(user_id)
     models = {
-        "text": _env_options("LECTURE_TEXT_MODEL_OPTIONS", ["gpt-5.1", "gpt-5", "gpt-4.1"], profile["text_model"]),
-        "image": _env_options("LECTURE_IMAGE_MODEL_OPTIONS", ["gpt-image-2", "gpt-image-1"], profile["image_model"]),
-        "tts": _env_options("LECTURE_TTS_MODEL_OPTIONS", ["gpt-4o-mini-tts", "tts-1", "tts-1-hd"], profile["tts_model"]),
-        "voice": _env_options("LECTURE_TTS_VOICE_OPTIONS", ["alloy", "ash", "coral", "echo", "nova", "onyx", "sage", "shimmer", "verse"], profile["tts_voice"]),
+        "text": _env_options(
+            "LECTURE_TEXT_MODEL_OPTIONS",
+            ["gpt-5.1", "gpt-5", "gpt-4.1"],
+            profile["text_model"],
+        ),
+        "image": _env_options(
+            "LECTURE_IMAGE_MODEL_OPTIONS",
+            ["gpt-image-2", "gpt-image-1"],
+            profile["image_model"],
+        ),
+        "tts": _env_options(
+            "LECTURE_TTS_MODEL_OPTIONS",
+            ["gpt-4o-mini-tts", "tts-1", "tts-1-hd"],
+            profile["tts_model"],
+        ),
+        "voice": _env_options(
+            "LECTURE_TTS_VOICE_OPTIONS",
+            [
+                "alloy",
+                "ash",
+                "coral",
+                "echo",
+                "nova",
+                "onyx",
+                "sage",
+                "shimmer",
+                "verse",
+            ],
+            profile["tts_voice"],
+        ),
     }
     return templates.TemplateResponse(
         request=request,
@@ -279,17 +332,25 @@ async def save_instructor(
     try:
         ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError as exc:
-        raise HTTPException(status_code=400, detail="유효하지 않은 타임존입니다.") from exc
+        raise HTTPException(
+            status_code=400, detail="유효하지 않은 타임존입니다."
+        ) from exc
 
     try:
         semester_start = date.fromisoformat(semester_start_date.strip())
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail="1주차 시작일을 올바른 날짜로 입력하세요.") from exc
+        raise HTTPException(
+            status_code=400, detail="1주차 시작일을 올바른 날짜로 입력하세요."
+        ) from exc
     semester_weeks = max(1, min(30, int(semester_weeks)))
 
-    weekday_values = sorted({int(value) for value in weekdays if value.isdigit() and 0 <= int(value) <= 6})
+    weekday_values = sorted(
+        {int(value) for value in weekdays if value.isdigit() and 0 <= int(value) <= 6}
+    )
     if enabled is not None and not weekday_values:
-        raise HTTPException(status_code=400, detail="AI 강사를 켜려면 게시 요일을 하나 이상 선택하세요.")
+        raise HTTPException(
+            status_code=400, detail="AI 강사를 켜려면 게시 요일을 하나 이상 선택하세요."
+        )
     if not 0 <= publish_hour <= 23 or publish_minute not in {0, 10, 20, 30, 40, 50}:
         raise HTTPException(status_code=400, detail="게시 시간이 올바르지 않습니다.")
     lead_hours = max(1, min(168, int(lead_hours)))
@@ -300,7 +361,10 @@ async def save_instructor(
         zone = ZoneInfo(timezone_name)
         term_end = semester_start + timedelta(days=semester_weeks * 7)
         if datetime.now(zone).date() >= term_end:
-            raise HTTPException(status_code=400, detail="이미 종료된 학기 일정입니다. 1주차 시작일이나 총 주차를 조정하세요.")
+            raise HTTPException(
+                status_code=400,
+                detail="이미 종료된 학기 일정입니다. 1주차 시작일이나 총 주차를 조정하세요.",
+            )
     if course_scope not in {"all", "selected"}:
         raise HTTPException(status_code=400, detail="잘못된 강좌 위임 범위입니다.")
 
@@ -308,7 +372,10 @@ async def save_instructor(
     if enabled is not None and (course_load_error or not courses):
         raise HTTPException(
             status_code=400,
-            detail=("AI 강사를 켜려면 Moodle 연결과 접근 가능한 강좌가 필요합니다. " + (course_load_error or "")),
+            detail=(
+                "AI 강사를 켜려면 Moodle 연결과 접근 가능한 강좌가 필요합니다. "
+                + (course_load_error or "")
+            ),
         )
 
     if enabled is not None:
@@ -318,16 +385,26 @@ async def save_instructor(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     valid_course_ids = {int(course["id"]) for course in courses}
-    selected_ids = sorted({int(v) for v in selected_course_ids if v.isdigit() and int(v) in valid_course_ids})
+    selected_ids = sorted(
+        {
+            int(v)
+            for v in selected_course_ids
+            if v.isdigit() and int(v) in valid_course_ids
+        }
+    )
     if enabled is not None and course_scope == "selected" and not selected_ids:
-        raise HTTPException(status_code=400, detail="선택 강좌 모드에서는 강좌를 하나 이상 지정하세요.")
+        raise HTTPException(
+            status_code=400, detail="선택 강좌 모드에서는 강좌를 하나 이상 지정하세요."
+        )
 
     old = await get_instructor_profile(user_id) or _default_profile(user_id)
     avatar_path: str | None = None
     if avatar is not None and getattr(avatar, "filename", ""):
         avatar_path = await _save_avatar_file(user_id, avatar)
     if enabled is not None and not (avatar_path or old.get("avatar_path")):
-        raise HTTPException(status_code=400, detail="AI 강사를 켜려면 기본 아바타 이미지를 등록하세요.")
+        raise HTTPException(
+            status_code=400, detail="AI 강사를 켜려면 기본 아바타 이미지를 등록하세요."
+        )
 
     await upsert_instructor_profile(
         user_id=user_id,

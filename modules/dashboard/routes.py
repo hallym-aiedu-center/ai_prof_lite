@@ -47,10 +47,7 @@ async def dashboard(request: Request):
         limit=8,
     )
 
-    provider_map = {
-        row["provider"]: row
-        for row in credentials
-    }
+    provider_map = {row["provider"]: row for row in credentials}
 
     openai_server_mode = openai_key_mode() == "server"
     openai_connected = (
@@ -86,14 +83,8 @@ async def dashboard(request: Request):
         },
     ]
 
-    completed = sum(
-        1 for item in lectures
-        if item["status"] == "completed"
-    )
-    running = sum(
-        1 for item in lectures
-        if item["status"] in {"queued", "running"}
-    )
+    completed = sum(1 for item in lectures if item["status"] == "completed")
+    running = sum(1 for item in lectures if item["status"] in {"queued", "running"})
 
     return templates.TemplateResponse(
         request=request,

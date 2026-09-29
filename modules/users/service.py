@@ -9,10 +9,12 @@ from core.database.client import get_connection
 async def get_user_status(user_id: int) -> str | None:
     db = await get_connection()
     try:
-        row = await (await db.execute(
-            "SELECT status FROM users WHERE id = ? LIMIT 1",
-            (user_id,),
-        )).fetchone()
+        row = await (
+            await db.execute(
+                "SELECT status FROM users WHERE id = ? LIMIT 1",
+                (user_id,),
+            )
+        ).fetchone()
         return str(row["status"]) if row else None
     finally:
         await db.close()
@@ -109,6 +111,7 @@ async def update_profile(
     finally:
         await db.close()
 
+
 def _safe_user_file(path_value: str | None, root: Path) -> Path | None:
     if not path_value:
         return None
@@ -139,24 +142,32 @@ async def delete_account(user_id: int) -> None:
     paths: set[Path] = set()
     lecture_ids: list[int] = []
     try:
-        lectures = await (await db.execute(
-            """
+        lectures = await (
+            await db.execute(
+                """
             SELECT id, portrait_path, pptx_path, narration_path, slides_video_path,
                    avatar_path, final_video_path, source_files_json
             FROM lectures WHERE user_id = ?
             """,
-            (user_id,),
-        )).fetchall()
-        profile = await (await db.execute(
-            "SELECT avatar_path FROM user_profiles WHERE user_id = ?",
-            (user_id,),
-        )).fetchone()
+                (user_id,),
+            )
+        ).fetchall()
+        profile = await (
+            await db.execute(
+                "SELECT avatar_path FROM user_profiles WHERE user_id = ?",
+                (user_id,),
+            )
+        ).fetchone()
 
         for row in lectures:
             lecture_ids.append(int(row["id"]))
             for key in (
-                "portrait_path", "pptx_path", "narration_path",
-                "slides_video_path", "avatar_path", "final_video_path",
+                "portrait_path",
+                "pptx_path",
+                "narration_path",
+                "slides_video_path",
+                "avatar_path",
+                "final_video_path",
             ):
                 candidate = _safe_user_file(row[key], root)
                 if candidate:
@@ -203,4 +214,3 @@ async def delete_account(user_id: int) -> None:
             except OSError:
                 break
             parent = parent.parent
-

@@ -10,12 +10,15 @@ from core.openai.usage_pricing import (
     _text_rate,
 )
 
+
 def _request_id(response: Any) -> str | None:
     for key in ("request_id", "_request_id"):
         value = _field(response, key, None)
         if value:
             return str(value)
-    http_response = _field(response, "http_response", None) or _field(response, "response", None)
+    http_response = _field(response, "http_response", None) or _field(
+        response, "response", None
+    )
     headers = _field(http_response, "headers", {})
     if isinstance(headers, dict):
         for key in ("x-request-id", "openai-request-id"):
@@ -24,7 +27,9 @@ def _request_id(response: Any) -> str | None:
     return None
 
 
-def _pricing_snapshot(kind: str, model: str, extra: dict | None = None) -> dict[str, Any]:
+def _pricing_snapshot(
+    kind: str, model: str, extra: dict | None = None
+) -> dict[str, Any]:
     payload: dict[str, Any] = {"kind": kind, "model": model}
     if kind == "responses":
         rate = _text_rate(model)

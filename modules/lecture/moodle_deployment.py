@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Protocol
+from typing import Any, Protocol
 
 from core.jobs.errors import AmbiguousDeploymentError
 
@@ -24,7 +25,7 @@ class MoodleDeploymentSpec:
         *,
         video_path: str,
         duration: float | None,
-    ) -> "MoodleDeploymentSpec":
+    ) -> MoodleDeploymentSpec:
         return cls(
             user_id=int(lecture["user_id"]),
             title=str(lecture["title"]),

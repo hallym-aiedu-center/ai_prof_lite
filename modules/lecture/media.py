@@ -18,14 +18,25 @@ FFPROBE_BIN = os.getenv(
 
 
 async def run_process(
-    args: list[str], *, cwd: Path | None = None, env: dict | None = None,
+    args: list[str],
+    *,
+    cwd: Path | None = None,
+    env: dict | None = None,
     timeout: float | None = None,
 ) -> str:
-    limit = timeout if timeout is not None else float(os.getenv("MEDIA_PROCESS_TIMEOUT_SECONDS", "3600"))
+    limit = (
+        timeout
+        if timeout is not None
+        else float(os.getenv("MEDIA_PROCESS_TIMEOUT_SECONDS", "3600"))
+    )
     # Spool noisy FFmpeg/Ditto logs instead of accumulating them in RAM.
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
         process = await asyncio.create_subprocess_exec(
-            *args, cwd=str(cwd) if cwd else None, env=env, stdout=out, stderr=err,
+            *args,
+            cwd=str(cwd) if cwd else None,
+            env=env,
+            stdout=out,
+            stderr=err,
             stdin=asyncio.subprocess.DEVNULL,
         )
         try:
@@ -63,9 +74,7 @@ async def media_duration(
     path: Path,
 ) -> float:
     if not path.exists():
-        raise FileNotFoundError(
-            f"Media file not found: {path}"
-        )
+        raise FileNotFoundError(f"Media file not found: {path}")
 
     result = await run_process(
         [
@@ -82,17 +91,10 @@ async def media_duration(
 
     payload = json.loads(result)
 
-    duration = (
-        payload
-        .get("format", {})
-        .get("duration")
-    )
+    duration = payload.get("format", {}).get("duration")
 
     if duration is None:
-        raise RuntimeError(
-            "Could not determine media "
-            f"duration: {path}"
-        )
+        raise RuntimeError(f"Could not determine media duration: {path}")
 
     return float(duration)
 
@@ -100,9 +102,7 @@ async def media_duration(
 def _concat_file_line(
     path: Path,
 ) -> str:
-    absolute = str(
-        path.resolve()
-    )
+    absolute = str(path.resolve())
 
     absolute = absolute.replace(
         "'",
@@ -123,10 +123,7 @@ async def _test_encoder(
     """
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        output = (
-            Path(temp_dir)
-            / "encoder_test.mp4"
-        )
+        output = Path(temp_dir) / "encoder_test.mp4"
 
         args = [
             FFMPEG_BIN,
@@ -192,24 +189,13 @@ async def detect_video_encoder() -> str:
     ]
 
     for encoder in candidates:
-        if await _test_encoder(
-            encoder
-        ):
-            print(
-                "[FFmpeg] selected encoder: "
-                f"{encoder}"
-            )
+        if await _test_encoder(encoder):
+            print(f"[FFmpeg] selected encoder: {encoder}")
             return encoder
 
-        print(
-            "[FFmpeg] encoder "
-            f"unavailable/broken: {encoder}"
-        )
+        print(f"[FFmpeg] encoder unavailable/broken: {encoder}")
 
-    raise RuntimeError(
-        "사용 가능한 FFmpeg video "
-        "encoder가 없습니다."
-    )
+    raise RuntimeError("사용 가능한 FFmpeg video encoder가 없습니다.")
 
 
 def encoder_args(
@@ -251,6 +237,4 @@ def encoder_args(
             "3",
         ]
 
-    raise ValueError(
-        f"Unsupported encoder: {encoder}"
-    )
+    raise ValueError(f"Unsupported encoder: {encoder}")

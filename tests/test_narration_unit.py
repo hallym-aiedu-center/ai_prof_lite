@@ -16,7 +16,11 @@ def test_tts_chunk_size_and_split_boundaries(monkeypatch):
     chunks = narration._split_tts_text("A" * 12 + ". " + "B" * 12, max_chars=16)
     assert "".join(chunks).replace(" ", "") == ("A" * 12 + "." + "B" * 12)
     assert all(len(chunk) <= 16 for chunk in chunks)
-    assert narration._split_tts_text("x" * 21, max_chars=10) == ["x" * 10, "x" * 10, "x"]
+    assert narration._split_tts_text("x" * 21, max_chars=10) == [
+        "x" * 10,
+        "x" * 10,
+        "x",
+    ]
 
     with pytest.raises(ValueError, match="empty"):
         narration._split_tts_text("   ")
@@ -48,7 +52,9 @@ async def test_concat_wav_files_single_and_multiple(tmp_path, monkeypatch):
     second.write_bytes(b"B")
 
     single = tmp_path / "single.wav"
-    await narration._concat_wav_files(paths=[first], output_path=single, work_dir=tmp_path)
+    await narration._concat_wav_files(
+        paths=[first], output_path=single, work_dir=tmp_path
+    )
     assert single.read_bytes() == b"A"
 
     async def fake_run(command, cwd):
@@ -57,12 +63,16 @@ async def test_concat_wav_files_single_and_multiple(tmp_path, monkeypatch):
 
     monkeypatch.setattr(narration, "run_process", fake_run)
     output = tmp_path / "joined.wav"
-    await narration._concat_wav_files(paths=[first, second], output_path=output, work_dir=tmp_path)
+    await narration._concat_wav_files(
+        paths=[first, second], output_path=output, work_dir=tmp_path
+    )
     assert output.read_bytes() == b"joined"
     assert not list(tmp_path.glob(".tts_concat_*.txt"))
 
     with pytest.raises(ValueError, match="No WAV chunks"):
-        await narration._concat_wav_files(paths=[], output_path=output, work_dir=tmp_path)
+        await narration._concat_wav_files(
+            paths=[], output_path=output, work_dir=tmp_path
+        )
 
 
 class _FakeClient:
@@ -80,8 +90,12 @@ async def test_speech_bytes_uses_tracked_openai_wrapper(monkeypatch):
     monkeypatch.setattr(narration, "speech_create_bytes", tracked)
 
     content = await narration._speech_bytes(
-        api_key="k", model="gpt-4o-mini-tts", voice="alloy", text="hello",
-        user_id=3, lecture_id=9,
+        api_key="k",
+        model="gpt-4o-mini-tts",
+        voice="alloy",
+        text="hello",
+        user_id=3,
+        lecture_id=9,
     )
 
     assert content == b"audio"

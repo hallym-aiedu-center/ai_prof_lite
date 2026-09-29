@@ -18,16 +18,16 @@ from modules.lecture.repository_publishing import (
 )
 
 __all__ = [
+    "claim_publish_schedule",
     "create_lecture",
-    "update_lecture",
-    "get_lecture",
-    "list_lectures",
-    "list_lecture_queue_status",
     "create_publish_schedule_config",
+    "get_lecture",
     "get_publish_schedule",
     "list_due_publish_schedule_ids",
-    "claim_publish_schedule",
+    "list_lecture_queue_status",
+    "list_lectures",
     "renew_publish_schedule_lease",
     "settle_source_failed_publish_schedule",
+    "update_lecture",
     "update_publish_schedule",
 ]

@@ -2,7 +2,9 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT, openai_key_mode
+from core.config import PROJECT_ROOT as TEMPLATE_ROOT
+from core.config import openai_key_mode
+from core.openai.usage import list_usage_events, usage_summary
 from modules.auth.service import verify_user_password
 from modules.auth.session import (
     current_user_id,
@@ -10,7 +12,6 @@ from modules.auth.session import (
     login_redirect,
     verify_csrf,
 )
-from core.openai.usage import list_usage_events, usage_summary
 from modules.users.service import delete_account, get_user, update_profile
 
 router = APIRouter(prefix="/settings")
@@ -68,10 +69,16 @@ async def save_profile(
                 budget = round(float(openai_budget_usd), 2)
             except ValueError as exc:
                 from fastapi import HTTPException
-                raise HTTPException(422, "OpenAI 비용 한도는 숫자로 입력하세요.") from exc
+
+                raise HTTPException(
+                    422, "OpenAI 비용 한도는 숫자로 입력하세요."
+                ) from exc
             if budget <= 0 or budget > 100000:
                 from fastapi import HTTPException
-                raise HTTPException(422, "OpenAI 비용 한도는 $0 초과 $100,000 이하로 입력하세요.")
+
+                raise HTTPException(
+                    422, "OpenAI 비용 한도는 $0 초과 $100,000 이하로 입력하세요."
+                )
 
     await update_profile(
         user_id=user_id,
@@ -86,6 +93,7 @@ async def save_profile(
         url="/settings/profile?saved=1",
         status_code=303,
     )
+
 
 @router.get("/openai-usage")
 async def openai_usage_page(request: Request):
@@ -132,4 +140,3 @@ async def delete_account_route(
     await delete_account(user_id)
     request.session.clear()
     return RedirectResponse(url="/login?account_deleted=1", status_code=303)
-

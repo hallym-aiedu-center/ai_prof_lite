@@ -35,9 +35,7 @@ def _extract_pptx(path: Path) -> str:
                 texts.append(text.strip())
 
         if texts:
-            chunks.append(
-                f"[slide {index}]\n" + "\n".join(texts)
-            )
+            chunks.append(f"[slide {index}]\n" + "\n".join(texts))
 
     return "\n\n".join(chunks)
 
@@ -47,9 +45,7 @@ def extract_reference_text(item: dict) -> str:
 
     if path.suffix.lower() == ".pptx":
         if not path.is_file():
-            raise FileNotFoundError(
-                f"참고자료 파일을 찾을 수 없습니다: {path}"
-            )
+            raise FileNotFoundError(f"참고자료 파일을 찾을 수 없습니다: {path}")
         return _extract_pptx(path)
 
     return _files.extract_reference_text(item)
@@ -80,8 +76,8 @@ async def build_reference_context(
 __all__ = [
     "ALLOWED_REFERENCE_TYPES",
     "ALLOWED_SUFFIXES",
-    "save_reference_files",
+    "build_reference_context",
     "cleanup_reference_files",
     "extract_reference_text",
-    "build_reference_context",
+    "save_reference_files",
 ]

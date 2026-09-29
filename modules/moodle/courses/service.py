@@ -8,27 +8,18 @@ from core.moodle.client import MoodleClient
 async def get_site_info(
     client: MoodleClient,
 ) -> dict[str, Any]:
-    return await client.call(
-        "core_webservice_get_site_info"
-    )
+    return await client.call("core_webservice_get_site_info")
 
 
 async def get_my_courses(
     client: MoodleClient,
 ) -> list[dict[str, Any]]:
-    site_info = await get_site_info(
-        client
-    )
+    site_info = await get_site_info(client)
 
-    user_id = site_info.get(
-        "userid"
-    )
+    user_id = site_info.get("userid")
 
     if not user_id:
-        raise RuntimeError(
-            "Moodle site info에서 "
-            "userid를 확인할 수 없습니다."
-        )
+        raise RuntimeError("Moodle site info에서 userid를 확인할 수 없습니다.")
 
     courses = await client.call(
         "core_enrol_get_users_courses",
@@ -40,8 +31,7 @@ async def get_my_courses(
         list,
     ):
         raise RuntimeError(  # noqa: TRY004
-            "Moodle 강좌 응답 형식이 "
-            "예상과 다릅니다."
+            "Moodle 강좌 응답 형식이 예상과 다릅니다."
         )
 
     return courses
@@ -61,8 +51,7 @@ async def get_course_contents(
         list,
     ):
         raise RuntimeError(  # noqa: TRY004
-            "Moodle 강좌 contents 응답 형식이 "
-            "예상과 다릅니다."
+            "Moodle 강좌 contents 응답 형식이 예상과 다릅니다."
         )
 
     return result
@@ -87,10 +76,7 @@ async def get_course_sections(
         {
             "id": section.get("id"),
             "section": section.get("section"),
-            "name": (
-                section.get("name")
-                or f"Section {section.get('section')}"
-            ),
+            "name": (section.get("name") or f"Section {section.get('section')}"),
             "visible": section.get(
                 "visible",
                 1,
@@ -107,37 +93,20 @@ def _module_summary(
     return {
         # module["id"] is the course module id (CMID).
         "cmid": module.get("id"),
-
-        "instance_id": module.get(
-            "instance"
-        ),
-
+        "instance_id": module.get("instance"),
         "name": module.get("name"),
-        "modname": module.get(
-            "modname"
-        ),
+        "modname": module.get("modname"),
         "url": module.get("url"),
         "visible": module.get(
             "visible",
             1,
         ),
-        "availability": module.get(
-            "availability"
-        ),
-
-        "section_id": section.get(
-            "id"
-        ),
-
+        "availability": module.get("availability"),
+        "section_id": section.get("id"),
         # Relative section number. This is what
         # create_activity(sectionnum=...) needs.
-        "section_number": section.get(
-            "section"
-        ),
-
-        "section_name": section.get(
-            "name"
-        ),
+        "section_number": section.get("section"),
+        "section_name": section.get("name"),
     }
 
 
@@ -150,19 +119,14 @@ async def get_videotrackers(
         course_id,
     )
 
-    trackers: list[
-        dict[str, Any]
-    ] = []
+    trackers: list[dict[str, Any]] = []
 
     for section in sections:
         for module in section.get(
             "modules",
             [],
         ):
-            if (
-                module.get("modname")
-                != "videotracker"
-            ):
+            if module.get("modname") != "videotracker":
                 continue
 
             trackers.append(
@@ -198,14 +162,9 @@ async def get_course_overview(
             "modules",
             [],
         ):
-            modname = (
-                module.get("modname")
-                or "unknown"
-            )
+            modname = module.get("modname") or "unknown"
 
-            module_counts[
-                modname
-            ] = (
+            module_counts[modname] = (
                 module_counts.get(
                     modname,
                     0,
@@ -223,15 +182,9 @@ async def get_course_overview(
         normalized_sections.append(
             {
                 "id": section.get("id"),
-                "section": section.get(
-                    "section"
-                ),
-                "name": section.get(
-                    "name"
-                ),
-                "summary": section.get(
-                    "summary"
-                ),
+                "section": section.get("section"),
+                "name": section.get("name"),
+                "summary": section.get("summary"),
                 "visible": section.get(
                     "visible",
                     1,
@@ -251,9 +204,7 @@ async def find_course(
     client: MoodleClient,
     course_id: int,
 ) -> dict[str, Any] | None:
-    courses = await get_my_courses(
-        client
-    )
+    courses = await get_my_courses(client)
 
     for course in courses:
         if int(

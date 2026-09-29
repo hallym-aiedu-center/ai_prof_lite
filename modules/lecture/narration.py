@@ -22,7 +22,9 @@ def _split_tts_text(text: str, *, max_chars: int | None = None) -> list[str]:
         raise ValueError("Narration text is empty.")
     limit = int(max_chars or _tts_chunk_chars())
     if limit <= 0 or limit > TTS_API_MAX_CHARS:
-        raise ValueError(f"TTS chunk size must be between 1 and {TTS_API_MAX_CHARS} characters.")
+        raise ValueError(
+            f"TTS chunk size must be between 1 and {TTS_API_MAX_CHARS} characters."
+        )
     if len(text) <= limit:
         return [text]
 
@@ -53,11 +55,15 @@ def _split_tts_text(text: str, *, max_chars: int | None = None) -> list[str]:
 
 
 def _ffmpeg_concat_line(path: Path) -> str:
-    escaped = str(path.resolve()).replace(chr(39), chr(39) + chr(92) + chr(39) + chr(39))
+    escaped = str(path.resolve()).replace(
+        chr(39), chr(39) + chr(92) + chr(39) + chr(39)
+    )
     return f"file '{escaped}'"
 
 
-async def _concat_wav_files(*, paths: list[Path], output_path: Path, work_dir: Path) -> None:
+async def _concat_wav_files(
+    *, paths: list[Path], output_path: Path, work_dir: Path
+) -> None:
     if not paths:
         raise ValueError("No WAV chunks to concatenate.")
     if len(paths) == 1:
@@ -68,7 +74,9 @@ async def _concat_wav_files(*, paths: list[Path], output_path: Path, work_dir: P
     token = uuid4().hex
     concat_file = work_dir / f".tts_concat_{token}.txt"
     temporary = output_path.with_name(f".{output_path.stem}.{token}.wav")
-    concat_file.write_text("\n".join(_ffmpeg_concat_line(path) for path in paths), encoding="utf-8")
+    concat_file.write_text(
+        "\n".join(_ffmpeg_concat_line(path) for path in paths), encoding="utf-8"
+    )
     try:
         await run_process(
             [
@@ -134,7 +142,6 @@ def _atomic_write(path: Path, content: bytes) -> None:
     temporary.replace(path)
 
 
-
 def _atomic_write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
@@ -142,13 +149,20 @@ def _atomic_write_text(path: Path, content: str) -> None:
     temporary.replace(path)
 
 
-def _output_matches_tts_key(output_path: Path, key_path: Path, expected_key: str) -> bool:
-    if not output_path.is_file() or output_path.stat().st_size <= 0 or not key_path.is_file():
+def _output_matches_tts_key(
+    output_path: Path, key_path: Path, expected_key: str
+) -> bool:
+    if (
+        not output_path.is_file()
+        or output_path.stat().st_size <= 0
+        or not key_path.is_file()
+    ):
         return False
     try:
         return key_path.read_text(encoding="utf-8").strip() == expected_key
     except OSError:
         return False
+
 
 def _copy_cached_audio(cache_path: Path, output_path: Path) -> bool:
     if not cache_path.is_file() or cache_path.stat().st_size <= 0:
@@ -181,16 +195,17 @@ async def build_narration(
         key_path = output_dir / f"slide_{idx:03d}.wav.sha256"
         narration_text = str(slide["narration"])
         full_cache_key = _tts_cache_key(model=model, voice=voice, text=narration_text)
-        full_cache_path = cache_dir / f"{full_cache_key}.wav" if cache_dir is not None else None
+        full_cache_path = (
+            cache_dir / f"{full_cache_key}.wav" if cache_dir is not None else None
+        )
 
         if check_lease:
             await check_lease()
 
         output_matches = _output_matches_tts_key(output_path, key_path, full_cache_key)
         if not output_matches:
-            restored_from_cache = (
-                full_cache_path is not None
-                and _copy_cached_audio(full_cache_path, output_path)
+            restored_from_cache = full_cache_path is not None and _copy_cached_audio(
+                full_cache_path, output_path
             )
             if not restored_from_cache:
                 chunks = _split_tts_text(narration_text)
@@ -199,7 +214,9 @@ async def build_narration(
                     if check_lease:
                         await check_lease()
 
-                    chunk_key = _tts_cache_key(model=model, voice=voice, text=chunk_text)
+                    chunk_key = _tts_cache_key(
+                        model=model, voice=voice, text=chunk_text
+                    )
                     if cache_dir is not None:
                         chunk_path = cache_dir / f"{chunk_key}.wav"
                     else:
@@ -220,7 +237,10 @@ async def build_narration(
                                 "stage": "narration.chunk",
                                 "item_key": f"slide_{idx:03d}_chunk_{chunk_index:03d}",
                                 "item_index": chunk_index,
-                                "metadata": {"slide_index": idx, "chunk_count": len(chunks)},
+                                "metadata": {
+                                    "slide_index": idx,
+                                    "chunk_count": len(chunks),
+                                },
                             },
                         )
                         _atomic_write(chunk_path, audio)
@@ -228,7 +248,9 @@ async def build_narration(
 
                 if check_lease:
                     await check_lease()
-                await _concat_wav_files(paths=chunk_paths, output_path=output_path, work_dir=output_dir)
+                await _concat_wav_files(
+                    paths=chunk_paths, output_path=output_path, work_dir=output_dir
+                )
                 if full_cache_path is not None:
                     _atomic_write(full_cache_path, output_path.read_bytes())
 

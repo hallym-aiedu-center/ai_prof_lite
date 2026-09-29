@@ -68,8 +68,10 @@ async def _run_claimed_publish(
             lecture_id,
             publish_lease_token=lease_token,
         )
-        now_utc = datetime.now(timezone.utc).replace(tzinfo=None).strftime(
-            "%Y-%m-%d %H:%M:%S"
+        now_utc = (
+            datetime.now(timezone.utc)
+            .replace(tzinfo=None)
+            .strftime("%Y-%m-%d %H:%M:%S")
         )
         await update_publish_schedule_fn(
             lecture_id,

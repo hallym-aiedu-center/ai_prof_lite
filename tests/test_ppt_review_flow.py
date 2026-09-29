@@ -7,15 +7,29 @@ from modules.lecture.repository import get_lecture, update_lecture
 from modules.lecture.review import approve_and_resume_review, update_review_plan
 
 
-async def test_ppt_edit_invalidates_video_stages_and_resume_requeues(make_lecture, plan):
+async def test_ppt_edit_invalidates_video_stages_and_resume_requeues(
+    make_lecture, plan
+):
     lecture_id = await make_lecture(review_before_video=True)
     queue = SQLiteJobQueue()
     await queue.enqueue(lecture_id)
     job = await queue.claim("review-test")
     assert job is not None
 
-    await save_stage(lecture_id, "plan", "completed", {"plan": plan, "files": []}, run_token=job.token)
-    await save_stage(lecture_id, "slides", "completed", {"pptx": "x.pptx", "pngs": [], "files": []}, run_token=job.token)
+    await save_stage(
+        lecture_id,
+        "plan",
+        "completed",
+        {"plan": plan, "files": []},
+        run_token=job.token,
+    )
+    await save_stage(
+        lecture_id,
+        "slides",
+        "completed",
+        {"pptx": "x.pptx", "pngs": [], "files": []},
+        run_token=job.token,
+    )
     await update_lecture(
         lecture_id,
         run_token=job.token,
@@ -35,9 +49,12 @@ async def test_ppt_edit_invalidates_video_stages_and_resume_requeues(make_lectur
 
     db = await get_connection()
     try:
-        stages = await (await db.execute(
-            "SELECT name FROM lecture_stages WHERE lecture_id=? ORDER BY name", (lecture_id,)
-        )).fetchall()
+        stages = await (
+            await db.execute(
+                "SELECT name FROM lecture_stages WHERE lecture_id=? ORDER BY name",
+                (lecture_id,),
+            )
+        ).fetchall()
     finally:
         await db.close()
     assert [row["name"] for row in stages] == ["plan"]

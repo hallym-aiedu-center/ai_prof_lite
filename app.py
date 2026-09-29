@@ -13,9 +13,7 @@ from starlette.staticfiles import StaticFiles
 
 BASE_DIR = Path(__file__).resolve().parent
 
-load_dotenv(
-    BASE_DIR / ".env"
-)
+load_dotenv(BASE_DIR / ".env")
 
 
 from core.body_limit import BodyLimitMiddleware
@@ -181,7 +179,9 @@ app.add_middleware(
 
 
 app.add_middleware(SecurityHeadersMiddleware)
-trusted_hosts = [item.strip() for item in os.getenv("TRUSTED_HOSTS", "").split(",") if item.strip()]
+trusted_hosts = [
+    item.strip() for item in os.getenv("TRUSTED_HOSTS", "").split(",") if item.strip()
+]
 if trusted_hosts:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts)
 
@@ -191,8 +191,8 @@ app.include_router(auth_router)
 app.add_middleware(
     BodyLimitMiddleware,
     max_bytes=(
-        positive_int('MAX_PORTRAIT_BYTES', 10 * 1024 * 1024)
-        + positive_int('MAX_REFERENCE_UPLOAD_BYTES', 25 * 1024 * 1024)
+        positive_int("MAX_PORTRAIT_BYTES", 10 * 1024 * 1024)
+        + positive_int("MAX_REFERENCE_UPLOAD_BYTES", 25 * 1024 * 1024)
         + 512 * 1024
     ),
 )
@@ -202,13 +202,9 @@ app.include_router(credentials_router)
 app.include_router(lecture_router)
 app.include_router(instructor_router)
 
-app.include_router(
-    moodle_courses_router
-)
+app.include_router(moodle_courses_router)
 
-app.include_router(
-    moodle_courses_api_router
-)
+app.include_router(moodle_courses_api_router)
 
 if __name__ == "__main__":
     import uvicorn
@@ -217,5 +213,6 @@ if __name__ == "__main__":
         "app:app",
         host=os.getenv("APP_HOST", "0.0.0.0"),
         port=int(os.getenv("APP_PORT", "8001")),
-        reload=os.getenv("APP_RELOAD", "0").strip().lower() in {"1", "true", "yes", "on"},
+        reload=os.getenv("APP_RELOAD", "0").strip().lower()
+        in {"1", "true", "yes", "on"},
     )

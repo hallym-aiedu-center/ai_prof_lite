@@ -198,7 +198,6 @@ async def _create_base_tables(db) -> None:
     )
 
 
-
 async def _upgrade_base_schema(db) -> None:
     # Upgrade an already-created local SQLite DB in-place.
     await _add_column_if_missing(
@@ -262,7 +261,6 @@ async def _upgrade_base_schema(db) -> None:
     )
 
     await _add_column_if_missing(db, "lectures", "run_token", "TEXT")
-
 
 
 async def ensure_base_schema(db) -> None:

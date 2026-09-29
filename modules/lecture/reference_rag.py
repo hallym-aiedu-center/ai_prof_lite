@@ -48,7 +48,7 @@ def _chunks(text: str, *, size: int = 2600, overlap: int = 260) -> list[str]:
         flush_current()
         step = max(1, size - overlap)
         for start in range(0, len(paragraph), step):
-            piece = paragraph[start:start + size].strip()
+            piece = paragraph[start : start + size].strip()
             if piece:
                 result.append(piece)
             if start + size >= len(paragraph):
@@ -68,8 +68,13 @@ def _cosine(a: list[float], b: list[float]) -> float:
 
 
 async def build_reference_context(
-    files: list[dict] | None, *, title: str, topic: str, api_key: str,
-    user_id: int, lecture_id: int | None = None,
+    files: list[dict] | None,
+    *,
+    title: str,
+    topic: str,
+    api_key: str,
+    user_id: int,
+    lecture_id: int | None = None,
     get_client_fn=None,
     embeddings_create_fn=None,
     extract_reference_text_fn=None,
@@ -94,7 +99,9 @@ async def build_reference_context(
     try:
         overlap_value = int(os.getenv("REFERENCE_RAG_CHUNK_OVERLAP_CHARS", "260"))
     except ValueError as exc:
-        raise ValueError("REFERENCE_RAG_CHUNK_OVERLAP_CHARS must be an integer") from exc
+        raise ValueError(
+            "REFERENCE_RAG_CHUNK_OVERLAP_CHARS must be an integer"
+        ) from exc
     overlap = min(max(0, overlap_value), max(0, chunk_size - 1))
     top_k = positive_int("REFERENCE_RAG_TOP_K", 16)
     try:
@@ -106,7 +113,10 @@ async def build_reference_context(
             "REFERENCE_RAG_MAX_CHUNKS must be 0 (unlimited) or a positive integer"
         )
     limit = positive_int("MAX_REFERENCE_CONTEXT_CHARS", 60_000)
-    model = os.getenv("REFERENCE_EMBEDDING_MODEL", "text-embedding-3-small").strip() or "text-embedding-3-small"
+    model = (
+        os.getenv("REFERENCE_EMBEDDING_MODEL", "text-embedding-3-small").strip()
+        or "text-embedding-3-small"
+    )
 
     chunks: list[tuple[str, str]] = []
     for name, text in documents:
@@ -124,24 +134,44 @@ async def build_reference_context(
     vectors: list[list[float]] = []
     async with client:
         query_response = await create_embeddings(
-            client, user_id=user_id, lecture_id=lecture_id,
-            model=model, input=[query], encoding_format="float",
-            usage_context={"operation": "reference_rag_embedding", "stage": "references.query", "item_key": "query"},
+            client,
+            user_id=user_id,
+            lecture_id=lecture_id,
+            model=model,
+            input=[query],
+            encoding_format="float",
+            usage_context={
+                "operation": "reference_rag_embedding",
+                "stage": "references.query",
+                "item_key": "query",
+            },
         )
         query_vector = list(query_response.data[0].embedding)
         batch_size = positive_int("REFERENCE_EMBEDDING_BATCH_SIZE", 64)
         for start in range(0, len(chunks), batch_size):
-            batch = chunks[start:start + batch_size]
+            batch = chunks[start : start + batch_size]
             response = await create_embeddings(
-                client, user_id=user_id, lecture_id=lecture_id,
-                model=model, input=[chunk for _, chunk in batch], encoding_format="float",
-                usage_context={"operation": "reference_rag_embedding", "stage": "references.chunk_batch", "item_key": f"batch_{start // batch_size + 1}", "item_index": start // batch_size + 1, "metadata": {"batch_size": len(batch)}},
+                client,
+                user_id=user_id,
+                lecture_id=lecture_id,
+                model=model,
+                input=[chunk for _, chunk in batch],
+                encoding_format="float",
+                usage_context={
+                    "operation": "reference_rag_embedding",
+                    "stage": "references.chunk_batch",
+                    "item_key": f"batch_{start // batch_size + 1}",
+                    "item_index": start // batch_size + 1,
+                    "metadata": {"batch_size": len(batch)},
+                },
             )
             vectors.extend(list(item.embedding) for item in response.data)
 
     ranked = sorted(
-        ((_cosine(query_vector, vector), index, chunks[index][0], chunks[index][1])
-         for index, vector in enumerate(vectors)),
+        (
+            (_cosine(query_vector, vector), index, chunks[index][0], chunks[index][1])
+            for index, vector in enumerate(vectors)
+        ),
         key=lambda item: (-item[0], item[1]),
     )
 

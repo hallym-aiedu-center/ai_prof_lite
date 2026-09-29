@@ -12,34 +12,21 @@ def get_ditto_paths():
     ditto_root = Path(
         os.getenv(
             "DITTO_ROOT",
-            str(
-                project_root
-                / "core"
-                / "ditto-talkinghead"
-            ),
+            str(project_root / "core" / "ditto-talkinghead"),
         )
     )
 
     data_root = Path(
         os.getenv(
             "DITTO_DATA_ROOT",
-            str(
-                ditto_root
-                / "checkpoints"
-                / "ditto_trt_Ampere_Plus"
-            ),
+            str(ditto_root / "checkpoints" / "ditto_trt_Ampere_Plus"),
         )
     )
 
     cfg_pkl = Path(
         os.getenv(
             "DITTO_CFG_PKL",
-            str(
-                ditto_root
-                / "checkpoints"
-                / "ditto_cfg"
-                / "v0.4_hubert_cfg_trt.pkl"
-            ),
+            str(ditto_root / "checkpoints" / "ditto_cfg" / "v0.4_hubert_cfg_trt.pkl"),
         )
     )
 
@@ -52,14 +39,9 @@ async def create_avatar_video(
     narration_audio: Path,
     output_path: Path,
 ) -> Path:
-    ditto_root, data_root, cfg_pkl = (
-        get_ditto_paths()
-    )
+    ditto_root, data_root, cfg_pkl = get_ditto_paths()
 
-    inference = (
-        ditto_root
-        / "inference.py"
-    )
+    inference = ditto_root / "inference.py"
 
     required = [
         inference,
@@ -69,17 +51,10 @@ async def create_avatar_video(
         narration_audio,
     ]
 
-    missing = [
-        str(path)
-        for path in required
-        if not path.exists()
-    ]
+    missing = [str(path) for path in required if not path.exists()]
 
     if missing:
-        raise FileNotFoundError(
-            "Missing Ditto files:\n"
-            + "\n".join(missing)
-        )
+        raise FileNotFoundError("Missing Ditto files:\n" + "\n".join(missing))
 
     output_path.parent.mkdir(
         parents=True,

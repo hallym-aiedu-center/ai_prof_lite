@@ -61,4 +61,3 @@ async def count_runs_between(user_id: int, start_utc: str, end_utc: str) -> int:
         return int(row["count"] if row else 0)
     finally:
         await db.close()
-

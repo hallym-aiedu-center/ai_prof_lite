@@ -1,4 +1,5 @@
 """Usage: python worker.py. One supervisor process schedules jobs across GPUs."""
+
 import asyncio
 import contextlib
 import fcntl
@@ -39,6 +40,7 @@ def acquire_worker_lock():
     handle.write(str(os.getpid()))
     handle.flush()
     return handle
+
 
 def _is_our_runner(pid: int) -> bool:
     """Return True only for an orphaned runner launched from this project root."""
@@ -123,7 +125,9 @@ async def kill_tree(process):
     await process.wait()
 
 
-async def supervise(queue, job, stop: asyncio.Event, gpu_id: str, gpu_pool: asyncio.Queue):
+async def supervise(
+    queue, job, stop: asyncio.Event, gpu_id: str, gpu_pool: asyncio.Queue
+):
     process = None
     interval = positive_int("JOB_HEARTBEAT_SECONDS", 10)
     timeout = positive_int("JOB_TIMEOUT_SECONDS", 7200)
@@ -169,7 +173,9 @@ async def supervise(queue, job, stop: asyncio.Event, gpu_id: str, gpu_pool: asyn
             remaining = timeout - (time.monotonic() - started)
             if remaining <= 0:
                 await kill_tree(process)
-                await queue.fail(job, "전체 작업 제한 시간을 초과했습니다.", retryable=True)
+                await queue.fail(
+                    job, "전체 작업 제한 시간을 초과했습니다.", retryable=True
+                )
                 return
             done, _ = await asyncio.wait(
                 {wait_task, stop_task},
@@ -193,7 +199,9 @@ async def supervise(queue, job, stop: asyncio.Event, gpu_id: str, gpu_pool: asyn
                     )
                 return
             if not await queue.heartbeat(job):
-                logger.warning("Lease lost for job %s; stopping its process group", job.id)
+                logger.warning(
+                    "Lease lost for job %s; stopping its process group", job.id
+                )
                 await kill_tree(process)
                 return
     except asyncio.CancelledError:
@@ -204,7 +212,9 @@ async def supervise(queue, job, stop: asyncio.Event, gpu_id: str, gpu_pool: asyn
     except Exception:
         if process is not None:
             await kill_tree(process)
-        logger.exception("Supervisor failed for job %s; lease recovery will retry it", job.id)
+        logger.exception(
+            "Supervisor failed for job %s; lease recovery will retry it", job.id
+        )
     finally:
         if process is not None:
             await kill_tree(process)
@@ -227,8 +237,12 @@ async def serve(
 ):
     if os.name != "posix":
         raise RuntimeError("The Lite media worker requires Linux/POSIX process groups.")
-    if positive_int("JOB_HEARTBEAT_SECONDS", 10) * 3 >= positive_int("JOB_LEASE_SECONDS", 60):
-        raise ValueError("JOB_LEASE_SECONDS must be greater than 3 * JOB_HEARTBEAT_SECONDS")
+    if positive_int("JOB_HEARTBEAT_SECONDS", 10) * 3 >= positive_int(
+        "JOB_LEASE_SECONDS", 60
+    ):
+        raise ValueError(
+            "JOB_LEASE_SECONDS must be greater than 3 * JOB_HEARTBEAT_SECONDS"
+        )
 
     slots = positive_int("JOB_CONCURRENCY", 4)
     gpu_ids = job_gpu_ids(concurrency=slots)
@@ -325,5 +339,7 @@ async def serve(
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     asyncio.run(serve())

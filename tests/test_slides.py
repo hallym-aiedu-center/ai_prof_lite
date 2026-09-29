@@ -39,8 +39,14 @@ async def test_pptx_uses_one_full_slide_image_per_page(tmp_path: Path, monkeypat
     Image.new("RGB", (1200, 900), "white").save(visual_path)
     plan = {
         "slides": [
-            {"title": "전체 슬라이드 이미지 테스트", "bullets": ["첫 번째 내용", "두 번째 내용"]},
-            {"title": "두 번째 슬라이드", "bullets": ["이미지가 없어도 PNG 한 장입니다."]},
+            {
+                "title": "전체 슬라이드 이미지 테스트",
+                "bullets": ["첫 번째 내용", "두 번째 내용"],
+            },
+            {
+                "title": "두 번째 슬라이드",
+                "bullets": ["이미지가 없어도 PNG 한 장입니다."],
+            },
         ]
     }
 
@@ -67,7 +73,13 @@ async def test_pptx_uses_one_full_slide_image_per_page(tmp_path: Path, monkeypat
         assert picture.shape_type == 13
         assert picture.left == 0 and picture.top == 0
         assert picture.width == prs.slide_width and picture.height == prs.slide_height
-        assert picture.crop_left == picture.crop_right == picture.crop_top == picture.crop_bottom == 0
+        assert (
+            picture.crop_left
+            == picture.crop_right
+            == picture.crop_top
+            == picture.crop_bottom
+            == 0
+        )
 
 
 async def test_generate_images_false_never_calls_image_api(tmp_path: Path, monkeypatch):
@@ -105,7 +117,6 @@ def test_local_slide_renders_supporting_visual(tmp_path: Path):
         # zone. A solid red source makes the regression easy to detect.
         crop = rendered.crop((1220, 145, 1810, 362)).convert("RGB")
         red_pixels = sum(
-            1 for r, g, b in crop.getdata()
-            if r > 200 and g < 80 and b < 80
+            1 for r, g, b in crop.getdata() if r > 200 and g < 80 and b < 80
         )
     assert red_pixels > 1000

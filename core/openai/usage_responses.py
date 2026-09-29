@@ -1,6 +1,6 @@
 import asyncio
-from typing import Any
 import os
+from typing import Any
 
 from core.openai.usage_ledger import (
     OpenAIAmbiguousRequestError,
@@ -19,6 +19,7 @@ from core.openai.usage_pricing import (
     _text_rate,
 )
 from core.openai.usage_provider_common import _pricing_snapshot, _request_id
+
 
 async def _count_response_input_tokens(client, *, model: str, **kwargs) -> int | None:
     if not _bool_env("OPENAI_USE_INPUT_TOKEN_COUNT", True):
@@ -43,11 +44,12 @@ async def _count_response_input_tokens(client, *, model: str, **kwargs) -> int |
             payload[key] = kwargs[key]
     try:
         counted = await creator(**payload)
-    except Exception:
+    except Exception:  # noqa: BLE001 - optional token-count fallback
         return None
     value = _field(counted, "input_tokens")
     tokens = int(_number(value))
     return tokens if tokens > 0 else None
+
 
 def _response_usage_cost(model: str, usage: Any) -> tuple[float, dict]:
     if usage is None:
@@ -61,7 +63,9 @@ def _response_usage_cost(model: str, usage: Any) -> tuple[float, dict]:
     input_tokens = int(_number(_field(usage, "input_tokens")))
     output_tokens = int(_number(_field(usage, "output_tokens")))
     if input_tokens <= 0 and output_tokens <= 0:
-        raise RuntimeError("OpenAI Responses provider usage의 token 수가 비어 있습니다.")
+        raise RuntimeError(
+            "OpenAI Responses provider usage의 token 수가 비어 있습니다."
+        )
     details = _field(usage, "input_tokens_details", {})
     cached = int(_number(_field(details, "cached_tokens")))
     uncached = max(0, input_tokens - cached)
@@ -80,7 +84,9 @@ def _response_usage_cost(model: str, usage: Any) -> tuple[float, dict]:
     }
 
 
-async def _response_reserve_cost(client, model: str, kwargs: dict, *, budget_input_bytes: int = 0) -> float:
+async def _response_reserve_cost(
+    client, model: str, kwargs: dict, *, budget_input_bytes: int = 0
+) -> float:
     """Budget hold only. Never invent token counts when the provider cannot count them."""
     rate = _text_rate(model)
     if not rate:
@@ -95,7 +101,9 @@ async def _response_reserve_cost(client, model: str, kwargs: dict, *, budget_inp
         # No token estimate: hold a configurable dollar amount instead.
         fallback = _positive_float_env("OPENAI_RESPONSE_RESERVE_FALLBACK_USD", 0.25)
         if int(budget_input_bytes) > 0:
-            fallback += _positive_float_env("OPENAI_RESPONSE_RESERVE_FILE_BUFFER_USD", 0.10)
+            fallback += _positive_float_env(
+                "OPENAI_RESPONSE_RESERVE_FILE_BUFFER_USD", 0.10
+            )
         return max(floor, fallback)
 
     max_output_tokens = int(
@@ -134,18 +142,22 @@ async def responses_create(
         item_index=context.get("item_index"),
         metadata=context.get("metadata") or {},
         model=model,
-        reserve_usd=await _response_reserve_cost(client, model, kwargs, budget_input_bytes=budget_input_bytes),
+        reserve_usd=await _response_reserve_cost(
+            client, model, kwargs, budget_input_bytes=budget_input_bytes
+        ),
     )
     try:
         response = await client.responses.create(**kwargs)
     except asyncio.CancelledError as exc:
         await mark_ambiguous_usage(event, exc)
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - provider boundary
         await _raise_after_provider_error(event, exc)
     try:
         cost, values = _response_usage_cost(model, getattr(response, "usage", None))
-        await finalize_usage(event, request_id=_request_id(response), **values, cost_usd=cost)
+        await finalize_usage(
+            event, request_id=_request_id(response), **values, cost_usd=cost
+        )
     except asyncio.CancelledError as exc:
         await mark_ambiguous_usage(event, exc)
         raise
@@ -157,7 +169,14 @@ async def responses_create(
     return response
 
 
-async def embeddings_create(client, *, user_id: int, lecture_id: int | None = None, usage_context: dict | None = None, **kwargs):
+async def embeddings_create(
+    client,
+    *,
+    user_id: int,
+    lecture_id: int | None = None,
+    usage_context: dict | None = None,
+    **kwargs,
+):
     model = str(kwargs.get("model") or "text-embedding-3-small")
     rate = _embedding_rate(model)
     if rate is None:
@@ -181,15 +200,19 @@ async def embeddings_create(client, *, user_id: int, lecture_id: int | None = No
     except asyncio.CancelledError as exc:
         await mark_ambiguous_usage(event, exc)
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - provider boundary
         await _raise_after_provider_error(event, exc)
     try:
         usage = getattr(response, "usage", None)
         if usage is None:
             raise RuntimeError("OpenAI Embeddings 응답에 provider usage가 없습니다.")
-        tokens = int(_number(_field(usage, "prompt_tokens", _field(usage, "total_tokens", 0))))
+        tokens = int(
+            _number(_field(usage, "prompt_tokens", _field(usage, "total_tokens", 0)))
+        )
         if tokens <= 0:
-            raise RuntimeError("OpenAI Embeddings provider usage의 token 수가 비어 있습니다.")
+            raise RuntimeError(
+                "OpenAI Embeddings provider usage의 token 수가 비어 있습니다."
+            )
         await finalize_usage(
             event,
             cost_usd=tokens * float(rate) / 1_000_000,

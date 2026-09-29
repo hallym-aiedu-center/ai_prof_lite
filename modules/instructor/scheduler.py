@@ -46,11 +46,15 @@ def _planning_retry_minutes() -> int:
 
 def _catchup_grace_minutes() -> int:
     """How far past a missed publish slot the planner may catch up after downtime."""
-    return max(0, min(1440, int(os.getenv("AI_INSTRUCTOR_CATCHUP_GRACE_MINUTES", "120"))))
+    return max(
+        0, min(1440, int(os.getenv("AI_INSTRUCTOR_CATCHUP_GRACE_MINUTES", "120")))
+    )
 
 
 def _utc_sql(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+    return (
+        dt.astimezone(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+    )
 
 
 def _term_start(profile: dict, now_local: datetime) -> date:
@@ -119,13 +123,17 @@ async def _planning_heartbeat(run_id: int, planning_token: str) -> None:
             planning_token,
             lease_seconds=_planning_lease_seconds(),
         ):
-            raise LeaseLost("AI instructor planning lease was lost or account became inactive.")
+            raise LeaseLost(
+                "AI instructor planning lease was lost or account became inactive."
+            )
 
 
 async def _plan_profile(profile: dict) -> None:
     now_utc = datetime.now(timezone.utc)
     weekdays = {int(v) for v in profile.get("weekdays_json") or [] if 0 <= int(v) <= 6}
-    weekly_limit = max(1, min(max(1, len(weekdays)), int(profile.get("weekly_limit") or 1)))
+    weekly_limit = max(
+        1, min(max(1, len(weekdays)), int(profile.get("weekly_limit") or 1))
+    )
     slots = _candidate_slots(profile, now_utc)
     total_weeks = _term_weeks(profile)
     zone = ZoneInfo(profile.get("timezone") or "Asia/Seoul")

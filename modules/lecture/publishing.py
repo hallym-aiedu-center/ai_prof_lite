@@ -68,15 +68,13 @@ def next_weekday_datetime(
 
 
 def to_utc_sql(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).replace(tzinfo=None).strftime(
-        "%Y-%m-%d %H:%M:%S"
+    return (
+        dt.astimezone(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
     )
 
 
 def from_utc_sql(value: str, timezone_name: str) -> datetime:
-    parsed = datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(
-        tzinfo=timezone.utc
-    )
+    parsed = datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
     return parsed.astimezone(ZoneInfo(timezone_name))
 
 
@@ -151,13 +149,27 @@ async def choose_ai_publish_plan(
         if user_id is None:
             raise ValueError("Tracked OpenAI Responses calls require user_id.")
         response = await responses_create(
-            client, user_id=user_id, lecture_id=lecture_id, model=model, input=prompt,
+            client,
+            user_id=user_id,
+            lecture_id=lecture_id,
+            model=model,
+            input=prompt,
             max_output_tokens=1200,
-            text={"format": {"type": "json_schema", "name": "lecture_publish_plan", "strict": True, "schema": schema}},
-            usage_context={"operation": "lecture_publish_plan", "stage": "publishing.schedule"},
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "lecture_publish_plan",
+                    "strict": True,
+                    "schema": schema,
+                }
+            },
+            usage_context={
+                "operation": "lecture_publish_plan",
+                "stage": "publishing.schedule",
+            },
         )
         payload = json.loads(response.output_text)
-    except Exception:  # noqa: BLE001
+    except Exception:
         # Scheduling must never make an otherwise completed lecture fail just
         # because structured output is unavailable. Use a deterministic fallback.
         logger.warning(
@@ -327,4 +339,3 @@ async def deploy_lecture_to_moodle(
         status_message="Moodle 자동 업로드가 완료되었습니다.",
     )
     return payload
-

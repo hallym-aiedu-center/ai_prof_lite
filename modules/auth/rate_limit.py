@@ -44,7 +44,9 @@ class SlidingWindowRateLimiter:
             events = self._events[key]
 
             if len(events) >= self.limit:
-                retry_after = max(1, math.ceil(self.window_seconds - (current - events[0])))
+                retry_after = max(
+                    1, math.ceil(self.window_seconds - (current - events[0]))
+                )
                 return False, retry_after
 
             events.append(current)

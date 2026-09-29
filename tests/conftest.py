@@ -1,4 +1,5 @@
 import io
+import os
 import socket
 import sys
 from pathlib import Path
@@ -6,6 +7,8 @@ from pathlib import Path
 import pytest
 from cryptography.fernet import Fernet
 from PIL import Image
+
+os.environ.setdefault("SESSION_SECRET", "test-session-" + "x" * 40)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:

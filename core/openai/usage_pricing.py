@@ -83,7 +83,9 @@ def _json_override(kind: str, model: str) -> dict | None:
         return None
     try:
         payload = json.loads(raw)
-        item = payload.get(kind, {}).get(model) or payload.get(kind, {}).get(_normalize_model(model))
+        item = payload.get(kind, {}).get(model) or payload.get(kind, {}).get(
+            _normalize_model(model)
+        )
         return item if isinstance(item, dict) else None
     except (TypeError, ValueError, json.JSONDecodeError):
         return None
@@ -115,7 +117,9 @@ def _rough_tokens(value: Any) -> int:
     if isinstance(value, bytes):
         return max(1, math.ceil(len(value) / 2.0)) if value else 0
     if isinstance(value, dict):
-        return sum(_rough_tokens(key) + _rough_tokens(item) for key, item in value.items())
+        return sum(
+            _rough_tokens(key) + _rough_tokens(item) for key, item in value.items()
+        )
     if isinstance(value, (list, tuple, set)):
         return sum(_rough_tokens(item) for item in value)
     return _rough_tokens(str(value))

@@ -31,23 +31,16 @@ async def create_activity(
         dict,
     ):
         raise RuntimeError(  # noqa: TRY004
-            "mod_videotracker_create_activity "
-            "returned an unexpected response."
+            "mod_videotracker_create_activity returned an unexpected response."
         )
 
     if not result.get("success"):
-        raise RuntimeError(
-            "VideoTracker activity creation failed: "
-            f"{result}"
-        )
+        raise RuntimeError(f"VideoTracker activity creation failed: {result}")
 
     cmid = result.get("cmid")
 
     if not cmid:
-        raise RuntimeError(
-            "VideoTracker was created but "
-            "CMID was not returned."
-        )
+        raise RuntimeError("VideoTracker was created but CMID was not returned.")
 
     return result
 
@@ -69,27 +62,17 @@ async def set_video_from_file(
         if not math.isfinite(duration_value) or duration_value <= 0:
             raise ValueError("Video duration must be a finite positive number.")
 
-    uploaded = await client.upload_file(
-        path
-    )
+    uploaded = await client.upload_file(path)
 
     if not uploaded:
-        raise RuntimeError(
-            "Moodle upload.php returned no file."
-        )
+        raise RuntimeError("Moodle upload.php returned no file.")
 
     first = uploaded[0]
 
-    draftitemid = (
-        first.get("itemid")
-        or first.get("draftitemid")
-    )
+    draftitemid = first.get("itemid") or first.get("draftitemid")
 
     if not draftitemid:
-        raise RuntimeError(
-            "Could not resolve Moodle draft item id: "
-            f"{first}"
-        )
+        raise RuntimeError(f"Could not resolve Moodle draft item id: {first}")
 
     params = {
         "cmid": int(cmid),

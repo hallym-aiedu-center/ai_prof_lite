@@ -26,9 +26,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ------------------------------------------------------------
 # Miniconda
+# Pinned installer + SHA256 verification
 # ------------------------------------------------------------
-RUN curl -fsSL -o /tmp/miniconda.sh \
-      https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+ARG MINICONDA_VERSION=py312_26.7.1-1
+ARG MINICONDA_SHA256=b27f60ab63e77eeab50a5417c989120f767e863df32400190d4c7262369f8695
+
+RUN curl -fsSL \
+      -o /tmp/miniconda.sh \
+      "https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh" \
+    && echo "${MINICONDA_SHA256}  /tmp/miniconda.sh" | sha256sum -c - \
     && bash /tmp/miniconda.sh -b -p ${CONDA_DIR} \
     && rm -f /tmp/miniconda.sh \
     && ${CONDA_DIR}/bin/conda config --system --set auto_update_conda false \
@@ -63,7 +69,6 @@ RUN conda create -y -n ditto python=3.10 pip \
 
 # ------------------------------------------------------------
 # PyTorch CUDA 12.1
-# This brings cuDNN 8.9.x
 # ------------------------------------------------------------
 RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
     torch==2.3.1 \
@@ -109,10 +114,9 @@ RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
     tifffile==2024.12.12 \
     tqdm==4.67.1
 
-# NumPy 2.x is required by the bundled Ditto code (np.atan2 alias).
-# The TRT config does not require the optional MediaPipe/ONNX Runtime Python paths.
 RUN ${CONDA_DIR}/envs/ditto/bin/python - <<'PY'
 import numpy as np
+
 print("NumPy:", np.__version__)
 assert np.__version__ == "2.0.1"
 assert hasattr(np, "atan2")
@@ -122,15 +126,11 @@ PY
 # ------------------------------------------------------------
 # TensorRT 8.6.1
 # ------------------------------------------------------------
-
-# Native libs + Python bindings
 RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
     tensorrt-bindings==8.6.1 \
     tensorrt-libs==8.6.1 \
     --extra-index-url https://pypi.nvidia.com
 
-# TensorRT Python frontend
-# no-build-isolation is important for TensorRT 8.6.1
 RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
     --no-build-isolation \
     --no-deps \
@@ -165,22 +165,43 @@ PY
 
 # ------------------------------------------------------------
 # Application source
-# core/ 포함해서 프로젝트 전체 COPY
 # ------------------------------------------------------------
 COPY . /app
 
-RUN mkdir -p /app/data
+# ------------------------------------------------------------
+# Non-root runtime user
+# ------------------------------------------------------------
+ARG APP_UID=10001
+ARG APP_GID=10001
+
+RUN groupadd --gid ${APP_GID} app \
+    && useradd \
+        --uid ${APP_UID} \
+        --gid ${APP_GID} \
+        --create-home \
+        --home-dir /home/app \
+        --shell /usr/sbin/nologin \
+        app \
+    && mkdir -p /app/data \
+    && chown -R app:app /app/data /home/app
 
 # ------------------------------------------------------------
 # Runtime
 # ------------------------------------------------------------
 ENV PATH=${CONDA_DIR}/envs/app/bin:${PATH}
 ENV DITTO_PYTHON=${CONDA_DIR}/envs/ditto/bin/python
+ENV HOME=/home/app
+
 ENV APP_HOST=0.0.0.0
 ENV APP_PORT=8002
 ENV APP_RELOAD=0
+
 ENV DATA_DIR=/app/data
+
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+USER app
 
 EXPOSE 8002
 

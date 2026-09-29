@@ -35,10 +35,7 @@ async def create_lecture(
         "create",
         "existing",
     }:
-        raise ValueError(
-            "moodle_deploy_mode must be "
-            "'create' or 'existing'."
-        )
+        raise ValueError("moodle_deploy_mode must be 'create' or 'existing'.")
 
     db = await get_connection()
 
@@ -116,12 +113,10 @@ async def update_lecture(
         "progress",
         "status_message",
         "error_message",
-
         "moodle_course_id",
         "moodle_section_num",
         "moodle_deploy_mode",
         "moodle_videotracker_cmid",
-
         "portrait_path",
         "plan_json",
         "quiz_json",
@@ -129,32 +124,23 @@ async def update_lecture(
         "review_before_video",
         "source_files_json",
         "reference_mode",
-
         "pptx_path",
         "narration_path",
         "slides_video_path",
         "avatar_path",
         "final_video_path",
-
         "moodle_result_json",
     }
 
     invalid = set(values) - allowed
 
     if invalid:
-        raise ValueError(
-            "Invalid lecture update fields: "
-            f"{sorted(invalid)}"
-        )
+        raise ValueError(f"Invalid lecture update fields: {sorted(invalid)}")
 
     serialized = {}
 
     for key, value in values.items():
-        if (
-            key.endswith("_json")
-            and value is not None
-            and not isinstance(value, str)
-        ):
+        if key.endswith("_json") and value is not None and not isinstance(value, str):
             serialized[key] = json.dumps(
                 value,
                 ensure_ascii=False,
@@ -162,14 +148,9 @@ async def update_lecture(
         else:
             serialized[key] = value
 
-    assignments = ", ".join(
-        f"{key} = ?"
-        for key in serialized
-    )
+    assignments = ", ".join(f"{key} = ?" for key in serialized)
 
-    params = list(
-        serialized.values()
-    )
+    params = list(serialized.values())
     params.append(lecture_id)
     guard = ""
     if run_token is not None:
@@ -212,9 +193,7 @@ def _deserialize(row):
     ):
         if item.get(key):
             try:
-                item[key] = json.loads(
-                    item[key]
-                )
+                item[key] = json.loads(item[key])
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -254,9 +233,7 @@ async def get_lecture(
                 ),
             )
 
-        return _deserialize(
-            await cursor.fetchone()
-        )
+        return _deserialize(await cursor.fetchone())
 
     finally:
         await db.close()
@@ -286,10 +263,7 @@ async def list_lectures(
             ),
         )
 
-        return [
-            _deserialize(row)
-            for row in await cursor.fetchall()
-        ]
+        return [_deserialize(row) for row in await cursor.fetchall()]
 
     finally:
         await db.close()

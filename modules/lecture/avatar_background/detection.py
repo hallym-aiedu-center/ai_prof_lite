@@ -42,21 +42,11 @@ def _border_pixels(
 
 
 def _green_like(r: int, g: int, b: int) -> bool:
-    return (
-        g >= 105
-        and g >= r + 35
-        and g >= b + 25
-        and g >= int(r * 1.25)
-    )
+    return g >= 105 and g >= r + 35 and g >= b + 25 and g >= int(r * 1.25)
 
 
 def _blue_like(r: int, g: int, b: int) -> bool:
-    return (
-        b >= 105
-        and b >= r + 35
-        and b >= g + 20
-        and b >= int(r * 1.25)
-    )
+    return b >= 105 and b >= r + 35 and b >= g + 20 and b >= int(r * 1.25)
 
 
 def _representative_color(
@@ -88,28 +78,25 @@ def detect_avatar_input(
     misclassify a green/blue garment as the background.
     """
     if not source_path.exists():
-        raise FileNotFoundError(
-            f"Portrait image not found: {source_path}"
-        )
+        raise FileNotFoundError(f"Portrait image not found: {source_path}")
 
     with Image.open(source_path) as image:
         rgba = image.convert("RGBA")
         sample = _thumbnail_rgba(rgba)
 
         alpha_values = sample.getchannel("A").tobytes()
-        transparent_ratio = (
-            sum(1 for value in alpha_values if value <= 32)
-            / max(len(alpha_values), 1)
+        transparent_ratio = sum(1 for value in alpha_values if value <= 32) / max(
+            len(alpha_values), 1
         )
-        partial_alpha_ratio = (
-            sum(1 for value in alpha_values if value < 245)
-            / max(len(alpha_values), 1)
+        partial_alpha_ratio = sum(1 for value in alpha_values if value < 245) / max(
+            len(alpha_values), 1
         )
 
         # A meaningful transparent region means the image has already been
         # background-removed. A tiny alpha fringe is not enough on its own.
         if (
-            transparent_ratio >= _env_float(
+            transparent_ratio
+            >= _env_float(
                 "AVATAR_TRANSPARENT_RATIO_THRESHOLD",
                 0.005,
                 minimum=0.0,
@@ -123,11 +110,7 @@ def detect_avatar_input(
                 "score": max(transparent_ratio, partial_alpha_ratio),
             }
 
-        border = [
-            pixel
-            for pixel in _border_pixels(rgba)
-            if pixel[3] >= 220
-        ]
+        border = [pixel for pixel in _border_pixels(rgba) if pixel[3] >= 220]
 
     if not border:
         return {
@@ -136,16 +119,8 @@ def detect_avatar_input(
             "score": 0.0,
         }
 
-    green_pixels = [
-        item
-        for item in border
-        if _green_like(item[0], item[1], item[2])
-    ]
-    blue_pixels = [
-        item
-        for item in border
-        if _blue_like(item[0], item[1], item[2])
-    ]
+    green_pixels = [item for item in border if _green_like(item[0], item[1], item[2])]
+    blue_pixels = [item for item in border if _blue_like(item[0], item[1], item[2])]
 
     green_score = len(green_pixels) / len(border)
     blue_score = len(blue_pixels) / len(border)
@@ -198,10 +173,14 @@ def _parse_forced_chroma_color(
 def _resolve_input_decision(
     source_path: Path,
 ) -> dict:
-    forced_mode = os.getenv(
-        "AVATAR_INPUT_MODE",
-        "auto",
-    ).strip().lower()
+    forced_mode = (
+        os.getenv(
+            "AVATAR_INPUT_MODE",
+            "auto",
+        )
+        .strip()
+        .lower()
+    )
 
     if forced_mode not in {
         "auto",
@@ -210,8 +189,7 @@ def _resolve_input_decision(
         "transparent",
     }:
         raise RuntimeError(
-            "AVATAR_INPUT_MODE must be one of: "
-            "auto, portrait, chroma, transparent"
+            "AVATAR_INPUT_MODE must be one of: auto, portrait, chroma, transparent"
         )
 
     detected = detect_avatar_input(source_path)

@@ -1,7 +1,6 @@
 # core/openai/realtime.py
 
 
-
 async def configure_realtime(connection):
     await connection.session.update(
         session={

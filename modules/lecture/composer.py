@@ -5,7 +5,6 @@ from pathlib import Path
 
 from modules.lecture.media import (
     FFMPEG_BIN,
-    FFPROBE_BIN,
     _concat_file_line,
     detect_video_encoder,
     encoder_args,
@@ -13,47 +12,34 @@ from modules.lecture.media import (
     run_process,
 )
 
+
 async def build_slides_video(
     *,
     slide_pngs: list[Path],
     slide_audio_paths: list[Path],
     output_dir: Path,
 ) -> Path:
-    if len(slide_pngs) != len(
-        slide_audio_paths
-    ):
-        raise ValueError(
-            "Slide PNG and audio counts "
-            "do not match."
-        )
+    if len(slide_pngs) != len(slide_audio_paths):
+        raise ValueError("Slide PNG and audio counts do not match.")
 
     if not slide_pngs:
-        raise ValueError(
-            "No slide images were provided."
-        )
+        raise ValueError("No slide images were provided.")
 
     output_dir.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    segment_dir = (
-        output_dir
-        / "segments"
-    )
+    segment_dir = output_dir / "segments"
 
     segment_dir.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    encoder = (
-        await detect_video_encoder()
-    )
+    encoder = await detect_video_encoder()
 
-    segment_paths: list[
-        Path
-    ] = []
+    segment_paths: list[Path] = []
     expected_duration = 0.0
 
     for idx, (
@@ -66,17 +52,10 @@ async def build_slides_video(
         ),
         start=1,
     ):
-        duration = (
-            await media_duration(
-                audio_path
-            )
-        )
+        duration = await media_duration(audio_path)
         expected_duration += duration
 
-        segment_path = (
-            segment_dir
-            / f"segment_{idx:03d}.mp4"
-        )
+        segment_path = segment_dir / f"segment_{idx:03d}.mp4"
 
         command = [
             FFMPEG_BIN,
@@ -116,34 +95,21 @@ async def build_slides_video(
             str(segment_path),
         ]
 
-        await run_process(
-            command
-        )
+        await run_process(command)
         actual = await media_duration(segment_path)
         if abs(actual - duration) > 0.12:
-            raise RuntimeError('슬라이드 영상과 음성 길이가 일치하지 않습니다.')
+            raise RuntimeError("슬라이드 영상과 음성 길이가 일치하지 않습니다.")
 
-        segment_paths.append(
-            segment_path
-        )
+        segment_paths.append(segment_path)
 
-    concat_file = (
-        segment_dir
-        / "segments.txt"
-    )
+    concat_file = segment_dir / "segments.txt"
 
     concat_file.write_text(
-        "\n".join(
-            _concat_file_line(path)
-            for path in segment_paths
-        ),
+        "\n".join(_concat_file_line(path) for path in segment_paths),
         encoding="utf-8",
     )
 
-    slides_video = (
-        output_dir
-        / "slides.mp4"
-    )
+    slides_video = output_dir / "slides.mp4"
 
     await run_process(
         [
@@ -167,7 +133,7 @@ async def build_slides_video(
 
     actual_duration = await media_duration(slides_video)
     if abs(actual_duration - expected_duration) > max(0.12, 0.08 * len(slide_pngs)):
-        raise RuntimeError('합쳐진 슬라이드 영상 길이가 예상 길이와 일치하지 않습니다.')
+        raise RuntimeError("합쳐진 슬라이드 영상 길이가 예상 길이와 일치하지 않습니다.")
     return slides_video
 
 
@@ -185,19 +151,14 @@ async def compose_final_video(
         narration_audio,
     ):
         if not path.exists():
-            raise FileNotFoundError(
-                "Required media file "
-                f"not found: {path}"
-            )
+            raise FileNotFoundError(f"Required media file not found: {path}")
 
     output_path.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    encoder = (
-        await detect_video_encoder()
-    )
+    encoder = await detect_video_encoder()
 
     similarity = float(os.getenv("AVATAR_CHROMA_SIMILARITY", "0.12"))
     blend = float(os.getenv("AVATAR_CHROMA_BLEND", "0.06"))
@@ -216,14 +177,12 @@ async def compose_final_video(
         "setsar=1,"
         "format=yuv420p"
         "[bg];"
-
         "[1:v]"
         "scale=-2:520,"
         "setsar=1,"
         f"chromakey={color}:{similarity}:{blend},"
         "format=yuva420p"
         "[avatar];"
-
         "[bg][avatar]"
         "overlay="
         "W-w-34:"
@@ -273,12 +232,12 @@ async def compose_final_video(
         str(output_path),
     ]
 
-    await run_process(
-        command
-    )
+    await run_process(command)
 
-    expected = min(await media_duration(slides_video), await media_duration(narration_audio))
+    expected = min(
+        await media_duration(slides_video), await media_duration(narration_audio)
+    )
     if abs(await media_duration(output_path) - expected) > 0.12:
-        raise RuntimeError('최종 영상 길이가 입력 영상·음성 길이와 일치하지 않습니다.')
+        raise RuntimeError("최종 영상 길이가 입력 영상·음성 길이와 일치하지 않습니다.")
 
     return output_path

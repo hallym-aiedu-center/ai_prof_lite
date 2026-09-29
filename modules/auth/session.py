@@ -1,5 +1,6 @@
 import secrets
 from hmac import compare_digest
+from typing import ClassVar
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -33,7 +34,7 @@ class AuthenticatedUploadMiddleware(BaseHTTPMiddleware):
     This middleware runs inside SessionMiddleware and after ActiveSessionMiddleware.
     """
 
-    _PROTECTED_UPLOADS = {
+    _PROTECTED_UPLOADS: ClassVar[set[tuple[str, str]]] = {
         ("POST", "/lectures"),
         ("POST", "/instructor"),
         ("POST", "/instructor/avatar"),
@@ -80,5 +81,9 @@ def get_csrf_token(request: Request) -> str:
 
 def verify_csrf(request: Request, supplied_token: str) -> None:
     expected = request.session.get("csrf_token")
-    if not expected or not supplied_token or not compare_digest(expected, supplied_token):
+    if (
+        not expected
+        or not supplied_token
+        or not compare_digest(expected, supplied_token)
+    ):
         raise HTTPException(status_code=403, detail="Invalid CSRF token")

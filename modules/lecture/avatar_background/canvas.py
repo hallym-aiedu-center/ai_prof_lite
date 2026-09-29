@@ -111,7 +111,6 @@ def _presenter_canvas(
     return canvas
 
 
-
 def _save_normalized_transparent(
     *,
     source_path: Path,
@@ -122,4 +121,3 @@ def _save_normalized_transparent(
     transparent_path.parent.mkdir(parents=True, exist_ok=True)
     prepared.save(transparent_path, format="PNG", optimize=True)
     return transparent_path
-

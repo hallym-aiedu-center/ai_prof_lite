@@ -36,14 +36,14 @@ def test_weekday_and_datetime_helpers():
     assert restored == now.replace(second=0, microsecond=0)
 
 
-
-
 def _install_usage_passthrough(monkeypatch):
     async def passthrough(client, **kwargs):
         kwargs.pop("user_id", None)
         kwargs.pop("lecture_id", None)
         return await client.responses.create(**kwargs)
+
     monkeypatch.setattr(publishing, "responses_create", passthrough)
+
 
 class _Responses:
     def __init__(self, result=None, error=None):
@@ -61,7 +61,9 @@ class _Responses:
 @pytest.mark.asyncio
 async def test_choose_ai_publish_plan_success(monkeypatch):
     _install_usage_passthrough(monkeypatch)
-    responses = _Responses({"weekday": 2, "hour": 18, "minute": 30, "rationale": "분산 게시"})
+    responses = _Responses(
+        {"weekday": 2, "hour": 18, "minute": 30, "rationale": "분산 게시"}
+    )
     monkeypatch.setattr(
         publishing,
         "get_client",
@@ -89,16 +91,25 @@ async def test_choose_ai_publish_plan_fallback_and_validation(monkeypatch):
     monkeypatch.setattr(
         publishing,
         "get_client",
-        lambda **_: SimpleNamespace(responses=_Responses(error=RuntimeError("offline"))),
+        lambda **_: SimpleNamespace(
+            responses=_Responses(error=RuntimeError("offline"))
+        ),
     )
     result = await publishing.choose_ai_publish_plan(
-        api_key="k", title="t", topic="x", model="m", timezone_name="Asia/Seoul", user_id=1
+        api_key="k",
+        title="t",
+        topic="x",
+        model="m",
+        timezone_name="Asia/Seoul",
+        user_id=1,
     )
     assert result["hour"] == 18 and result["minute"] == 0
     assert "자동 스케줄" in result["rationale"]
 
     bad = _Responses({"weekday": 7, "hour": 18, "minute": 0, "rationale": "bad"})
-    monkeypatch.setattr(publishing, "get_client", lambda **_: SimpleNamespace(responses=bad))
+    monkeypatch.setattr(
+        publishing, "get_client", lambda **_: SimpleNamespace(responses=bad)
+    )
     with pytest.raises(ValueError, match="weekday"):
         await publishing.choose_ai_publish_plan(
             api_key="k", title="t", topic="x", model="m", timezone_name="UTC", user_id=1
@@ -110,15 +121,27 @@ async def test_ensure_lecture_ready_for_publish_branches(monkeypatch):
     cases = [
         (None, RuntimeError, "찾을 수"),
         ({"upload_to_moodle": False}, RuntimeError, "업로드 대상"),
-        ({"upload_to_moodle": True, "status": "failed"}, PublishSourceFailedError, "실패"),
-        ({"upload_to_moodle": True, "status": "running"}, PublishNotReadyError, "아직 완료"),
+        (
+            {"upload_to_moodle": True, "status": "failed"},
+            PublishSourceFailedError,
+            "실패",
+        ),
+        (
+            {"upload_to_moodle": True, "status": "running"},
+            PublishNotReadyError,
+            "아직 완료",
+        ),
     ]
     for lecture, exc_type, match in cases:
         monkeypatch.setattr(publishing, "get_lecture", AsyncMock(return_value=lecture))
         with pytest.raises(exc_type, match=match):
             await publishing.ensure_lecture_ready_for_publish(1)
 
-    lecture = {"upload_to_moodle": True, "status": "completed", "final_video_path": "x.mp4"}
+    lecture = {
+        "upload_to_moodle": True,
+        "status": "completed",
+        "final_video_path": "x.mp4",
+    }
     monkeypatch.setattr(publishing, "get_lecture", AsyncMock(return_value=lecture))
     assert await publishing.ensure_lecture_ready_for_publish(1) is lecture
 
@@ -138,10 +161,16 @@ def _lecture(video: Path, **overrides):
 
 
 async def _patch_deploy_common(monkeypatch, lecture):
-    monkeypatch.setattr(publishing, "ensure_lecture_ready_for_publish", AsyncMock(return_value=lecture))
-    monkeypatch.setattr(publishing, "get_user_moodle_client", AsyncMock(return_value=object()))
+    monkeypatch.setattr(
+        publishing, "ensure_lecture_ready_for_publish", AsyncMock(return_value=lecture)
+    )
+    monkeypatch.setattr(
+        publishing, "get_user_moodle_client", AsyncMock(return_value=object())
+    )
     monkeypatch.setattr(publishing, "media_duration", AsyncMock(return_value=12.5))
-    monkeypatch.setattr(publishing, "set_video_from_file", AsyncMock(return_value={"success": True}))
+    monkeypatch.setattr(
+        publishing, "set_video_from_file", AsyncMock(return_value={"success": True})
+    )
     monkeypatch.setattr(publishing, "update_lecture", AsyncMock())
 
 
@@ -151,7 +180,11 @@ async def test_deploy_create_scheduled_marks_and_uploads(tmp_path, monkeypatch):
     video.write_bytes(b"video")
     lecture = _lecture(video)
     await _patch_deploy_common(monkeypatch, lecture)
-    monkeypatch.setattr(publishing, "get_publish_schedule", AsyncMock(return_value={"create_state": "idle"}))
+    monkeypatch.setattr(
+        publishing,
+        "get_publish_schedule",
+        AsyncMock(return_value={"create_state": "idle"}),
+    )
     update_schedule = AsyncMock()
     monkeypatch.setattr(publishing, "update_publish_schedule", update_schedule)
     create = AsyncMock(return_value={"cmid": 42, "success": True})
@@ -175,7 +208,12 @@ async def test_deploy_reuses_completed_schedule_without_recreate(tmp_path, monke
     monkeypatch.setattr(
         publishing,
         "get_publish_schedule",
-        AsyncMock(return_value={"create_state": "completed", "create_result_json": '{"cmid": 77}'}),
+        AsyncMock(
+            return_value={
+                "create_state": "completed",
+                "create_result_json": '{"cmid": 77}',
+            }
+        ),
     )
     create = AsyncMock()
     monkeypatch.setattr(publishing, "create_activity", create)
@@ -198,13 +236,21 @@ async def test_deploy_ambiguous_schedule_states(tmp_path, monkeypatch):
         {"create_state": "running"},
         {"create_state": "completed", "create_result_json": "{}"},
     ]:
-        monkeypatch.setattr(publishing, "get_publish_schedule", AsyncMock(return_value=schedule))
+        monkeypatch.setattr(
+            publishing, "get_publish_schedule", AsyncMock(return_value=schedule)
+        )
         monkeypatch.setattr(publishing, "create_activity", AsyncMock())
         with pytest.raises(AmbiguousDeploymentError):
             await publishing.deploy_lecture_to_moodle(10, publish_lease_token="lease")
 
-    monkeypatch.setattr(publishing, "get_publish_schedule", AsyncMock(return_value={"create_state": "idle"}))
-    monkeypatch.setattr(publishing, "create_activity", AsyncMock(side_effect=TimeoutError("lost")))
+    monkeypatch.setattr(
+        publishing,
+        "get_publish_schedule",
+        AsyncMock(return_value={"create_state": "idle"}),
+    )
+    monkeypatch.setattr(
+        publishing, "create_activity", AsyncMock(side_effect=TimeoutError("lost"))
+    )
     with pytest.raises(AmbiguousDeploymentError, match="응답"):
         await publishing.deploy_lecture_to_moodle(10, publish_lease_token="lease")
 
@@ -216,7 +262,11 @@ async def test_deploy_create_requires_lease_and_course_metadata(tmp_path, monkey
 
     lecture = _lecture(video)
     await _patch_deploy_common(monkeypatch, lecture)
-    monkeypatch.setattr(publishing, "get_publish_schedule", AsyncMock(return_value={"create_state": "idle"}))
+    monkeypatch.setattr(
+        publishing,
+        "get_publish_schedule",
+        AsyncMock(return_value={"create_state": "idle"}),
+    )
     with pytest.raises(RuntimeError, match="lease token"):
         await publishing.deploy_lecture_to_moodle(1)
 
@@ -233,17 +283,25 @@ async def test_deploy_direct_create_existing_and_error_modes(tmp_path, monkeypat
 
     lecture = _lecture(video)
     await _patch_deploy_common(monkeypatch, lecture)
-    monkeypatch.setattr(publishing, "get_publish_schedule", AsyncMock(return_value=None))
-    monkeypatch.setattr(publishing, "create_activity", AsyncMock(return_value={"cmid": 9}))
+    monkeypatch.setattr(
+        publishing, "get_publish_schedule", AsyncMock(return_value=None)
+    )
+    monkeypatch.setattr(
+        publishing, "create_activity", AsyncMock(return_value={"cmid": 9})
+    )
     result = await publishing.deploy_lecture_to_moodle(1)
     assert result["cmid"] == 9
 
-    lecture = _lecture(video, moodle_deploy_mode="existing", moodle_videotracker_cmid=88)
+    lecture = _lecture(
+        video, moodle_deploy_mode="existing", moodle_videotracker_cmid=88
+    )
     await _patch_deploy_common(monkeypatch, lecture)
     result = await publishing.deploy_lecture_to_moodle(1)
     assert result["cmid"] == 88 and result["activity"] is None
 
-    lecture = _lecture(video, moodle_deploy_mode="existing", moodle_videotracker_cmid=None)
+    lecture = _lecture(
+        video, moodle_deploy_mode="existing", moodle_videotracker_cmid=None
+    )
     await _patch_deploy_common(monkeypatch, lecture)
     with pytest.raises(RuntimeError, match="CMID"):
         await publishing.deploy_lecture_to_moodle(1)
@@ -255,17 +313,27 @@ async def test_deploy_direct_create_existing_and_error_modes(tmp_path, monkeypat
 
 
 @pytest.mark.asyncio
-async def test_deploy_rejects_missing_video_and_failed_moodle_attach(tmp_path, monkeypatch):
+async def test_deploy_rejects_missing_video_and_failed_moodle_attach(
+    tmp_path, monkeypatch
+):
     missing = tmp_path / "missing.mp4"
-    lecture = _lecture(missing, moodle_deploy_mode="existing", moodle_videotracker_cmid=88)
-    monkeypatch.setattr(publishing, "ensure_lecture_ready_for_publish", AsyncMock(return_value=lecture))
+    lecture = _lecture(
+        missing, moodle_deploy_mode="existing", moodle_videotracker_cmid=88
+    )
+    monkeypatch.setattr(
+        publishing, "ensure_lecture_ready_for_publish", AsyncMock(return_value=lecture)
+    )
     with pytest.raises(RuntimeError, match="영상 파일"):
         await publishing.deploy_lecture_to_moodle(1)
 
     video = tmp_path / "final.mp4"
     video.write_bytes(b"video")
-    lecture = _lecture(video, moodle_deploy_mode="existing", moodle_videotracker_cmid=88)
+    lecture = _lecture(
+        video, moodle_deploy_mode="existing", moodle_videotracker_cmid=88
+    )
     await _patch_deploy_common(monkeypatch, lecture)
-    monkeypatch.setattr(publishing, "set_video_from_file", AsyncMock(return_value={"success": False}))
+    monkeypatch.setattr(
+        publishing, "set_video_from_file", AsyncMock(return_value={"success": False})
+    )
     with pytest.raises(RuntimeError, match="영상 연결"):
         await publishing.deploy_lecture_to_moodle(1)

@@ -16,11 +16,7 @@ def _auto_chroma_rgb(
         (256, 256),
         Image.Resampling.BILINEAR,
     )
-    pixels = [
-        (r, g, b)
-        for r, g, b, a in sample.convert("RGBA").getdata()
-        if a >= 96
-    ]
+    pixels = [(r, g, b) for r, g, b, a in sample.convert("RGBA").getdata() if a >= 96]
 
     if not pixels:
         return (0, 255, 0)
@@ -33,16 +29,9 @@ def _auto_chroma_rgb(
     def conflict(candidate: tuple[int, int, int]) -> tuple[int, float]:
         cr, cg, cb = candidate
         distances = [
-            (r - cr) ** 2
-            + (g - cg) ** 2
-            + (b - cb) ** 2
-            for r, g, b in pixels
+            (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2 for r, g, b in pixels
         ]
-        close = sum(
-            1
-            for value in distances
-            if value < 130**2
-        )
+        close = sum(1 for value in distances if value < 130**2)
         average = sum(distances) / len(distances)
         return close, -average
 
@@ -66,10 +55,7 @@ def _resolve_output_chroma_rgb(
     try:
         return ImageColor.getrgb(raw)
     except ValueError as exc:
-        raise RuntimeError(
-            f"잘못된 AVATAR_CHROMA_COLOR 값입니다: {raw}"
-        ) from exc
-
+        raise RuntimeError(f"잘못된 AVATAR_CHROMA_COLOR 값입니다: {raw}") from exc
 
 
 def _foreground_bbox_from_chroma(
@@ -94,11 +80,7 @@ def _foreground_bbox_from_chroma(
     for y in range(sh):
         for x in range(sw):
             r, g, b = sample.getpixel((x, y))
-            distance_sq = (
-                (r - cr) ** 2
-                + (g - cg) ** 2
-                + (b - cb) ** 2
-            )
+            distance_sq = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2
             if distance_sq > threshold_sq:
                 xs.append(x)
                 ys.append(y)
@@ -219,5 +201,3 @@ def composite_on_chroma(
         optimize=True,
     )
     return chroma_path, _hex_color(chroma_rgb)
-
-

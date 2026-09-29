@@ -34,10 +34,7 @@ def prepare_avatar_source(
     chroma_path = output_dir / "portrait_chroma.png"
 
     if mode == "chroma":
-        chroma_color = str(
-            decision.get("chroma_color")
-            or "#00FF00"
-        )
+        chroma_color = str(decision.get("chroma_color") or "#00FF00")
         _normalize_existing_chroma(
             source_path=source_path,
             output_path=chroma_path,

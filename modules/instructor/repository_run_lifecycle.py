@@ -12,16 +12,18 @@ async def finalize_instructor_run(
     db = await get_connection()
     try:
         await db.execute("BEGIN IMMEDIATE")
-        owner = await (await db.execute(
-            """
+        owner = await (
+            await db.execute(
+                """
             SELECT 1 FROM ai_instructor_runs AS r
             JOIN users AS u ON u.id = r.user_id
             WHERE r.id = ? AND r.status = 'planning' AND r.planning_token = ?
               AND r.planning_lease_until > CURRENT_TIMESTAMP
               AND u.status = 'active'
             """,
-            (run_id, planning_token),
-        )).fetchone()
+                (run_id, planning_token),
+            )
+        ).fetchone()
         if owner is None:
             raise LeaseLost("This process no longer owns the instructor planning run.")
 
@@ -40,7 +42,9 @@ async def finalize_instructor_run(
             (lecture_id, run_id, planning_token),
         )
         if lecture.rowcount != 1:
-            raise RuntimeError("Prepared instructor lecture is incomplete or already finalized.")
+            raise RuntimeError(
+                "Prepared instructor lecture is incomplete or already finalized."
+            )
 
         run = await db.execute(
             """
@@ -81,14 +85,16 @@ async def fail_instructor_run(
     db = await get_connection()
     try:
         await db.execute("BEGIN IMMEDIATE")
-        row = await (await db.execute(
-            """
+        row = await (
+            await db.execute(
+                """
             SELECT lecture_id
             FROM ai_instructor_runs
             WHERE id = ? AND status = 'planning' AND planning_token = ?
             """,
-            (run_id, planning_token),
-        )).fetchone()
+                (run_id, planning_token),
+            )
+        ).fetchone()
         if row is None:
             await db.commit()
             return False
@@ -137,8 +143,9 @@ async def recover_stale_instructor_runs() -> list[int]:
     db = await get_connection()
     try:
         await db.execute("BEGIN IMMEDIATE")
-        rows = await (await db.execute(
-            """
+        rows = await (
+            await db.execute(
+                """
             SELECT r.id, r.lecture_id, l.status AS lecture_status,
                    u.status AS user_status
             FROM ai_instructor_runs AS r
@@ -149,7 +156,8 @@ async def recover_stale_instructor_runs() -> list[int]:
                    OR r.planning_lease_until <= CURRENT_TIMESTAMP)
             ORDER BY r.id ASC
             """
-        )).fetchall()
+            )
+        ).fetchall()
 
         for row in rows:
             run_id = int(row["id"])
@@ -176,7 +184,11 @@ async def recover_stale_instructor_runs() -> list[int]:
                 )
                 continue
 
-            if lecture_id is not None and lecture_status in {"queued", "running", "completed"}:
+            if lecture_id is not None and lecture_status in {
+                "queued",
+                "running",
+                "completed",
+            }:
                 await db.execute(
                     """
                     UPDATE ai_instructor_runs
@@ -231,4 +243,3 @@ async def recover_stale_instructor_runs() -> list[int]:
         raise
     finally:
         await db.close()
-

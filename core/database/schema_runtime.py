@@ -30,7 +30,6 @@ async def ensure_runtime_schema(db) -> None:
             ON openai_usage_events(user_id, created_at);
     """)
 
-
     await _add_column_if_missing(db, "openai_usage_events", "endpoint", "TEXT")
     await _add_column_if_missing(db, "openai_usage_events", "operation", "TEXT")
     await _add_column_if_missing(db, "openai_usage_events", "stage", "TEXT")

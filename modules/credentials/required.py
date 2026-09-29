@@ -27,9 +27,7 @@ async def require_user_openai_api_key(user_id: int) -> str:
     )
     secret = str((credential or {}).get("secret") or "").strip()
     if not secret:
-        raise MissingCredentialError(
-            "OpenAI API Key를 먼저 등록하세요."
-        )
+        raise MissingCredentialError("OpenAI API Key를 먼저 등록하세요.")
     return secret
 
 
@@ -44,7 +42,11 @@ async def require_user_moodle_credential(user_id: int) -> tuple[str, str]:
             "Moodle 연결정보를 먼저 등록하세요. 서버 공용 Moodle 자격증명은 사용자 작업에 사용하지 않습니다."
         )
 
-    base_url = str((credential.get("metadata") or {}).get("base_url") or "").strip().rstrip("/")
+    base_url = (
+        str((credential.get("metadata") or {}).get("base_url") or "")
+        .strip()
+        .rstrip("/")
+    )
     token = str(credential.get("secret") or "").strip()
     if not base_url or not token:
         raise MissingCredentialError(

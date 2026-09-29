@@ -32,9 +32,7 @@ api_router = APIRouter(
     tags=["moodle-api"],
 )
 
-templates = Jinja2Templates(
-    directory=str(TEMPLATE_ROOT / "templates")
-)
+templates = Jinja2Templates(directory=str(TEMPLATE_ROOT / "templates"))
 
 
 def _clean_course(
@@ -42,32 +40,17 @@ def _clean_course(
 ) -> dict:
     return {
         "id": course.get("id"),
-        "fullname": course.get(
-            "fullname"
-        ),
-        "shortname": course.get(
-            "shortname"
-        ),
-        "displayname": (
-            course.get("displayname")
-            or course.get("fullname")
-        ),
-        "summary": course.get(
-            "summary"
-        ),
+        "fullname": course.get("fullname"),
+        "shortname": course.get("shortname"),
+        "displayname": (course.get("displayname") or course.get("fullname")),
+        "summary": course.get("summary"),
         "visible": course.get(
             "visible",
             1,
         ),
-        "startdate": course.get(
-            "startdate"
-        ),
-        "enddate": course.get(
-            "enddate"
-        ),
-        "progress": course.get(
-            "progress"
-        ),
+        "startdate": course.get("startdate"),
+        "enddate": course.get("enddate"),
+        "progress": course.get("progress"),
     }
 
 
@@ -75,27 +58,17 @@ def _clean_course(
 async def course_list_page(
     request: Request,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return login_redirect()
 
-    user = await get_user(
-        user_id
-    )
+    user = await get_user(user_id)
 
     try:
-        client = (
-            await get_user_moodle_client(
-                user_id
-            )
-        )
+        client = await get_user_moodle_client(user_id)
 
-        courses = await get_my_courses(
-            client
-        )
+        courses = await get_my_courses(client)
 
         error = None
 
@@ -109,42 +82,27 @@ async def course_list_page(
         context={
             "user": user,
             "active_page": "moodle_courses",
-            "csrf_token": get_csrf_token(
-                request
-            ),
-            "courses": [
-                _clean_course(course)
-                for course in courses
-            ],
+            "csrf_token": get_csrf_token(request),
+            "courses": [_clean_course(course) for course in courses],
             "error": error,
         },
     )
 
 
-@router.get(
-    "/courses/{course_id}"
-)
+@router.get("/courses/{course_id}")
 async def course_detail_page(
     request: Request,
     course_id: int,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return login_redirect()
 
-    user = await get_user(
-        user_id
-    )
+    user = await get_user(user_id)
 
     try:
-        client = (
-            await get_user_moodle_client(
-                user_id
-            )
-        )
+        client = await get_user_moodle_client(user_id)
 
         course = await find_course(
             client,
@@ -158,24 +116,17 @@ async def course_detail_page(
                 context={
                     "user": user,
                     "active_page": "moodle_courses",
-                    "csrf_token": get_csrf_token(
-                        request
-                    ),
+                    "csrf_token": get_csrf_token(request),
                     "course": None,
                     "overview": None,
-                    "error": (
-                        "해당 강좌를 "
-                        "찾을 수 없습니다."
-                    ),
+                    "error": ("해당 강좌를 찾을 수 없습니다."),
                 },
                 status_code=404,
             )
 
-        overview = (
-            await get_course_overview(
-                client,
-                course_id,
-            )
+        overview = await get_course_overview(
+            client,
+            course_id,
         )
 
         error = None
@@ -191,14 +142,8 @@ async def course_detail_page(
         context={
             "user": user,
             "active_page": "moodle_courses",
-            "csrf_token": get_csrf_token(
-                request
-            ),
-            "course": (
-                _clean_course(course)
-                if course
-                else None
-            ),
+            "csrf_token": get_csrf_token(request),
+            "course": (_clean_course(course) if course else None),
             "overview": overview,
             "error": error,
         },
@@ -209,35 +154,20 @@ async def course_detail_page(
 async def api_courses(
     request: Request,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return JSONResponse(
-            {
-                "error": "unauthorized"
-            },
+            {"error": "unauthorized"},
             status_code=401,
         )
 
     try:
-        client = (
-            await get_user_moodle_client(
-                user_id
-            )
-        )
+        client = await get_user_moodle_client(user_id)
 
-        courses = await get_my_courses(
-            client
-        )
+        courses = await get_my_courses(client)
 
-        return {
-            "courses": [
-                _clean_course(course)
-                for course in courses
-            ]
-        }
+        return {"courses": [_clean_course(course) for course in courses]}
 
     except Exception as exc:  # noqa: BLE001
         return JSONResponse(
@@ -249,37 +179,25 @@ async def api_courses(
         )
 
 
-@api_router.get(
-    "/courses/{course_id}/sections"
-)
+@api_router.get("/courses/{course_id}/sections")
 async def api_course_sections(
     request: Request,
     course_id: int,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return JSONResponse(
-            {
-                "error": "unauthorized"
-            },
+            {"error": "unauthorized"},
             status_code=401,
         )
 
     try:
-        client = (
-            await get_user_moodle_client(
-                user_id
-            )
-        )
+        client = await get_user_moodle_client(user_id)
 
-        sections = (
-            await get_course_sections(
-                client,
-                course_id,
-            )
+        sections = await get_course_sections(
+            client,
+            course_id,
         )
 
         return {
@@ -297,47 +215,31 @@ async def api_course_sections(
         )
 
 
-@api_router.get(
-    "/courses/{course_id}/videotrackers"
-)
+@api_router.get("/courses/{course_id}/videotrackers")
 async def api_videotrackers(
     request: Request,
     course_id: int,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return JSONResponse(
-            {
-                "error": "unauthorized"
-            },
+            {"error": "unauthorized"},
             status_code=401,
         )
 
     try:
-        client = (
-            await get_user_moodle_client(
-                user_id
-            )
-        )
+        client = await get_user_moodle_client(user_id)
 
-        trackers = (
-            await get_videotrackers(
-                client,
-                course_id,
-            )
+        trackers = await get_videotrackers(
+            client,
+            course_id,
         )
 
         return {
             "course_id": course_id,
             "count": len(trackers),
-            "auto_selected_cmid": (
-                trackers[0]["cmid"]
-                if len(trackers) == 1
-                else None
-            ),
+            "auto_selected_cmid": (trackers[0]["cmid"] if len(trackers) == 1 else None),
             "videotrackers": trackers,
         }
 
@@ -351,37 +253,25 @@ async def api_videotrackers(
         )
 
 
-@api_router.get(
-    "/courses/{course_id}/contents"
-)
+@api_router.get("/courses/{course_id}/contents")
 async def api_course_contents(
     request: Request,
     course_id: int,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return JSONResponse(
-            {
-                "error": "unauthorized"
-            },
+            {"error": "unauthorized"},
             status_code=401,
         )
 
     try:
-        client = (
-            await get_user_moodle_client(
-                user_id
-            )
-        )
+        client = await get_user_moodle_client(user_id)
 
-        return (
-            await get_course_overview(
-                client,
-                course_id,
-            )
+        return await get_course_overview(
+            client,
+            course_id,
         )
 
     except Exception as exc:  # noqa: BLE001

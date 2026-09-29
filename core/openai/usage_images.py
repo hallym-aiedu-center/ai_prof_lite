@@ -68,9 +68,7 @@ def _image_usage_cost(model: str, usage: Any) -> tuple[float, dict]:
     image_output = int(_number(_field(output_details, "image_tokens", output_tokens)))
 
     cost = (
-        text_input * rates[0]
-        + image_input * rates[1]
-        + image_output * rates[2]
+        text_input * rates[0] + image_input * rates[1] + image_output * rates[2]
     ) / 1_000_000
     return cost, {
         "input_tokens": input_tokens,
@@ -122,7 +120,7 @@ async def images_generate(
     except asyncio.CancelledError as exc:
         await mark_ambiguous_usage(event, exc)
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - provider boundary
         await _raise_after_provider_error(event, exc)
 
     try:

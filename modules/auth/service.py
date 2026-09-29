@@ -61,9 +61,7 @@ async def register_user(
                 ),
             )
         except IntegrityError as exc:
-            raise EmailAlreadyExistsError(
-                "이미 가입된 이메일입니다."
-            ) from exc
+            raise EmailAlreadyExistsError("이미 가입된 이메일입니다.") from exc
 
         user_id = cursor.lastrowid
 
@@ -128,11 +126,7 @@ async def authenticate_user(
         row = await cursor.fetchone()
 
         active_row = row is not None and row["status"] == "active"
-        password_hash = (
-            row["password_hash"]
-            if active_row
-            else _DUMMY_PASSWORD_HASH
-        )
+        password_hash = row["password_hash"] if active_row else _DUMMY_PASSWORD_HASH
 
         try:
             verified = await asyncio.to_thread(
@@ -184,25 +178,29 @@ async def authenticate_user(
     finally:
         await db.close()
 
+
 async def verify_user_password(*, user_id: int, password: str) -> bool:
     """Verify the current password without mutating login metadata."""
     db = await get_connection()
     try:
-        row = await (await db.execute(
-            "SELECT password_hash, status FROM users WHERE id = ? LIMIT 1",
-            (user_id,),
-        )).fetchone()
+        row = await (
+            await db.execute(
+                "SELECT password_hash, status FROM users WHERE id = ? LIMIT 1",
+                (user_id,),
+            )
+        ).fetchone()
     finally:
         await db.close()
 
     if row is None or row["status"] != "active":
         return False
     try:
-        return bool(await asyncio.to_thread(
-            _password_hasher.verify,
-            row["password_hash"],
-            password,
-        ))
+        return bool(
+            await asyncio.to_thread(
+                _password_hasher.verify,
+                row["password_hash"],
+                password,
+            )
+        )
     except (VerifyMismatchError, InvalidHashError):
         return False
-

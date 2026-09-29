@@ -5,6 +5,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from core.jobs.factory import get_queue
+from core.openai.usage import usage_summary
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -18,8 +19,10 @@ from modules.credentials.required import (
 )
 from modules.lecture.repository import list_lectures
 from modules.lecture.route_support import _wants_json, templates
-from modules.lecture.submission import persist_lecture_submission, validate_lecture_submission
-from core.openai.usage import usage_summary
+from modules.lecture.submission import (
+    persist_lecture_submission,
+    validate_lecture_submission,
+)
 from modules.users.service import get_user
 
 router = APIRouter()
@@ -29,9 +32,7 @@ router = APIRouter()
 async def lecture_list(
     request: Request,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return login_redirect()
@@ -52,14 +53,10 @@ async def lecture_list(
         request=request,
         name="lectures/list.html",
         context={
-            "user": await get_user(
-                user_id
-            ),
+            "user": await get_user(user_id),
             "lectures": rows[:page_size],
             "active_page": "lectures",
-            "csrf_token": get_csrf_token(
-                request
-            ),
+            "csrf_token": get_csrf_token(request),
             "page": page,
             "has_previous": page > 1,
             "has_next": has_next,
@@ -71,9 +68,7 @@ async def lecture_list(
 async def new_lecture(
     request: Request,
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         return login_redirect()
@@ -82,13 +77,9 @@ async def new_lecture(
         request=request,
         name="lectures/new.html",
         context={
-            "user": await get_user(
-                user_id
-            ),
+            "user": await get_user(user_id),
             "active_page": "lectures",
-            "csrf_token": get_csrf_token(
-                request
-            ),
+            "csrf_token": get_csrf_token(request),
             "openai_usage": await usage_summary(user_id),
             "requested_course_id": (
                 request.query_params.get(
@@ -113,14 +104,18 @@ async def new_lecture(
                     "LECTURE_TTS_VOICE",
                     "alloy",
                 ),
-                "target_duration_minutes": int(os.getenv(
-                    "LECTURE_TARGET_DURATION_MINUTES",
-                    "40",
-                )),
-                "target_slide_count": int(os.getenv(
-                    "LECTURE_TARGET_SLIDE_COUNT",
-                    "10",
-                )),
+                "target_duration_minutes": int(
+                    os.getenv(
+                        "LECTURE_TARGET_DURATION_MINUTES",
+                        "40",
+                    )
+                ),
+                "target_slide_count": int(
+                    os.getenv(
+                        "LECTURE_TARGET_SLIDE_COUNT",
+                        "10",
+                    )
+                ),
             },
         },
     )
@@ -129,54 +124,27 @@ async def new_lecture(
 @router.post("")
 async def submit_lecture(
     request: Request,
-
     title: str = Form(...),
     topic: str = Form(...),
-
     text_model: str = Form(...),
     image_model: str = Form(...),
     tts_model: str = Form(...),
-    tts_voice: str = Form(
-        "alloy"
-    ),
-
-    generate_images: str | None = Form(
-        None
-    ),
-
+    tts_voice: str = Form("alloy"),
+    generate_images: str | None = Form(None),
     target_duration_minutes: int = Form(40),
     target_slide_count: int = Form(10),
     review_before_video: str | None = Form(None),
     reference_mode: str = Form("rag"),
-
-    upload_to_moodle: str | None = Form(
-        None
-    ),
-
-    moodle_course_id: str = Form(
-        ""
-    ),
-
-    moodle_section_num: str = Form(
-        ""
-    ),
-
-    moodle_deploy_mode: str = Form(
-        "create"
-    ),
-
-    moodle_videotracker_cmid: str = Form(
-        ""
-    ),
-
+    upload_to_moodle: str | None = Form(None),
+    moodle_course_id: str = Form(""),
+    moodle_section_num: str = Form(""),
+    moodle_deploy_mode: str = Form("create"),
+    moodle_videotracker_cmid: str = Form(""),
     csrf_token: str = Form(...),
-
     portrait: UploadFile = File(...),
     reference_files: list[UploadFile] | None = File(None),
 ):
-    user_id = current_user_id(
-        request
-    )
+    user_id = current_user_id(request)
 
     if user_id is None:
         if _wants_json(request):
@@ -230,7 +198,9 @@ async def submit_lecture(
         await get_queue().enqueue(lecture_id)
     except Exception:
         # The queued lecture is durable. Worker reconciliation repairs this gap.
-        logging.getLogger(__name__).exception("Queue enqueue deferred for lecture %s", lecture_id)
+        logging.getLogger(__name__).exception(
+            "Queue enqueue deferred for lecture %s", lecture_id
+        )
 
     if _wants_json(request):
         return JSONResponse(
@@ -251,4 +221,3 @@ async def submit_lecture(
         url=f"/lectures/{lecture_id}",
         status_code=303,
     )
-

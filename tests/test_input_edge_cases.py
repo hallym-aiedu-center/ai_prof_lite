@@ -66,9 +66,11 @@ async def test_reference_storage_uses_uuid_filename_for_long_unicode_name():
     upload = UploadFile(
         io.BytesIO(b"reference text"),
         filename=("한" * 90) + ".txt",
-        headers=Headers({
-            "content-type": "text/plain",
-        }),
+        headers=Headers(
+            {
+                "content-type": "text/plain",
+            }
+        ),
     )
 
     saved = await save_reference_files([upload])

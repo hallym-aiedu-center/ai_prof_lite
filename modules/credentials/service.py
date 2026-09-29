@@ -19,9 +19,7 @@ async def save_credential(
     metadata: dict[str, Any] | None = None,
 ):
     if (user_id is None) == (organization_id is None):
-        raise ValueError(
-            "Exactly one of user_id or organization_id is required."
-        )
+        raise ValueError("Exactly one of user_id or organization_id is required.")
 
     encrypted = encrypt_secret(secret)
     metadata_json = (
@@ -120,9 +118,7 @@ async def get_credential(
     organization_id: int | None = None,
 ):
     if (user_id is None) == (organization_id is None):
-        raise ValueError(
-            "Exactly one of user_id or organization_id is required."
-        )
+        raise ValueError("Exactly one of user_id or organization_id is required.")
 
     db = await get_connection()
 
@@ -176,13 +172,9 @@ async def get_credential(
             "provider": row["provider"],
             "credential_type": row["credential_type"],
             "name": row["name"],
-            "secret": decrypt_secret(
-                row["encrypted_secret"]
-            ),
+            "secret": decrypt_secret(row["encrypted_secret"]),
             "metadata": (
-                json.loads(row["metadata_json"])
-                if row["metadata_json"]
-                else {}
+                json.loads(row["metadata_json"]) if row["metadata_json"] else {}
             ),
         }
 
@@ -223,9 +215,7 @@ async def list_user_credentials(
                 "credential_type": row["credential_type"],
                 "name": row["name"],
                 "metadata": (
-                    json.loads(row["metadata_json"])
-                    if row["metadata_json"]
-                    else {}
+                    json.loads(row["metadata_json"]) if row["metadata_json"] else {}
                 ),
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],

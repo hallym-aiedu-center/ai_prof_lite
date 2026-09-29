@@ -13,7 +13,9 @@ from modules.lecture.planner import lecture_schema_for_slide_count
 def _write_json_atomic(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     temporary.replace(path)
 
 
@@ -26,16 +28,20 @@ async def update_review_plan(lecture_id: int, plan: dict) -> None:
     outputs: dict = {}
     try:
         await db.execute("BEGIN IMMEDIATE")
-        lecture = await (await db.execute(
-            "SELECT status, review_status FROM lectures WHERE id=?", (lecture_id,)
-        )).fetchone()
+        lecture = await (
+            await db.execute(
+                "SELECT status, review_status FROM lectures WHERE id=?", (lecture_id,)
+            )
+        ).fetchone()
         if not lecture or lecture["status"] != "awaiting_review":
             raise ValueError("PPT 검토 대기 상태에서만 슬라이드를 수정할 수 있습니다.")
 
-        row = await (await db.execute(
-            "SELECT outputs_json FROM lecture_stages WHERE lecture_id=? AND name='plan'",
-            (lecture_id,),
-        )).fetchone()
+        row = await (
+            await db.execute(
+                "SELECT outputs_json FROM lecture_stages WHERE lecture_id=? AND name='plan'",
+                (lecture_id,),
+            )
+        ).fetchone()
         if not row:
             raise ValueError("수정할 강의 설계 체크포인트가 없습니다.")
 
@@ -141,7 +147,6 @@ async def update_review_plan(lecture_id: int, plan: dict) -> None:
             _write_json_atomic(path, plan)
         elif path.name == "quiz.json":
             _write_json_atomic(path, plan.get("quiz") or [])
-
 
 
 async def approve_and_resume_review(lecture_id: int) -> bool:

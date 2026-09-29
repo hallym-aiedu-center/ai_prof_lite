@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from contextlib import suppress
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
@@ -11,22 +12,7 @@ from openai import APIConnectionError, APIStatusError
 
 from core.config import openai_key_mode, server_openai_account_budget_usd
 from core.database.client import get_connection
-from core.openai.usage_pricing import (
-    TokenRate,
-    _EMBEDDING_RATES,
-    _IMAGE_OUTPUT_PRICE,
-    _IMAGE_RATES,
-    _TEXT_RATES,
-    _TTS_MODELS,
-    _bool_env,
-    _embedding_rate,
-    _json_override,
-    _normalize_model,
-    _number,
-    _positive_float_env,
-    _rough_tokens,
-    _text_rate,
-)
+from core.openai.usage_pricing import _number
 
 
 class OpenAIBudgetExceeded(RuntimeError):
@@ -82,25 +68,14 @@ async def _account_budget(db, *, user_id: int) -> float | None:
 
 
 def _ambiguous_provider_error(exc: BaseException) -> bool:
-    if isinstance(exc, (asyncio.TimeoutError, TimeoutError, APIConnectionError, httpx.TransportError)):
+    if isinstance(
+        exc,
+        (asyncio.TimeoutError, TimeoutError, APIConnectionError, httpx.TransportError),
+    ):
         return True
     if isinstance(exc, APIStatusError):
         return exc.status_code == 408 or exc.status_code >= 500
     return False
-
-
-def _rough_tokens(value: Any) -> int:
-    if value is None:
-        return 0
-    if isinstance(value, str):
-        return max(1, math.ceil(len(value) / 3.0)) if value else 0
-    if isinstance(value, bytes):
-        return max(1, math.ceil(len(value) / 2.0)) if value else 0
-    if isinstance(value, dict):
-        return sum(_rough_tokens(key) + _rough_tokens(item) for key, item in value.items())
-    if isinstance(value, (list, tuple, set)):
-        return sum(_rough_tokens(item) for item in value)
-    return _rough_tokens(str(value))
 
 
 async def usage_summary(user_id: int) -> dict[str, Any]:
@@ -139,8 +114,12 @@ async def usage_summary(user_id: int) -> dict[str, Any]:
             "spent": spent,
             "reserved": reserved,
             "remaining": remaining,
-            "over_budget": 0.0 if budget is None else max(0.0, spent + reserved - budget),
-            "breakdown": {str(item["kind"]): _number(item["amount"]) for item in breakdown_rows},
+            "over_budget": 0.0
+            if budget is None
+            else max(0.0, spent + reserved - budget),
+            "breakdown": {
+                str(item["kind"]): _number(item["amount"]) for item in breakdown_rows
+            },
         }
     finally:
         await db.close()
@@ -190,20 +169,14 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, (list, tuple, set)):
         return [_jsonable(item) for item in value]
     if hasattr(value, "model_dump"):
-        try:
+        with suppress(Exception):
             return _jsonable(value.model_dump())
-        except Exception:
-            pass
     if hasattr(value, "dict"):
-        try:
+        with suppress(Exception):
             return _jsonable(value.dict())
-        except Exception:
-            pass
     if hasattr(value, "__dict__"):
-        try:
+        with suppress(Exception):
             return _jsonable(vars(value))
-        except Exception:
-            pass
     return str(value)
 
 
@@ -270,7 +243,10 @@ async def reserve_usage(
 async def cancel_reservation(event_id: int) -> None:
     db = await get_connection()
     try:
-        await db.execute("DELETE FROM openai_usage_events WHERE id = ? AND status='reserved'", (event_id,))
+        await db.execute(
+            "DELETE FROM openai_usage_events WHERE id = ? AND status='reserved'",
+            (event_id,),
+        )
         await db.commit()
     finally:
         await db.close()
@@ -279,7 +255,9 @@ async def cancel_reservation(event_id: int) -> None:
 async def mark_ambiguous_usage(event_id: int, exc: BaseException) -> None:
     db = await get_connection()
     try:
-        row = await _fetchone(db, "SELECT metadata_json FROM openai_usage_events WHERE id=?", (event_id,))
+        row = await _fetchone(
+            db, "SELECT metadata_json FROM openai_usage_events WHERE id=?", (event_id,)
+        )
         existing = {}
         raw = row["metadata_json"] if row else None
         if raw:
@@ -325,7 +303,9 @@ async def finalize_usage(
 ) -> None:
     db = await get_connection()
     try:
-        row = await _fetchone(db, "SELECT metadata_json FROM openai_usage_events WHERE id=?", (event_id,))
+        row = await _fetchone(
+            db, "SELECT metadata_json FROM openai_usage_events WHERE id=?", (event_id,)
+        )
         existing = {}
         raw = row["metadata_json"] if row else None
         if raw:

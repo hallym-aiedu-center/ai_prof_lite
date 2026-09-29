@@ -1,4 +1,5 @@
 """Single-host SQLite queue; transactions serialize claims across worker processes."""
+
 import time
 from uuid import uuid4
 
@@ -21,7 +22,8 @@ class SQLiteJobQueue:
         not when the user clicks retry.  This prevents a due schedule from
         publishing stale media while the retry is still rendering.
         """
-        await db.execute("""
+        await db.execute(
+            """
             UPDATE lecture_publish_schedules
             SET status='pending', last_error=NULL, lease_token=NULL,
                 lease_until=NULL, updated_at=CURRENT_TIMESTAMP
@@ -31,7 +33,9 @@ class SQLiteJobQueue:
               AND published_at IS NULL
               AND COALESCE(create_state, 'idle')='idle'
               AND create_result_json IS NULL
-        """, (lecture_id,))
+        """,
+            (lecture_id,),
+        )
 
     def __init__(self):
         self.lease_seconds = positive_int("JOB_LEASE_SECONDS", 60)
@@ -44,14 +48,17 @@ class SQLiteJobQueue:
         db = await get_connection()
         try:
             now = time.time()
-            await db.execute("""
+            await db.execute(
+                """
                 INSERT OR IGNORE INTO lecture_jobs
                     (lecture_id, max_attempts, available_at, updated_at)
                 SELECT l.id, ?, ?, ?
                 FROM lectures AS l
                 JOIN users AS u ON u.id = l.user_id
                 WHERE l.id=? AND l.status='queued' AND u.status='active'
-            """, (self.max_attempts, now, now, lecture_id))
+            """,
+                (self.max_attempts, now, now, lecture_id),
+            )
             await db.commit()
         finally:
             await db.close()
@@ -61,7 +68,8 @@ class SQLiteJobQueue:
         db = await get_connection()
         try:
             now = time.time()
-            await db.execute("""
+            await db.execute(
+                """
                 INSERT OR IGNORE INTO lecture_jobs
                     (lecture_id, max_attempts, available_at, updated_at)
                 SELECT l.id, ?, ?, ?
@@ -70,7 +78,9 @@ class SQLiteJobQueue:
                 WHERE l.status IN ('queued', 'running')
                   AND l.portrait_path IS NOT NULL
                   AND u.status='active'
-            """, (self.max_attempts, now, now))
+            """,
+                (self.max_attempts, now, now),
+            )
             await db.commit()
         finally:
             await db.close()
@@ -94,34 +104,42 @@ class SQLiteJobQueue:
 
             # A worker can die after the lecture transaction reached completed but before
             # the queue acknowledgement.  Never replay such a lecture.
-            completed_lecture_rows = await (await db.execute("""
+            completed_lecture_rows = await (
+                await db.execute("""
                 SELECT lecture_id
                 FROM lecture_jobs
                 WHERE status='running'
                   AND lecture_id IN (SELECT id FROM lectures WHERE status='completed')
-            """)).fetchall()
-            completed = await db.execute("""
+            """)
+            ).fetchall()
+            completed = await db.execute(
+                """
                 UPDATE lecture_jobs
                 SET status='completed', lease_token=NULL, lease_until=NULL,
                     worker_id=NULL, gpu_id=NULL, last_error=NULL, updated_at=?
                 WHERE status='running'
                   AND lecture_id IN (SELECT id FROM lectures WHERE status='completed')
-            """, (now,))
+            """,
+                (now,),
+            )
             completed_count = completed.rowcount
             for completed_row in completed_lecture_rows:
                 await self._rearm_source_failed_publish_schedule(
-                    db, int(completed_row['lecture_id'])
+                    db, int(completed_row["lecture_id"])
                 )
 
-            rows = await (await db.execute("""
+            rows = await (
+                await db.execute("""
                 SELECT id, lecture_id, lease_token
                 FROM lecture_jobs
                 WHERE status='running'
-            """)).fetchall()
+            """)
+            ).fetchall()
 
             recovered = 0
             for row in rows:
-                await db.execute("""
+                await db.execute(
+                    """
                     UPDATE lecture_jobs
                     SET status='queued',
                         attempts=CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END,
@@ -129,14 +147,19 @@ class SQLiteJobQueue:
                         worker_id=NULL, gpu_id=NULL,
                         last_error='앱 재시작으로 작업을 이어서 실행합니다.', updated_at=?
                     WHERE id=? AND status='running'
-                """, (now, now, row['id']))
-                await db.execute("""
+                """,
+                    (now, now, row["id"]),
+                )
+                await db.execute(
+                    """
                     UPDATE lectures
                     SET status='queued', run_token=NULL, error_message=NULL,
                         status_message='앱 재시작 · 저장된 단계부터 재개 대기 중',
                         updated_at=CURRENT_TIMESTAMP
                     WHERE id=? AND status!='completed'
-                """, (row['lecture_id'],))
+                """,
+                    (row["lecture_id"],),
+                )
                 recovered += 1
 
             # Legacy/incomplete queue rows can exist after older versions.  Keep the
@@ -152,8 +175,8 @@ class SQLiteJobQueue:
 
             await db.commit()
             return {
-                'recovered': recovered,
-                'completed_acknowledged': completed_count,
+                "recovered": recovered,
+                "completed_acknowledged": completed_count,
             }
         except BaseException:
             await db.rollback()
@@ -166,43 +189,77 @@ class SQLiteJobQueue:
         try:
             await db.execute("BEGIN IMMEDIATE")
             now = time.time()
-            expired = await (await db.execute("""
+            expired = await (
+                await db.execute(
+                    """
                 SELECT * FROM lecture_jobs WHERE status='running' AND lease_until<=?
-            """, (now,))).fetchall()
+            """,
+                    (now,),
+                )
+            ).fetchall()
             for row in expired:
-                lecture = await (await db.execute(
-                    'SELECT status FROM lectures WHERE id=?', (row['lecture_id'],)
-                )).fetchone()
-                if lecture and lecture['status'] == 'completed':
+                lecture = await (
+                    await db.execute(
+                        "SELECT status FROM lectures WHERE id=?", (row["lecture_id"],)
+                    )
+                ).fetchone()
+                if lecture and lecture["status"] == "completed":
                     # Completion committed before a worker crash: acknowledge it.
-                    await db.execute("""
+                    await db.execute(
+                        """
                         UPDATE lecture_jobs SET status='completed', lease_token=NULL,
                             lease_until=NULL, worker_id=NULL, gpu_id=NULL, updated_at=? WHERE id=?
-                    """, (now, row['id']))
-                    await db.execute('UPDATE lectures SET run_token=NULL WHERE id=?', (row['lecture_id'],))
+                    """,
+                        (now, row["id"]),
+                    )
+                    await db.execute(
+                        "UPDATE lectures SET run_token=NULL WHERE id=?",
+                        (row["lecture_id"],),
+                    )
                     await self._rearm_source_failed_publish_schedule(
-                        db, int(row['lecture_id'])
+                        db, int(row["lecture_id"])
                     )
                     continue
-                state = 'failed' if row['attempts'] >= row['max_attempts'] else 'queued'
-                message = '워커 연결이 끊겨 재시도합니다.' if state == 'queued' else '워커 중단 후 최대 시도 횟수를 초과했습니다.'
-                await db.execute("""
+                state = "failed" if row["attempts"] >= row["max_attempts"] else "queued"
+                message = (
+                    "워커 연결이 끊겨 재시도합니다."
+                    if state == "queued"
+                    else "워커 중단 후 최대 시도 횟수를 초과했습니다."
+                )
+                await db.execute(
+                    """
                     UPDATE lecture_jobs SET status=?, lease_token=NULL, lease_until=NULL,
                         worker_id=NULL, gpu_id=NULL, available_at=?, last_error=?, updated_at=? WHERE id=?
-                """, (state, now, message, now, row['id']))
-                await db.execute("""
+                """,
+                    (state, now, message, now, row["id"]),
+                )
+                await db.execute(
+                    """
                     UPDATE lectures SET status=?, run_token=NULL, status_message=?,
                         error_message=?, updated_at=CURRENT_TIMESTAMP
                     WHERE id=? AND run_token=? AND status!='completed'
-                """, (state, message, message if state == 'failed' else None,
-                      row['lecture_id'], row['lease_token']))
-            count = (await (await db.execute(
-                "SELECT COUNT(*) FROM lecture_jobs WHERE status='running'"
-            )).fetchone())[0]
+                """,
+                    (
+                        state,
+                        message,
+                        message if state == "failed" else None,
+                        row["lecture_id"],
+                        row["lease_token"],
+                    ),
+                )
+            count = (
+                await (
+                    await db.execute(
+                        "SELECT COUNT(*) FROM lecture_jobs WHERE status='running'"
+                    )
+                ).fetchone()
+            )[0]
             if count >= self.capacity:
                 await db.commit()
                 return None
-            row = await (await db.execute("""
+            row = await (
+                await db.execute(
+                    """
                 SELECT queued.*
                 FROM lecture_jobs AS queued
                 JOIN lectures AS queued_lecture ON queued_lecture.id = queued.lecture_id
@@ -219,22 +276,31 @@ class SQLiteJobQueue:
                   ) < ?
                 ORDER BY queued.available_at, queued.id
                 LIMIT 1
-            """, (now, self.per_user_capacity))).fetchone()
+            """,
+                    (now, self.per_user_capacity),
+                )
+            ).fetchone()
             if row is None:
                 await db.commit()
                 return None
             token = uuid4().hex
-            await db.execute("""
+            await db.execute(
+                """
                 UPDATE lecture_jobs SET status='running', attempts=attempts+1,
                     lease_token=?, lease_until=?, worker_id=?, gpu_id=NULL, updated_at=? WHERE id=?
-            """, (token, now + self.lease_seconds, worker_id, now, row['id']))
-            await db.execute("""
+            """,
+                (token, now + self.lease_seconds, worker_id, now, row["id"]),
+            )
+            await db.execute(
+                """
                 UPDATE lectures SET run_token=?,
                     status=CASE WHEN status='completed' THEN status ELSE 'running' END,
                     error_message=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?
-            """, (token, row['lecture_id']))
+            """,
+                (token, row["lecture_id"]),
+            )
             await db.commit()
-            return Job(row['id'], row['lecture_id'], token, row['attempts'] + 1)
+            return Job(row["id"], row["lecture_id"], token, row["attempts"] + 1)
         except BaseException:
             await db.rollback()
             raise
@@ -244,7 +310,9 @@ class SQLiteJobQueue:
     async def owns(self, job: Job) -> bool:
         db = await get_connection()
         try:
-            row = await (await db.execute("""
+            row = await (
+                await db.execute(
+                    """
                 SELECT 1
                 FROM lecture_jobs AS j
                 JOIN lectures AS l ON l.id = j.lecture_id
@@ -252,7 +320,10 @@ class SQLiteJobQueue:
                 WHERE j.id=? AND j.status='running'
                   AND j.lease_token=? AND j.lease_until>?
                   AND u.status='active'
-            """, (job.id, job.token, time.time()))).fetchone()
+            """,
+                    (job.id, job.token, time.time()),
+                )
+            ).fetchone()
             return row is not None
         finally:
             await db.close()
@@ -261,7 +332,8 @@ class SQLiteJobQueue:
         db = await get_connection()
         try:
             now = time.time()
-            cursor = await db.execute("""
+            cursor = await db.execute(
+                """
                 UPDATE lecture_jobs
                 SET lease_until=?, updated_at=?
                 WHERE id=? AND status='running' AND lease_token=? AND lease_until>?
@@ -272,7 +344,9 @@ class SQLiteJobQueue:
                         WHERE l.id = lecture_jobs.lecture_id
                           AND u.status='active'
                   )
-            """, (now + self.lease_seconds, now, job.id, job.token, now))
+            """,
+                (now + self.lease_seconds, now, job.id, job.token, now),
+            )
             await db.commit()
             return cursor.rowcount == 1
         finally:
@@ -282,7 +356,8 @@ class SQLiteJobQueue:
         db = await get_connection()
         try:
             now = time.time()
-            cursor = await db.execute("""
+            cursor = await db.execute(
+                """
                 UPDATE lecture_jobs
                 SET gpu_id=?, updated_at=?
                 WHERE id=? AND status='running' AND lease_token=? AND lease_until>?
@@ -293,7 +368,9 @@ class SQLiteJobQueue:
                         WHERE l.id = lecture_jobs.lecture_id
                           AND u.status='active'
                   )
-            """, (gpu_id, now, job.id, job.token, now))
+            """,
+                (gpu_id, now, job.id, job.token, now),
+            )
             await db.commit()
             return cursor.rowcount == 1
         finally:
@@ -304,23 +381,32 @@ class SQLiteJobQueue:
         try:
             await db.execute("BEGIN IMMEDIATE")
             now = time.time()
-            cursor = await db.execute("""
+            cursor = await db.execute(
+                """
                 UPDATE lecture_jobs SET status=?, available_at=?, lease_token=NULL,
                     lease_until=NULL, worker_id=NULL, gpu_id=NULL, last_error=?, updated_at=?,
                     attempts=attempts-? WHERE id=? AND status='running'
                     AND lease_token=? AND lease_until>?
-            """, (state, now + delay, error, now, int(refund), job.id, job.token, now))
+            """,
+                (state, now + delay, error, now, int(refund), job.id, job.token, now),
+            )
             if cursor.rowcount != 1:
                 await db.rollback()
                 return False
-            message = {'queued': '작업 대기 중 · 저장된 단계부터 재개합니다.',
-                       'failed': '작업이 중단되었습니다.', 'completed': '강의 생성이 완료되었습니다.'}[state]
-            await db.execute("""
+            message = {
+                "queued": "작업 대기 중 · 저장된 단계부터 재개합니다.",
+                "failed": "작업이 중단되었습니다.",
+                "completed": "강의 생성이 완료되었습니다.",
+            }[state]
+            await db.execute(
+                """
                 UPDATE lectures SET status=?, run_token=NULL, status_message=?,
                     error_message=?, updated_at=CURRENT_TIMESTAMP
                 WHERE id=? AND run_token=?
-            """, (state, message, error, job.lecture_id, job.token))
-            if state == 'completed':
+            """,
+                (state, message, error, job.lecture_id, job.token),
+            )
+            if state == "completed":
                 await self._rearm_source_failed_publish_schedule(db, job.lecture_id)
             await db.commit()
             return True
@@ -331,48 +417,62 @@ class SQLiteJobQueue:
             await db.close()
 
     async def finish(self, job: Job) -> bool:
-        return await self._settle(job, 'completed')
+        return await self._settle(job, "completed")
 
     async def fail(self, job: Job, error: str, *, retryable: bool) -> bool:
         # max_attempts is persisted per job, even when the environment changes.
         db = await get_connection()
         try:
-            row = await (await db.execute(
-                'SELECT max_attempts FROM lecture_jobs WHERE id=?', (job.id,)
-            )).fetchone()
+            row = await (
+                await db.execute(
+                    "SELECT max_attempts FROM lecture_jobs WHERE id=?", (job.id,)
+                )
+            ).fetchone()
         finally:
             await db.close()
-        retry = bool(row and retryable and job.attempts < row['max_attempts'])
-        return await self._settle(job, 'queued' if retry else 'failed', error[:2000],
-                                  delay=min(self.retry_seconds * 2 ** (job.attempts - 1), 300) if retry else 0)
+        retry = bool(row and retryable and job.attempts < row["max_attempts"])
+        return await self._settle(
+            job,
+            "queued" if retry else "failed",
+            error[:2000],
+            delay=min(self.retry_seconds * 2 ** (job.attempts - 1), 300)
+            if retry
+            else 0,
+        )
 
     async def release(self, job: Job) -> bool:
         # Graceful shutdown does not spend a retry attempt.
-        return await self._settle(job, 'queued', refund=True)
+        return await self._settle(job, "queued", refund=True)
 
     async def pause_for_review(self, job: Job) -> bool:
         db = await get_connection()
         try:
-            await db.execute('BEGIN IMMEDIATE')
+            await db.execute("BEGIN IMMEDIATE")
             now = time.time()
-            cursor = await db.execute("""
+            cursor = await db.execute(
+                """
                 UPDATE lecture_jobs
                 SET status='paused', lease_token=NULL, lease_until=NULL,
                     worker_id=NULL, gpu_id=NULL, last_error=NULL, updated_at=?,
                     attempts=CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END
                 WHERE id=? AND status='running' AND lease_token=? AND lease_until>?
-            """, (now, job.id, job.token, now))
+            """,
+                (now, job.id, job.token, now),
+            )
             if cursor.rowcount != 1:
                 await db.rollback()
                 return False
-            await db.execute("""
+            await db.execute(
+                """
                 UPDATE lectures
                 SET status='awaiting_review', run_token=NULL,
                     review_status='awaiting_review',
                     status_message='PPT 검토 대기 중 · 승인하면 영상 생성을 이어갑니다.',
                     error_message=NULL, updated_at=CURRENT_TIMESTAMP
                 WHERE id=? AND run_token=?
-            """, (job.lecture_id, job.token))
+            """,
+                (job.lecture_id, job.token),
+            )
             await db.commit()
             return True
         except BaseException:
@@ -384,22 +484,28 @@ class SQLiteJobQueue:
     async def resume_review(self, lecture_id: int) -> bool:
         db = await get_connection()
         try:
-            await db.execute('BEGIN IMMEDIATE')
+            await db.execute("BEGIN IMMEDIATE")
             now = time.time()
-            cursor = await db.execute("""
+            cursor = await db.execute(
+                """
                 UPDATE lecture_jobs
                 SET status='queued', available_at=?, lease_token=NULL, lease_until=NULL,
                     worker_id=NULL, gpu_id=NULL, last_error=NULL, updated_at=?
                 WHERE lecture_id=? AND status='paused'
-            """, (now, now, lecture_id))
+            """,
+                (now, now, lecture_id),
+            )
             if cursor.rowcount:
-                await db.execute("""
+                await db.execute(
+                    """
                     UPDATE lectures
                     SET status='queued', run_token=NULL, error_message=NULL,
                         status_message='검토 반영 · 작업 재개 대기 중',
                         updated_at=CURRENT_TIMESTAMP
                     WHERE id=? AND status='awaiting_review'
-                """, (lecture_id,))
+                """,
+                    (lecture_id,),
+                )
             await db.commit()
             return cursor.rowcount == 1
         except BaseException:
@@ -412,22 +518,28 @@ class SQLiteJobQueue:
         """Cancel only jobs that are still waiting in the durable queue."""
         db = await get_connection()
         try:
-            await db.execute('BEGIN IMMEDIATE')
+            await db.execute("BEGIN IMMEDIATE")
             now = time.time()
-            cursor = await db.execute("""
+            cursor = await db.execute(
+                """
                 UPDATE lecture_jobs
                 SET status='cancelled', lease_token=NULL, lease_until=NULL,
                     worker_id=NULL, gpu_id=NULL, last_error=NULL, updated_at=?
                 WHERE lecture_id=? AND status='queued'
-            """, (now, lecture_id))
+            """,
+                (now, lecture_id),
+            )
             if cursor.rowcount:
-                await db.execute("""
+                await db.execute(
+                    """
                     UPDATE lectures
                     SET status='cancelled', run_token=NULL,
                         status_message='사용자가 대기 중인 작업을 취소했습니다.',
                         error_message=NULL, updated_at=CURRENT_TIMESTAMP
                     WHERE id=? AND status='queued'
-                """, (lecture_id,))
+                """,
+                    (lecture_id,),
+                )
             await db.commit()
             return cursor.rowcount == 1
         except BaseException:
@@ -439,9 +551,10 @@ class SQLiteJobQueue:
     async def retry(self, lecture_id: int) -> bool:
         db = await get_connection()
         try:
-            await db.execute('BEGIN IMMEDIATE')
+            await db.execute("BEGIN IMMEDIATE")
             now = time.time()
-            cursor = await db.execute("""
+            cursor = await db.execute(
+                """
                 UPDATE lecture_jobs SET status='queued', attempts=0, available_at=?,
                     last_error=NULL, updated_at=?
                 WHERE lecture_id=? AND status='failed'
@@ -452,12 +565,17 @@ class SQLiteJobQueue:
                         WHERE l.id = lecture_jobs.lecture_id
                           AND u.status='active'
                   )
-            """, (now, now, lecture_id))
+            """,
+                (now, now, lecture_id),
+            )
             if cursor.rowcount:
-                await db.execute("""
+                await db.execute(
+                    """
                     UPDATE lectures SET status='queued', error_message=NULL,
                         status_message='재시도 대기 중', updated_at=CURRENT_TIMESTAMP WHERE id=?
-                """, (lecture_id,))
+                """,
+                    (lecture_id,),
+                )
             await db.commit()
             return cursor.rowcount == 1
         finally:
@@ -466,10 +584,13 @@ class SQLiteJobQueue:
     async def record_error(self, job: Job, error: str) -> None:
         db = await get_connection()
         try:
-            await db.execute("""
+            await db.execute(
+                """
                 UPDATE lecture_jobs SET last_error=? WHERE id=?
                     AND lease_token=? AND status='running' AND lease_until>?
-            """, (error[:2000], job.id, job.token, time.time()))
+            """,
+                (error[:2000], job.id, job.token, time.time()),
+            )
             await db.commit()
         finally:
             await db.close()
@@ -477,9 +598,15 @@ class SQLiteJobQueue:
     async def last_error(self, job: Job) -> str:
         db = await get_connection()
         try:
-            row = await (await db.execute(
-                'SELECT last_error FROM lecture_jobs WHERE id=?', (job.id,)
-            )).fetchone()
-            return row['last_error'] if row and row['last_error'] else '작업 프로세스가 비정상 종료되었습니다.'
+            row = await (
+                await db.execute(
+                    "SELECT last_error FROM lecture_jobs WHERE id=?", (job.id,)
+                )
+            ).fetchone()
+            return (
+                row["last_error"]
+                if row and row["last_error"]
+                else "작업 프로세스가 비정상 종료되었습니다."
+            )
         finally:
             await db.close()

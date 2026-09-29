@@ -1,4 +1,5 @@
 """Attach a verified existing Moodle activity after an ambiguous create response."""
+
 import argparse
 import asyncio
 import json
@@ -91,11 +92,15 @@ async def resolve(lecture_id: int, cmid: int) -> None:
         await db.close()
 
     if scheduled_ambiguity:
-        print(f"Lecture {lecture_id}: CMID {cmid} 확인 완료, 예약 업로드 재시도 대기 중")
+        print(
+            f"Lecture {lecture_id}: CMID {cmid} 확인 완료, 예약 업로드 재시도 대기 중"
+        )
         return
 
     if not await get_queue().retry(lecture_id):
-        raise RuntimeError("재시도 대기열로 이동하지 못했습니다. 작업 상태를 확인하세요.")
+        raise RuntimeError(
+            "재시도 대기열로 이동하지 못했습니다. 작업 상태를 확인하세요."
+        )
     print(f"Lecture {lecture_id}: CMID {cmid} 확인 완료, 강의 작업 재시도 대기 중")
 
 

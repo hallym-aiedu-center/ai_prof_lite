@@ -33,12 +33,22 @@ class MoodleClient:
 
     async def _post(self, endpoint: str, **kwargs):
         pinned, headers, extensions = await self.validate_target()
-        async with httpx.AsyncClient(timeout=self.timeout, verify=self.verify_ssl,
-                                     follow_redirects=False, trust_env=False) as http:
-            response = await http.post(str(pinned).rstrip('/') + endpoint,
-                                       headers=headers, extensions=extensions, **kwargs)
+        async with httpx.AsyncClient(
+            timeout=self.timeout,
+            verify=self.verify_ssl,
+            follow_redirects=False,
+            trust_env=False,
+        ) as http:
+            response = await http.post(
+                str(pinned).rstrip("/") + endpoint,
+                headers=headers,
+                extensions=extensions,
+                **kwargs,
+            )
             if response.is_redirect:
-                raise ValueError('Moodle 리다이렉트는 허용하지 않습니다. 최종 HTTPS 주소를 등록하세요.')
+                raise ValueError(
+                    "Moodle 리다이렉트는 허용하지 않습니다. 최종 HTTPS 주소를 등록하세요."
+                )
             response.raise_for_status()
             return response
 
@@ -54,13 +64,12 @@ class MoodleClient:
             **params,
         }
 
-        response = await self._post('/webservice/rest/server.php', data=data)
+        response = await self._post("/webservice/rest/server.php", data=data)
 
         result = response.json()
 
         if isinstance(result, dict) and (
-            "exception" in result
-            or "errorcode" in result
+            "exception" in result or "errorcode" in result
         ):
             raise MoodleAPIError(result)
 
@@ -86,14 +95,14 @@ class MoodleClient:
                 )
             }
 
-            response = await self._post('/webservice/upload.php',
-                                        data={'token': self.token}, files=files)
+            response = await self._post(
+                "/webservice/upload.php", data={"token": self.token}, files=files
+            )
 
         result = response.json()
 
         if isinstance(result, dict) and (
-            "exception" in result
-            or "errorcode" in result
+            "exception" in result or "errorcode" in result
         ):
             raise MoodleAPIError(result)
 
@@ -111,12 +120,11 @@ def get_moodle_client(
     if not resolved_url or not resolved_token:
         raise RuntimeError("Explicit Moodle URL and token are required.")
 
-    verify_ssl = (
-        os.getenv("MOODLE_VERIFY_SSL", "true")
-        .strip()
-        .lower()
-        not in {"0", "false", "no"}
-    )
+    verify_ssl = os.getenv("MOODLE_VERIFY_SSL", "true").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
 
     return MoodleClient(
         base_url=resolved_url,

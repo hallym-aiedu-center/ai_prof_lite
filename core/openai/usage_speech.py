@@ -22,7 +22,9 @@ def _tts_usage_cost(model: str, usage: Any) -> tuple[float, dict]:
     """Calculate finalized TTS cost only from provider-reported usage."""
     base = _normalize_model(model)
     if base != "gpt-4o-mini-tts":
-        raise RuntimeError(f"토큰 usage 기반 TTS 과금을 지원하지 않는 모델입니다: {model}")
+        raise RuntimeError(
+            f"토큰 usage 기반 TTS 과금을 지원하지 않는 모델입니다: {model}"
+        )
     if usage is None:
         raise RuntimeError("OpenAI Speech 응답에 provider usage가 없습니다.")
 
@@ -169,7 +171,9 @@ def _parse_speech_sse(payload: bytes) -> tuple[bytes, dict]:
             try:
                 audio_parts.append(base64.b64decode(encoded))
             except Exception as exc:
-                raise RuntimeError("speech.audio.delta base64 디코딩에 실패했습니다.") from exc
+                raise RuntimeError(
+                    "speech.audio.delta base64 디코딩에 실패했습니다."
+                ) from exc
         elif event_type == "speech.audio.done":
             candidate = event.get("usage")
             if isinstance(candidate, dict):
@@ -180,7 +184,9 @@ def _parse_speech_sse(payload: bytes) -> tuple[bytes, dict]:
     if not audio_parts:
         raise RuntimeError("OpenAI Speech SSE에서 audio chunk를 받지 못했습니다.")
     if usage is None:
-        raise RuntimeError("OpenAI Speech SSE의 speech.audio.done에 provider usage가 없습니다.")
+        raise RuntimeError(
+            "OpenAI Speech SSE의 speech.audio.done에 provider usage가 없습니다."
+        )
 
     return b"".join(audio_parts), usage
 
@@ -223,14 +229,16 @@ async def speech_create_bytes(
         reserve_usd=_tts_reserve_cost(model, text),
     )
 
-    request_kwargs = _prepare_gpt4o_sse_kwargs(kwargs) if base == "gpt-4o-mini-tts" else kwargs
+    request_kwargs = (
+        _prepare_gpt4o_sse_kwargs(kwargs) if base == "gpt-4o-mini-tts" else kwargs
+    )
 
     try:
         response = await client.audio.speech.create(**request_kwargs)
     except asyncio.CancelledError as exc:
         await mark_ambiguous_usage(event, exc)
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - provider boundary
         await _raise_after_provider_error(event, exc)
 
     try:

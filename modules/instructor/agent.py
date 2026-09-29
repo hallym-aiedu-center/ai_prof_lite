@@ -47,7 +47,9 @@ async def create_delegated_lecture(
 
     selected_ids = {int(v) for v in profile.get("selected_course_ids_json") or []}
     if profile.get("course_scope") == "selected":
-        courses = [course for course in courses if int(course.get("id", -1)) in selected_ids]
+        courses = [
+            course for course in courses if int(course.get("id", -1)) in selected_ids
+        ]
     if not courses:
         raise RuntimeError("AI 강사에게 위임된 Moodle 강좌가 없습니다.")
 
@@ -76,7 +78,11 @@ async def create_delegated_lecture(
     )
     section_num = int(lesson["section"])
     section_name = next(
-        (str(item.get("name") or "") for item in sections if int(item.get("section", -1)) == section_num),
+        (
+            str(item.get("name") or "")
+            for item in sections
+            if int(item.get("section", -1)) == section_num
+        ),
         f"Section {section_num}",
     )
 
@@ -138,7 +144,9 @@ async def create_delegated_lecture(
     (source_dir / "lecture_settings.json").write_text(
         json.dumps(
             {
-                "target_duration_minutes": int(profile.get("target_duration_minutes") or 40),
+                "target_duration_minutes": int(
+                    profile.get("target_duration_minutes") or 40
+                ),
                 "target_slide_count": int(profile.get("target_slide_count") or 10),
             },
             ensure_ascii=False,
@@ -165,4 +173,3 @@ async def create_delegated_lecture(
     # durable worker reconcile loop will discover the queued lecture later.
     await get_queue().enqueue(lecture_id)
     return lecture_id
-

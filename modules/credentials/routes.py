@@ -143,7 +143,9 @@ async def save_provider(
             request=request,
             name="settings/credentials.html",
             context=await _credentials_context(
-                request, user_id, error_provider=provider,
+                request,
+                user_id,
+                error_provider=provider,
                 error_message=f"{spec['secret_label']}를 입력하세요.",
                 draft_base_url=base_url.strip(),
             ),
@@ -164,8 +166,11 @@ async def save_provider(
                 request=request,
                 name="settings/credentials.html",
                 context=await _credentials_context(
-                    request, user_id, error_provider=provider,
-                    error_message=str(exc), draft_base_url=resolved_url,
+                    request,
+                    user_id,
+                    error_provider=provider,
+                    error_message=str(exc),
+                    draft_base_url=resolved_url,
                 ),
                 status_code=422,
             )
@@ -183,7 +188,9 @@ async def save_provider(
             await get_site_info(client)
     except Exception as exc:  # noqa: BLE001
         if provider == "openai":
-            message = "OpenAI API Key를 확인할 수 없습니다. 키와 API 접근 권한을 확인하세요."
+            message = (
+                "OpenAI API Key를 확인할 수 없습니다. 키와 API 접근 권한을 확인하세요."
+            )
         else:
             if isinstance(exc, MoodleAPIError):
                 error_code = str(exc.payload.get("errorcode") or "").lower()
@@ -197,8 +204,11 @@ async def save_provider(
             request=request,
             name="settings/credentials.html",
             context=await _credentials_context(
-                request, user_id, error_provider=provider,
-                error_message=message, draft_base_url=resolved_url,
+                request,
+                user_id,
+                error_provider=provider,
+                error_message=message,
+                draft_base_url=resolved_url,
             ),
             status_code=422,
         )

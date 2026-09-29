@@ -5,8 +5,8 @@ import re
 import zipfile
 from pathlib import Path
 from uuid import uuid4
-from defusedxml import ElementTree
 
+from defusedxml import ElementTree
 from fastapi import HTTPException, UploadFile
 from pptx import Presentation
 
@@ -25,7 +25,11 @@ ALLOWED_SUFFIXES = {".pdf", ".txt", ".md", ".docx", ".pptx"}
 def _safe_name(name: str | None, fallback_suffix: str) -> str:
     raw = Path(name or f"reference{fallback_suffix}").name
     suffix = fallback_suffix.lower()
-    raw_stem = raw[:-len(suffix)] if suffix and raw.lower().endswith(suffix) else Path(raw).stem
+    raw_stem = (
+        raw[: -len(suffix)]
+        if suffix and raw.lower().endswith(suffix)
+        else Path(raw).stem
+    )
     stem = re.sub(r"[^0-9A-Za-z가-힣._ -]+", "_", raw_stem).strip(" .") or "reference"
     maximum_stem = max(1, 160 - len(suffix))
     return f"{stem[:maximum_stem]}{suffix}"
@@ -38,7 +42,9 @@ async def save_reference_files(uploads: list[UploadFile] | None) -> list[dict]:
 
     maximum_files = positive_int("MAX_REFERENCE_FILES", 5)
     if len(uploads) > maximum_files:
-        raise HTTPException(422, f"참고자료는 최대 {maximum_files}개까지 첨부할 수 있습니다.")
+        raise HTTPException(
+            422, f"참고자료는 최대 {maximum_files}개까지 첨부할 수 있습니다."
+        )
 
     maximum_total = positive_int("MAX_REFERENCE_UPLOAD_BYTES", 25 * 1024 * 1024)
     maximum_each = positive_int("MAX_REFERENCE_FILE_BYTES", 10 * 1024 * 1024)
@@ -52,22 +58,35 @@ async def save_reference_files(uploads: list[UploadFile] | None) -> list[dict]:
             content_type = (upload.content_type or "").split(";", 1)[0].strip().lower()
             suffix = Path(upload.filename or "").suffix.lower()
             expected_suffix = ALLOWED_REFERENCE_TYPES.get(content_type)
-            if suffix not in ALLOWED_SUFFIXES or (expected_suffix and suffix != expected_suffix):
-                raise HTTPException(422, "참고자료는 PDF, TXT, Markdown, DOCX, PPTX만 업로드할 수 있습니다.")
+            if suffix not in ALLOWED_SUFFIXES or (
+                expected_suffix and suffix != expected_suffix
+            ):
+                raise HTTPException(
+                    422,
+                    "참고자료는 PDF, TXT, Markdown, DOCX, PPTX만 업로드할 수 있습니다.",
+                )
 
             content = bytearray()
             try:
                 while chunk := await upload.read(64 * 1024):
                     content.extend(chunk)
                     if len(content) > maximum_each:
-                        raise HTTPException(413, f"참고자료 1개는 최대 {maximum_each // (1024 * 1024)}MB입니다.")
+                        raise HTTPException(
+                            413,
+                            f"참고자료 1개는 최대 {maximum_each // (1024 * 1024)}MB입니다.",
+                        )
                     if total + len(content) > maximum_total:
-                        raise HTTPException(413, f"참고자료 전체 용량은 최대 {maximum_total // (1024 * 1024)}MB입니다.")
+                        raise HTTPException(
+                            413,
+                            f"참고자료 전체 용량은 최대 {maximum_total // (1024 * 1024)}MB입니다.",
+                        )
             finally:
                 await upload.close()
 
             if not content:
-                raise HTTPException(422, f"빈 참고자료는 사용할 수 없습니다: {upload.filename}")
+                raise HTTPException(
+                    422, f"빈 참고자료는 사용할 수 없습니다: {upload.filename}"
+                )
 
             filename = _safe_name(upload.filename, suffix)
             path = directory / f"{uuid4().hex}{suffix}"
@@ -79,12 +98,14 @@ async def save_reference_files(uploads: list[UploadFile] | None) -> list[dict]:
                 temporary.unlink(missing_ok=True)
 
             total += len(content)
-            saved.append({
-                "name": filename,
-                "path": str(path),
-                "content_type": content_type or "application/octet-stream",
-                "size": len(content),
-            })
+            saved.append(
+                {
+                    "name": filename,
+                    "path": str(path),
+                    "content_type": content_type or "application/octet-stream",
+                    "size": len(content),
+                }
+            )
         return saved
     except BaseException:
         for item in saved:
@@ -117,10 +138,16 @@ def _extract_pdf(path: Path) -> str:
     except ImportError as exc:  # pragma: no cover - installation guard
         raise RuntimeError("PDF 참고자료 처리를 위해 pypdf가 필요합니다.") from exc
     reader = PdfReader(str(path))
-    return "\n\n".join((page.extract_text() or "").strip() for page in reader.pages if (page.extract_text() or "").strip())
+    return "\n\n".join(
+        (page.extract_text() or "").strip()
+        for page in reader.pages
+        if (page.extract_text() or "").strip()
+    )
 
 
-def _read_zip_member_limited(archive: zipfile.ZipFile, member: str, *, max_bytes: int) -> bytes:
+def _read_zip_member_limited(
+    archive: zipfile.ZipFile, member: str, *, max_bytes: int
+) -> bytes:
     """Read one ZIP member without allowing unbounded decompression."""
     try:
         info = archive.getinfo(member)
@@ -199,7 +226,7 @@ def _validate_pptx_archive_size(path: Path) -> None:
                 )
 
             member = info.filename.lower()
-            if member.endswith(".xml") or member.endswith(".rels"):
+            if member.endswith((".xml", ".rels")):
                 declared_xml += max(0, int(info.file_size))
                 if declared_xml > maximum_xml_bytes:
                     raise ValueError(
@@ -214,7 +241,7 @@ def _validate_pptx_archive_size(path: Path) -> None:
         total_xml = 0
         for info in infos:
             member = info.filename.lower()
-            is_xml = member.endswith(".xml") or member.endswith(".rels")
+            is_xml = member.endswith((".xml", ".rels"))
             with archive.open(info, "r") as source:
                 while True:
                     remaining = maximum_uncompressed_bytes - total_uncompressed
