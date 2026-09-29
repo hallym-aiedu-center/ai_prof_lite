@@ -1,6 +1,6 @@
 # AI Professor Lite
 
-> Version `0.5.7`
+> Version `0.5.8`
 
 현재 애플리케이션 버전은 `0.5.7`입니다.
 >
