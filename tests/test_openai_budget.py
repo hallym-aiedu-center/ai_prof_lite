@@ -1,4 +1,6 @@
+import base64
 import io
+import json
 import wave
 from types import SimpleNamespace
 
@@ -132,9 +134,18 @@ async def test_embedding_usage_is_added_to_same_account_ledger(database):
     assert row["request_id"] == "req_embed_123"
 
 
-async def test_image_generation_uses_model_quality_size_price_when_usage_missing(database):
+async def test_image_generation_uses_provider_usage(database):
     await _set_budget(1, 1.00)
-    response = SimpleNamespace(data=[SimpleNamespace(b64_json="unused")], _request_id="req_img_123")
+    response = SimpleNamespace(
+        data=[SimpleNamespace(b64_json="unused")],
+        usage=SimpleNamespace(
+            input_tokens=10,
+            output_tokens=400,
+            input_tokens_details=SimpleNamespace(text_tokens=10, image_tokens=0),
+            output_tokens_details=SimpleNamespace(image_tokens=400),
+        ),
+        _request_id="req_img_123",
+    )
 
     class Images:
         async def generate(self, **kwargs):
@@ -151,12 +162,13 @@ async def test_image_generation_uses_model_quality_size_price_when_usage_missing
         usage_context={"operation": "unit_image", "stage": "tests", "item_key": "image_1"},
     )
     summary = await usage_summary(1)
-    # Fixed image output price + a very small prompt-token input component.
-    assert summary["spent"] >= 0.006
-    assert summary["spent"] < 0.0061
+    expected = (10 * 2.5 + 400 * 15.0) / 1_000_000
+    assert summary["spent"] == pytest.approx(expected)
     row = (await _events(1))[-1]
     assert row["kind"] == "images"
     assert row["model"] == "gpt-image-2"
+    assert row["input_tokens"] == 10
+    assert row["output_tokens"] == 400
     assert row["operation"] == "unit_image"
     assert row["request_id"] == "req_img_123"
 
@@ -174,14 +186,30 @@ def _wav_bytes(seconds: float = 1.0, sample_rate: int = 8000) -> bytes:
 async def test_tts_usage_is_added_to_same_account_ledger(database):
     await _set_budget(1, 1.00)
     audio = _wav_bytes(1.0)
+    encoded = base64.b64encode(audio).decode("ascii")
+    sse = (
+        "data: "
+        + json.dumps({"type": "speech.audio.delta", "audio": encoded})
+        + "\n\n"
+        + "data: "
+        + json.dumps(
+            {
+                "type": "speech.audio.done",
+                "usage": {
+                    "input_tokens": 40,
+                    "output_tokens": 20,
+                    "input_tokens_details": {"cached_tokens": 0},
+                },
+            }
+        )
+        + "\n\n"
+    ).encode("utf-8")
 
     class Speech:
         async def create(self, **kwargs):
-            return SimpleNamespace(
-                content=audio,
-                usage=SimpleNamespace(input_tokens=40, output_tokens=20, input_tokens_details=SimpleNamespace(cached_tokens=0)),
-                _request_id="req_tts_123",
-            )
+            assert kwargs["stream_format"] == "sse"
+            assert kwargs["extra_headers"]["Accept"] == "text/event-stream"
+            return SimpleNamespace(content=sse, _request_id="req_tts_123")
 
     client = SimpleNamespace(audio=SimpleNamespace(speech=Speech()))
     result = await speech_create_bytes(
@@ -195,7 +223,8 @@ async def test_tts_usage_is_added_to_same_account_ledger(database):
     )
     assert result == audio
     summary = await usage_summary(1)
-    assert summary["spent"] > 0
+    expected = (40 * 0.60 + 20 * 12.0) / 1_000_000
+    assert summary["spent"] == pytest.approx(expected)
     row = (await _events(1))[-1]
     assert row["kind"] == "tts"
     assert row["model"] == "gpt-4o-mini-tts"
