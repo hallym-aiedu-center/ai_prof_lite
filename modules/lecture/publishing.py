@@ -224,12 +224,29 @@ async def ensure_lecture_ready_for_publish(lecture_id: int) -> dict:
     return lecture
 
 
+class _DirectCreateMarker:
+    async def load(self) -> MoodleCreateState:
+        return MoodleCreateState()
+
+    async def mark_running(self) -> None:
+        pass
+
+    async def mark_completed(self, activity: dict) -> None:
+        pass
+
+
 class _PublishScheduleCreateMarker:
-    def __init__(self, lecture_id: int, lease_token: str):
+    def __init__(self, lecture_id: int, lease_token: str | None):
         self.lecture_id = lecture_id
         self.lease_token = lease_token
 
+    def _require_lease_token(self) -> str:
+        if not self.lease_token:
+            raise RuntimeError("예약 게시 작업의 lease token이 없습니다.")
+        return self.lease_token
+
     async def load(self) -> MoodleCreateState:
+        self._require_lease_token()
         schedule = await get_publish_schedule(self.lecture_id)
         if schedule is None:
             raise RuntimeError("예약 게시 정보를 찾을 수 없습니다.")
@@ -246,17 +263,19 @@ class _PublishScheduleCreateMarker:
         return MoodleCreateState(status="completed", activity=activity)
 
     async def mark_running(self) -> None:
+        lease_token = self._require_lease_token()
         await update_publish_schedule(
             self.lecture_id,
-            lease_token=self.lease_token,
+            lease_token=lease_token,
             create_state="running",
             create_result_json=None,
         )
 
     async def mark_completed(self, activity: dict) -> None:
+        lease_token = self._require_lease_token()
         await update_publish_schedule(
             self.lecture_id,
-            lease_token=self.lease_token,
+            lease_token=lease_token,
             create_state="completed",
             create_result_json=json.dumps(activity, ensure_ascii=False),
         )
@@ -273,20 +292,27 @@ async def deploy_lecture_to_moodle(
     final_video = Path(final_video_path)
     if not final_video.is_file() or final_video.stat().st_size <= 0:
         raise RuntimeError(f"최종 강의 영상 파일을 확인할 수 없습니다: {final_video}")
-    if not publish_lease_token:
-        raise RuntimeError("예약 게시 작업의 lease token이 없습니다.")
-    if await get_publish_schedule(lecture_id) is None:
-        raise RuntimeError("예약 게시 정보를 찾을 수 없습니다.")
-
     duration = await media_duration(final_video)
     spec = MoodleDeploymentSpec.from_lecture(
         lecture,
         video_path=final_video_path,
         duration=duration,
     )
+    # A publish schedule / lease is relevant only when a new Moodle
+    # activity actually needs to be created. Existing-CMID deployments
+    # must not touch the publish-schedule table.
+    if spec.deploy_mode == "create" and not spec.cmid:
+        schedule = await get_publish_schedule(lecture_id)
+        if schedule is None:
+            marker = _DirectCreateMarker()
+        else:
+            marker = _PublishScheduleCreateMarker(lecture_id, publish_lease_token)
+    else:
+        marker = _DirectCreateMarker()
+
     result = await deploy_moodle_video(
         spec,
-        marker=_PublishScheduleCreateMarker(lecture_id, publish_lease_token),
+        marker=marker,
         get_client=get_user_moodle_client,
         create_activity=create_activity,
         set_video_from_file=set_video_from_file,
