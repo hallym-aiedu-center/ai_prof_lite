@@ -219,29 +219,16 @@
         </div>
     </form>
 
-    <section class="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6"><div><h2 class="font-black">AI 강사 활동</h2><p class="mt-1 text-xs text-slate-500">강좌 선택 → 제작 → 예약 게시 흐름</p></div></div>
-        {% if runs %}
-        <div class="divide-y divide-slate-100">
-            {% for run in runs %}
-            <div class="grid gap-3 px-5 py-4 sm:px-6 md:grid-cols-[130px_1fr_auto] md:items-center">
-                <div><div class="text-xs font-black text-slate-700">{% if run.week_number %}{{ run.week_number }}주차 · {% endif %}{{ run.scheduled_local }}</div><div class="mt-1 text-[10px] text-slate-400">게시 예정</div></div>
-                <div class="min-w-0">
-                    <div class="truncate text-sm font-black text-slate-900">{{ run.title or 'AI가 강의 주제를 계획 중' }}</div>
-                    <div class="mt-1 truncate text-xs text-slate-500">{{ run.course_name or '강좌 선택 중' }}{% if run.section_name %} · {{ run.section_name }}{% endif %}</div>
-                    {% if run.rationale %}<div class="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-400">{{ run.rationale }}</div>{% endif %}
-                </div>
-                <div class="flex items-center gap-2">
-                    {% if run.lecture_id %}<a href="/lectures/{{ run.lecture_id }}" class="rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-bold text-slate-700">강의 보기</a>{% endif %}
-                    <span class="rounded-full px-2.5 py-1 text-[10px] font-black {% if run.publish_status == 'published' %}bg-emerald-50 text-emerald-700{% elif run.status == 'failed' or run.lecture_status == 'failed' or run.publish_status == 'failed' %}bg-rose-50 text-rose-700{% else %}bg-indigo-50 text-indigo-700{% endif %}">{% if run.publish_status == 'published' %}게시완료{% elif run.publish_status == 'pending' %}게시대기{% elif run.lecture_status %}{{ run.lecture_status }}{% else %}{{ run.status }}{% endif %}</span>
-                </div>
+    <section class="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="font-black">AI 강사 활동</h2>
+                <p class="mt-1 text-xs text-slate-500">강좌 선택 → 제작 → 예약 게시 이력은 별도 활동 페이지에서 확인합니다.</p>
             </div>
-            {% endfor %}
+            <a href="/instructor/activity" class="rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-200">활동 내역 보기</a>
         </div>
-        {% else %}
-        <div class="px-6 py-12 text-center text-sm text-slate-500">아직 AI 강사 위임 이력이 없습니다.</div>
-        {% endif %}
     </section>
+
 </div>
 
 <script nonce="{{ request.state.csp_nonce }}">

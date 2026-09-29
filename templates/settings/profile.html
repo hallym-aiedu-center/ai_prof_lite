@@ -102,54 +102,40 @@
         </form>
     </div>
 
-    <div class="mt-6 rounded-2xl border border-slate-200 bg-white shadow-panel">
-        <div class="border-b border-slate-200 px-6 py-5">
-            <h2 class="font-semibold">최근 OpenAI 사용 내역</h2>
-            <p class="mt-1 text-sm text-slate-500">어디서 어떤 API가 호출되었고, 어떤 방식으로 과금되었는지 최근 내역을 확인할 수 있습니다.</p>
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-panel">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="font-semibold">OpenAI 사용 내역</h2>
+                <p class="mt-1 text-sm text-slate-500">최근 API 호출과 과금 상세는 별도 페이지에서 확인합니다.</p>
+            </div>
+            <a href="/settings/openai-usage" class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">사용 내역 보기</a>
         </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="bg-slate-50 text-left text-slate-500">
-                    <tr>
-                        <th class="px-4 py-3 font-medium">시각</th>
-                        <th class="px-4 py-3 font-medium">위치</th>
-                        <th class="px-4 py-3 font-medium">API/모델</th>
-                        <th class="px-4 py-3 font-medium">토큰/과금 방식</th>
-                        <th class="px-4 py-3 font-medium text-right">비용</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if usage_events %}
-                        {% for event in usage_events %}
-                        <tr class="border-t border-slate-100 align-top">
-                            <td class="px-4 py-3 text-xs text-slate-500">{{ event.created_at }}</td>
-                            <td class="px-4 py-3">
-                                <div class="font-medium text-slate-800">{{ event.operation or event.kind }}</div>
-                                <div class="mt-1 text-xs text-slate-500">
-                                    {{ event.endpoint or '-' }}
-                                    {% if event.stage %} · {{ event.stage }}{% endif %}
-                                    {% if event.item_key %}<br>{{ event.item_key }}{% endif %}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="font-medium text-slate-800">{{ event.model }}</div>
-                                <div class="mt-1 text-xs text-slate-500">{{ event.kind }}{% if event.request_id %} · req {{ event.request_id }}{% endif %}</div>
-                            </td>
-                            <td class="px-4 py-3 text-xs text-slate-600">
-                                <div>입력 {{ event.input_tokens }} / 출력 {{ event.output_tokens }}{% if event.cached_input_tokens %} / 캐시 {{ event.cached_input_tokens }}{% endif %}</div>
-                                <div class="mt-1">{{ event.metadata.billing_basis or '-' }}</div>
-                            </td>
-                            <td class="px-4 py-3 text-right font-semibold">${{ '%.4f'|format(event.cost_usd) }}</td>
-                        </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">아직 저장된 OpenAI 사용 내역이 없습니다.</td>
-                        </tr>
-                    {% endif %}
-                </tbody>
-            </table>
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-rose-200 bg-white shadow-panel">
+        <div class="border-b border-rose-100 px-6 py-5">
+            <h2 class="font-semibold text-rose-700">회원탈퇴</h2>
+            <p class="mt-1 text-sm text-slate-500">계정, 강의, 저장된 자격증명과 사용자 전용 산출물을 삭제합니다. 이 작업은 되돌릴 수 없습니다.</p>
         </div>
+        <form method="post" action="/settings/account/delete" class="space-y-4 p-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {% if delete_failed %}
+            <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">비밀번호와 확인 문구를 다시 확인하세요.</div>
+            {% endif %}
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label class="mb-2 block text-sm font-medium">현재 비밀번호</label>
+                    <input name="password" type="password" autocomplete="current-password" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500">
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium">확인 문구</label>
+                    <input name="confirmation" required placeholder="회원탈퇴" class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500">
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button class="rounded-xl bg-rose-600 px-5 py-3 text-sm font-semibold text-white hover:bg-rose-700">계정 영구 삭제</button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}

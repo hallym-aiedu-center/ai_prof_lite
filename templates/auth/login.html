@@ -39,6 +39,12 @@
             </div>
             {% endif %}
 
+            {% if account_deleted %}
+            <div class="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                회원탈퇴가 완료되었습니다.
+            </div>
+            {% endif %}
+
             <form method="post" action="/login" class="mt-8 space-y-5">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 

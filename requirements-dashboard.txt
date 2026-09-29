@@ -8,3 +8,4 @@ cryptography
 python-dotenv
 httpx
 openai[realtime]
+defusedxml

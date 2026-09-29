@@ -78,7 +78,7 @@
 
                     <a href="/instructor"
                        class="flex items-center gap-3 rounded-xl px-3 py-2.5
-                       {% if active_page == 'instructor' %}
+                       {% if active_page in ['instructor', 'instructor_activity'] %}
                            bg-white/10 text-white
                        {% else %}
                            text-slate-400 hover:bg-white/5 hover:text-white
@@ -86,6 +86,16 @@
 
                         <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
                         AI 강사 위임
+                    </a>
+
+                    <a href="/instructor/activity"
+                       class="ml-5 flex items-center gap-3 rounded-xl px-3 py-2 text-xs
+                       {% if active_page == 'instructor_activity' %}
+                           text-white
+                       {% else %}
+                           text-slate-500 hover:bg-white/5 hover:text-white
+                       {% endif %}">
+                        AI 강사 활동
                     </a>
                 </div>
             </div>
@@ -139,6 +149,16 @@
 
                     <span class="h-2 w-2 rounded-full bg-sky-400"></span>
                     회원정보
+                </a>
+
+                <a href="/settings/openai-usage"
+                   class="ml-5 flex items-center gap-3 rounded-xl px-3 py-2 text-xs
+                   {% if active_page == 'openai_usage' %}
+                       text-white
+                   {% else %}
+                       text-slate-500 hover:bg-white/5 hover:text-white
+                   {% endif %}">
+                    OpenAI 사용 내역
                 </a>
             </div>
 
@@ -226,12 +246,12 @@
                 <span>새 강의</span>
             </a>
             <a href="/instructor"
-               class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page == 'instructor' %}text-indigo-600{% else %}text-slate-500{% endif %}">
+               class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page in ['instructor', 'instructor_activity'] %}text-indigo-600{% else %}text-slate-500{% endif %}">
                 <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6"></path></svg>
                 <span>AI 강사</span>
             </a>
             <a href="/settings/credentials"
-               class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page in ['credentials', 'profile', 'moodle_courses'] %}text-indigo-600{% else %}text-slate-500{% endif %}">
+               class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page in ['credentials', 'profile', 'openai_usage', 'moodle_courses'] %}text-indigo-600{% else %}text-slate-500{% endif %}">
                 <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2.5v2M12 19.5v2M21.5 12h-2M4.5 12h-2M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4M18.7 18.7l-1.4-1.4M6.7 6.7 5.3 5.3"></path></svg>
                 <span>설정</span>
             </a>

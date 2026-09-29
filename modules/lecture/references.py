@@ -7,7 +7,7 @@ import re
 import zipfile
 from pathlib import Path
 from uuid import uuid4
-from xml.etree import ElementTree
+from defusedxml import ElementTree
 
 from fastapi import HTTPException, UploadFile
 from pptx import Presentation
@@ -121,12 +121,60 @@ def _extract_pdf(path: Path) -> str:
     return "\n\n".join((page.extract_text() or "").strip() for page in reader.pages if (page.extract_text() or "").strip())
 
 
+def _read_zip_member_limited(archive: zipfile.ZipFile, member: str, *, max_bytes: int) -> bytes:
+    """Read one ZIP member without allowing unbounded decompression."""
+    try:
+        info = archive.getinfo(member)
+    except KeyError as exc:
+        raise ValueError(f"DOCX에 필수 파일이 없습니다: {member}") from exc
+
+    if info.file_size > max_bytes:
+        raise ValueError(
+            f"DOCX 내부 XML 해제 크기가 허용 범위를 초과했습니다: "
+            f"{info.file_size} > {max_bytes} bytes"
+        )
+
+    with archive.open(info, "r") as source:
+        raw = source.read(max_bytes + 1)
+    if len(raw) > max_bytes:
+        raise ValueError(
+            f"DOCX 내부 XML 해제 크기가 허용 범위를 초과했습니다: {max_bytes} bytes"
+        )
+    return raw
+
+
+def _docx_paragraph_text(paragraph) -> str:
+    parts: list[str] = []
+    for node in paragraph.iter():
+        local_name = node.tag.rsplit("}", 1)[-1]
+        if local_name == "t" and node.text:
+            parts.append(node.text)
+        elif local_name == "tab":
+            parts.append("\t")
+        elif local_name in {"br", "cr"}:
+            parts.append("\n")
+    return "".join(parts).strip()
+
+
 def _extract_docx(path: Path) -> str:
+    maximum_xml_bytes = positive_int("MAX_DOCX_XML_BYTES", 8 * 1024 * 1024)
     with zipfile.ZipFile(path) as archive:
-        raw = archive.read("word/document.xml")
+        raw = _read_zip_member_limited(
+            archive,
+            "word/document.xml",
+            max_bytes=maximum_xml_bytes,
+        )
+
+    # defusedxml rejects entity expansion and other dangerous XML constructs.
     root = ElementTree.fromstring(raw)
-    texts = [node.text for node in root.iter() if node.tag.endswith("}t") and node.text]
-    return "\n".join(texts)
+    paragraphs = [
+        text
+        for paragraph in root.iter()
+        if paragraph.tag.endswith("}p")
+        for text in [_docx_paragraph_text(paragraph)]
+        if text
+    ]
+    return "\n\n".join(paragraphs)
 
 
 def _extract_pptx(path: Path) -> str:

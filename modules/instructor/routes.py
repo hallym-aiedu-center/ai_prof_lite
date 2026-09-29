@@ -187,7 +187,6 @@ async def instructor_home(request: Request):
         profile["semester_start_date"] = _default_semester_start(profile.get("timezone") or "Asia/Seoul")
     profile["semester_weeks"] = max(1, min(30, int(profile.get("semester_weeks") or 15)))
     courses, course_error = await _load_courses(user_id)
-    runs = _decorate_runs(await list_instructor_runs(user_id, limit=16))
     models = {
         "text": _env_options("LECTURE_TEXT_MODEL_OPTIONS", ["gpt-5.1", "gpt-5", "gpt-4.1"], profile["text_model"]),
         "image": _env_options("LECTURE_IMAGE_MODEL_OPTIONS", ["gpt-image-2", "gpt-image-1"], profile["image_model"]),
@@ -204,12 +203,30 @@ async def instructor_home(request: Request):
             "profile": profile,
             "courses": courses,
             "course_error": course_error,
-            "runs": runs,
             "weekdays": WEEKDAYS,
             "models": models,
             "next_slots": _next_slots(profile),
             "semester_start": _semester_dates(profile)[0].isoformat(),
             "semester_end": _semester_dates(profile)[1].isoformat(),
+        },
+    )
+
+
+@router.get("/activity")
+async def instructor_activity(request: Request):
+    user_id = current_user_id(request)
+    if user_id is None:
+        return login_redirect()
+
+    runs = _decorate_runs(await list_instructor_runs(user_id, limit=100))
+    return templates.TemplateResponse(
+        request=request,
+        name="instructor/activity.html",
+        context={
+            "user": await get_user(user_id),
+            "active_page": "instructor_activity",
+            "csrf_token": get_csrf_token(request),
+            "runs": runs,
         },
     )
 

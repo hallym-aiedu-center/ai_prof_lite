@@ -14,6 +14,11 @@ from core.jobs.errors import (
 from core.openai.client import get_client
 from core.openai.usage import responses_create
 from modules.lecture.composer import media_duration
+from modules.lecture.moodle_deployment import (
+    MoodleCreateState,
+    MoodleDeploymentSpec,
+    deploy_moodle_video,
+)
 from modules.lecture.repository import (
     get_lecture,
     get_publish_schedule,
@@ -219,129 +224,81 @@ async def ensure_lecture_ready_for_publish(lecture_id: int) -> dict:
     return lecture
 
 
+class _PublishScheduleCreateMarker:
+    def __init__(self, lecture_id: int, lease_token: str):
+        self.lecture_id = lecture_id
+        self.lease_token = lease_token
+
+    async def load(self) -> MoodleCreateState:
+        schedule = await get_publish_schedule(self.lecture_id)
+        if schedule is None:
+            raise RuntimeError("예약 게시 정보를 찾을 수 없습니다.")
+        state = str(schedule.get("create_state") or "idle")
+        if state != "completed":
+            return MoodleCreateState(status=state)
+        try:
+            activity = json.loads(schedule.get("create_result_json") or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise AmbiguousDeploymentError(
+                "저장된 Moodle 활동 생성 결과가 손상되었습니다. "
+                "Moodle에서 활동을 확인한 뒤 CMID를 수동으로 등록하세요."
+            ) from exc
+        return MoodleCreateState(status="completed", activity=activity)
+
+    async def mark_running(self) -> None:
+        await update_publish_schedule(
+            self.lecture_id,
+            lease_token=self.lease_token,
+            create_state="running",
+            create_result_json=None,
+        )
+
+    async def mark_completed(self, activity: dict) -> None:
+        await update_publish_schedule(
+            self.lecture_id,
+            lease_token=self.lease_token,
+            create_state="completed",
+            create_result_json=json.dumps(activity, ensure_ascii=False),
+        )
+
+
 async def deploy_lecture_to_moodle(
     lecture_id: int,
     *,
     publish_lease_token: str | None = None,
 ) -> dict:
-    """Deploy a completed lecture without blindly repeating Moodle activity creation.
-
-    Delayed publications persist a create marker before the non-idempotent Moodle
-    request.  If the process dies after Moodle creates the activity but before the
-    response is durably recorded, the next attempt stops as ambiguous instead of
-    creating a duplicate activity.
-    """
+    """Deploy a completed lecture through the shared Moodle coordinator."""
     lecture = await ensure_lecture_ready_for_publish(lecture_id)
-    final_video_path = lecture["final_video_path"]
+    final_video_path = str(lecture["final_video_path"])
     final_video = Path(final_video_path)
     if not final_video.is_file() or final_video.stat().st_size <= 0:
         raise RuntimeError(f"최종 강의 영상 파일을 확인할 수 없습니다: {final_video}")
-
-    user_id = int(lecture["user_id"])
-    moodle = await get_user_moodle_client(user_id)
-    deploy_mode = lecture.get("moodle_deploy_mode") or "create"
-    cmid = lecture.get("moodle_videotracker_cmid")
-    activity_result = None
-
-    if deploy_mode == "create":
-        if not cmid:
-            course_id = lecture.get("moodle_course_id")
-            section_num = lecture.get("moodle_section_num")
-            if course_id is None or section_num is None:
-                raise RuntimeError("Moodle 강좌/섹션 정보가 없습니다.")
-
-            schedule = await get_publish_schedule(lecture_id)
-            if schedule is not None:
-                if not publish_lease_token:
-                    raise RuntimeError("예약 게시 작업의 lease token이 없습니다.")
-
-                create_state = str(schedule.get("create_state") or "idle")
-                if create_state == "completed":
-                    try:
-                        activity_result = json.loads(schedule.get("create_result_json") or "{}")
-                        cmid = int(activity_result["cmid"])
-                    except Exception as exc:
-                        raise AmbiguousDeploymentError(
-                            "저장된 Moodle 활동 생성 결과가 손상되었습니다. "
-                            "Moodle에서 활동을 확인한 뒤 CMID를 수동으로 등록하세요."
-                        ) from exc
-                elif create_state == "running":
-                    raise AmbiguousDeploymentError(
-                        "이전 Moodle 활동 생성 요청의 결과가 불확실합니다. "
-                        "Moodle에서 활동 존재 여부를 확인한 뒤 CMID를 등록하세요. "
-                        "중복 생성을 막기 위해 자동 재생성은 중단했습니다."
-                    )
-                else:
-                    await update_publish_schedule(
-                        lecture_id,
-                        lease_token=publish_lease_token,
-                        create_state="running",
-                        create_result_json=None,
-                    )
-                    try:
-                        activity_result = await create_activity(
-                            client=moodle,
-                            course_id=int(course_id),
-                            section_num=int(section_num),
-                            name=lecture["title"],
-                            intro="AI Professor Lite에서 자동 생성한 강의 영상입니다.",
-                        )
-                    except Exception as exc:
-                        # Keep create_state='running'.  The remote side may have
-                        # committed even when the response never reached us.
-                        raise AmbiguousDeploymentError(
-                            "Moodle 활동 생성 응답을 확인하지 못했습니다. "
-                            "Moodle에서 생성 여부를 확인하세요."
-                        ) from exc
-
-                    cmid = int(activity_result["cmid"])
-                    await update_publish_schedule(
-                        lecture_id,
-                        lease_token=publish_lease_token,
-                        create_state="completed",
-                        create_result_json=json.dumps(activity_result, ensure_ascii=False),
-                    )
-            else:
-                # Backward-compatible direct use outside delayed publishing.
-                activity_result = await create_activity(
-                    client=moodle,
-                    course_id=int(course_id),
-                    section_num=int(section_num),
-                    name=lecture["title"],
-                    intro="AI Professor Lite에서 자동 생성한 강의 영상입니다.",
-                )
-                cmid = int(activity_result["cmid"])
-
-            await update_lecture(
-                lecture_id,
-                moodle_videotracker_cmid=int(cmid),
-            )
-    elif deploy_mode == "existing":
-        if not cmid:
-            raise RuntimeError("기존 VideoTracker CMID가 선택되지 않았습니다.")
-    else:
-        raise RuntimeError(f"지원하지 않는 Moodle 배포 방식: {deploy_mode}")
+    if not publish_lease_token:
+        raise RuntimeError("예약 게시 작업의 lease token이 없습니다.")
+    if await get_publish_schedule(lecture_id) is None:
+        raise RuntimeError("예약 게시 정보를 찾을 수 없습니다.")
 
     duration = await media_duration(final_video)
-    video_result = await set_video_from_file(
-        client=moodle,
-        cmid=int(cmid),
-        path=final_video_path,
+    spec = MoodleDeploymentSpec.from_lecture(
+        lecture,
+        video_path=final_video_path,
         duration=duration,
     )
-    if isinstance(video_result, dict) and video_result.get("success") is False:
-        raise RuntimeError("Moodle 영상 연결에 실패했습니다.")
+    result = await deploy_moodle_video(
+        spec,
+        marker=_PublishScheduleCreateMarker(lecture_id, publish_lease_token),
+        get_client=get_user_moodle_client,
+        create_activity=create_activity,
+        set_video_from_file=set_video_from_file,
+    )
 
-    result = {
-        "mode": deploy_mode,
-        "cmid": int(cmid),
-        "activity": activity_result,
-        "video": video_result,
-    }
+    if result.cmid != lecture.get("moodle_videotracker_cmid"):
+        await update_lecture(lecture_id, moodle_videotracker_cmid=result.cmid)
+    payload = result.as_dict()
     await update_lecture(
         lecture_id,
-        moodle_result_json=result,
+        moodle_result_json=payload,
         status_message="Moodle 자동 업로드가 완료되었습니다.",
     )
-    return result
+    return payload
 

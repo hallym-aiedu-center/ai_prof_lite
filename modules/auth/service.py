@@ -183,3 +183,26 @@ async def authenticate_user(
 
     finally:
         await db.close()
+
+async def verify_user_password(*, user_id: int, password: str) -> bool:
+    """Verify the current password without mutating login metadata."""
+    db = await get_connection()
+    try:
+        row = await (await db.execute(
+            "SELECT password_hash, status FROM users WHERE id = ? LIMIT 1",
+            (user_id,),
+        )).fetchone()
+    finally:
+        await db.close()
+
+    if row is None or row["status"] != "active":
+        return False
+    try:
+        return bool(await asyncio.to_thread(
+            _password_hasher.verify,
+            row["password_hash"],
+            password,
+        ))
+    except (VerifyMismatchError, InvalidHashError):
+        return False
+

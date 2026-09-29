@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}AI 강사 활동 · AI Professor Lite{% endblock %}
+{% block header_title %}AI 강사 활동{% endblock %}
+{% block header_subtitle %}위임 실행 · 강의 제작 · 예약 게시 이력{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-6xl space-y-5">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-xl font-black text-slate-950">AI 강사 활동</h1>
+            <p class="mt-1 text-sm text-slate-500">강좌 선택부터 제작, Moodle 예약 게시까지 최근 활동을 확인합니다.</p>
+        </div>
+        <a href="/instructor" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">위임 설정으로 돌아가기</a>
+    </div>
+
+    <section class="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+        {% if runs %}
+        <div class="divide-y divide-slate-100">
+            {% for run in runs %}
+            <div class="grid gap-3 px-5 py-4 sm:px-6 md:grid-cols-[150px_1fr_auto] md:items-center">
+                <div>
+                    <div class="text-xs font-black text-slate-700">{% if run.week_number %}{{ run.week_number }}주차 · {% endif %}{{ run.scheduled_local }}</div>
+                    <div class="mt-1 text-[10px] text-slate-400">게시 예정</div>
+                </div>
+                <div class="min-w-0">
+                    <div class="truncate text-sm font-black text-slate-900">{{ run.title or 'AI가 강의 주제를 계획 중' }}</div>
+                    <div class="mt-1 truncate text-xs text-slate-500">{{ run.course_name or '강좌 선택 중' }}{% if run.section_name %} · {{ run.section_name }}{% endif %}</div>
+                    {% if run.rationale %}<div class="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-400">{{ run.rationale }}</div>{% endif %}
+                    {% if run.last_error %}<div class="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-[11px] text-rose-700">{{ run.last_error }}</div>{% endif %}
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if run.lecture_id %}<a href="/lectures/{{ run.lecture_id }}" class="rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-bold text-slate-700">강의 보기</a>{% endif %}
+                    <span class="rounded-full px-2.5 py-1 text-[10px] font-black {% if run.publish_status == 'published' %}bg-emerald-50 text-emerald-700{% elif run.status == 'failed' or run.lecture_status == 'failed' or run.publish_status == 'failed' %}bg-rose-50 text-rose-700{% else %}bg-indigo-50 text-indigo-700{% endif %}">{% if run.publish_status == 'published' %}게시완료{% elif run.publish_status == 'pending' %}게시대기{% elif run.lecture_status %}{{ run.lecture_status }}{% else %}{{ run.status }}{% endif %}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-6 py-16 text-center text-sm text-slate-500">아직 AI 강사 위임 이력이 없습니다.</div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

@@ -8,7 +8,6 @@ from pathlib import Path
 
 from core.config import data_dir
 from core.jobs.base import Job, JobQueue, LeaseLost
-from core.jobs.errors import AmbiguousDeploymentError
 from modules.credentials.required import require_user_openai_api_key
 from modules.image.service import generate_image
 from modules.lecture.avatar import create_avatar_video, get_ditto_paths
@@ -20,6 +19,11 @@ from modules.lecture.composer import (
     media_duration,
 )
 from modules.lecture.narration import build_narration
+from modules.lecture.moodle_deployment import (
+    MoodleCreateState,
+    MoodleDeploymentSpec,
+    deploy_moodle_video,
+)
 from modules.lecture.planner import create_lecture_plan, expand_lecture_narrations
 from modules.lecture.references import build_reference_context
 from modules.lecture.repository import get_publish_schedule, update_lecture
@@ -373,73 +377,70 @@ async def compose_stage(ctx):
     }
 
 
+class _StageMoodleCreateMarker:
+    def __init__(self, ctx: StageContext):
+        self.ctx = ctx
+
+    async def load(self) -> MoodleCreateState:
+        previous = await get_stage(self.ctx.job.lecture_id, "moodle_create")
+        if not previous:
+            return MoodleCreateState()
+        if previous["status"] == "completed":
+            activity = (previous.get("outputs") or {}).get("activity")
+            return MoodleCreateState(status="completed", activity=activity)
+        return MoodleCreateState(status="running")
+
+    async def mark_running(self) -> None:
+        await self.ctx.checkpoint("moodle_create", "running", {})
+
+    async def mark_completed(self, activity: dict) -> None:
+        await self.ctx.checkpoint("moodle_create", "completed", {"activity": activity})
+
+
 async def deploy_stage(ctx):
     lecture = ctx.lecture
-    if not lecture['upload_to_moodle']:
-        return {'result': None}
+    if not lecture["upload_to_moodle"]:
+        return {"result": None}
 
-    # AI Instructor can generate a lecture ahead of its class time.  In that
-    # case the worker must finish media generation now but leave Moodle
-    # deployment to publish_scheduler at scheduled_at.
+    # AI Instructor can generate a lecture ahead of its class time. Once a
+    # publish row exists, publish_scheduler exclusively owns Moodle deployment.
     schedule = await get_publish_schedule(ctx.job.lecture_id)
     if schedule:
-        # Once a delayed-publish row exists, publish_scheduler exclusively owns
-        # Moodle deployment.  This also prevents a race where the scheduler
-        # publishes just before this stage and the worker uploads a second time.
         return {
-            'result': None,
-            'scheduled_publish': True,
-            'scheduled_at': schedule.get('scheduled_at'),
-            'publish_status': schedule.get('status'),
+            "result": None,
+            "scheduled_publish": True,
+            "scheduled_at": schedule.get("scheduled_at"),
+            "publish_status": schedule.get("status"),
         }
 
-    client = await get_user_moodle_client(lecture['user_id'])
-    cmid = lecture.get('moodle_videotracker_cmid')
-    activity = None
-    if lecture['moodle_deploy_mode'] == 'create' and not cmid:
-        previous = await get_stage(ctx.job.lecture_id, 'moodle_create')
-        if previous and previous['status'] == 'completed':
-            activity = previous['outputs']['activity']
-            cmid = int(activity['cmid'])
-        elif previous:
-            raise AmbiguousDeploymentError(
-                'Moodle 활동 생성 결과가 불확실합니다. Moodle에서 활동을 확인한 뒤 '
-                'scripts/resolve_deployment.py로 CMID를 등록하세요. 자동 중복 생성은 중단했습니다.')
-        else:
-            # Marker BEFORE the non-idempotent request prevents blind recreation.
-            await ctx.checkpoint('moodle_create', 'running', {})
-            try:
-                activity = await create_activity(client=client, course_id=int(lecture['moodle_course_id']),
-                                                 section_num=int(lecture['moodle_section_num']), name=lecture['title'],
-                                                 intro='AI Professor Lite에서 자동 생성한 강의 영상입니다.')
-            except Exception as exc:
-                raise AmbiguousDeploymentError(
-                    'Moodle 활동 생성 응답을 확인하지 못했습니다. Moodle에서 생성 여부를 확인하세요.') from exc
-            cmid = int(activity['cmid'])
-            await ctx.checkpoint('moodle_create', 'completed', {'activity': activity})
-        await ctx.update(moodle_videotracker_cmid=cmid)
-    if not cmid:
-        raise ValueError('Moodle VideoTracker CMID가 없습니다.')
     await ctx.check()
-    video_path = ctx.outputs['compose']['video']
-    duration = ctx.outputs['compose'].get('duration')
+    video_path = ctx.outputs["compose"]["video"]
+    duration = ctx.outputs["compose"].get("duration")
     if duration is None:
         # Backward compatibility for checkpoints created before duration was
         # recorded in compose-stage outputs.
         video_file = Path(video_path)
         if video_file.is_file():
             duration = await media_duration(video_file)
-    video = await set_video_from_file(
-        client=client,
-        cmid=int(cmid),
-        path=video_path,
+
+    spec = MoodleDeploymentSpec.from_lecture(
+        lecture,
+        video_path=video_path,
         duration=duration,
     )
-    if isinstance(video, dict) and video.get('success') is False:
-        raise RuntimeError('Moodle 영상 연결에 실패했습니다.')
-    result = {'mode': lecture['moodle_deploy_mode'], 'cmid': cmid, 'activity': activity, 'video': video}
-    await ctx.update(moodle_result_json=result)
-    return {'result': result}
+    result = await deploy_moodle_video(
+        spec,
+        marker=_StageMoodleCreateMarker(ctx),
+        get_client=get_user_moodle_client,
+        create_activity=create_activity,
+        set_video_from_file=set_video_from_file,
+    )
+
+    if result.cmid != lecture.get("moodle_videotracker_cmid"):
+        await ctx.update(moodle_videotracker_cmid=result.cmid)
+    payload = result.as_dict()
+    await ctx.update(moodle_result_json=payload)
+    return {"result": payload}
 
 
 STAGES = (

@@ -2,7 +2,7 @@ import secrets
 from hmac import compare_digest
 
 from fastapi import HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from modules.users.service import get_user_status
@@ -22,6 +22,30 @@ class ActiveSessionMiddleware(BaseHTTPMiddleware):
                 status = await get_user_status(user_id)
                 if status != "active":
                     request.session.clear()
+        return await call_next(request)
+
+
+class AuthenticatedUploadMiddleware(BaseHTTPMiddleware):
+    """Reject anonymous multipart upload routes before FastAPI parses the body.
+
+    Form/File dependencies are resolved before the endpoint function executes, so an
+    authentication check inside the route is too late to prevent multipart spooling.
+    This middleware runs inside SessionMiddleware and after ActiveSessionMiddleware.
+    """
+
+    _PROTECTED_UPLOADS = {
+        ("POST", "/lectures"),
+        ("POST", "/instructor"),
+        ("POST", "/instructor/avatar"),
+    }
+
+    async def dispatch(self, request: Request, call_next):
+        key = (request.method.upper(), request.url.path.rstrip("/") or "/")
+        if key in self._PROTECTED_UPLOADS and current_user_id(request) is None:
+            accept = request.headers.get("accept", "")
+            if "application/json" in accept:
+                return JSONResponse({"error": "unauthorized"}, status_code=401)
+            return login_redirect()
         return await call_next(request)
 
 

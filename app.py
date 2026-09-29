@@ -24,7 +24,7 @@ from core.database.migrations import init_database
 from core.security_headers import SecurityHeadersMiddleware
 from core.version import __version__
 from modules.auth.routes import router as auth_router
-from modules.auth.session import ActiveSessionMiddleware
+from modules.auth.session import ActiveSessionMiddleware, AuthenticatedUploadMiddleware
 from modules.credentials.routes import router as credentials_router
 from modules.dashboard.routes import router as dashboard_router
 from modules.instructor.repository import ensure_instructor_schema
@@ -158,6 +158,10 @@ app = FastAPI(
 )
 
 
+# Order matters: SessionMiddleware is outermost, then ActiveSessionMiddleware
+# invalidates disabled accounts, then AuthenticatedUploadMiddleware can reject
+# anonymous uploads before multipart parsing/spooling begins.
+app.add_middleware(AuthenticatedUploadMiddleware)
 app.add_middleware(ActiveSessionMiddleware)
 
 app.add_middleware(

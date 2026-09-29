@@ -40,6 +40,7 @@ async def login_page(request: Request):
         context={
             "csrf_token": get_csrf_token(request),
             "error": None,
+            "account_deleted": request.query_params.get("account_deleted") == "1",
         },
     )
 
