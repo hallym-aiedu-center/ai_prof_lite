@@ -180,24 +180,68 @@ def _extract_docx(path: Path) -> str:
     return "\n\n".join(paragraphs)
 
 
-def _validate_pptx_xml_size(path: Path) -> None:
+def _validate_pptx_archive_size(path: Path) -> None:
     maximum_xml_bytes = positive_int("MAX_PPTX_XML_BYTES", 8 * 1024 * 1024)
-    total_xml_bytes = 0
+    maximum_uncompressed_bytes = positive_int(
+        "MAX_PPTX_UNCOMPRESSED_BYTES",
+        16 * 1024 * 1024,
+    )
+
     with zipfile.ZipFile(path) as archive:
-        for info in archive.infolist():
-            member = info.filename.lower()
-            if not (member.endswith(".xml") or member.endswith(".rels")):
-                continue
-            total_xml_bytes += info.file_size
-            if total_xml_bytes > maximum_xml_bytes:
+        infos = [info for info in archive.infolist() if not info.is_dir()]
+
+        # Reject obvious zip bombs from the central directory before doing any
+        # decompression. This covers media and embedded objects, not just XML.
+        declared_total = 0
+        declared_xml = 0
+        for info in infos:
+            declared_total += max(0, int(info.file_size))
+            if declared_total > maximum_uncompressed_bytes:
                 raise ValueError(
-                    "PPTX 내부 XML 해제 크기 합계가 허용 범위를 초과했습니다: "
-                    f"{total_xml_bytes} > {maximum_xml_bytes} bytes"
+                    "PPTX 전체 해제 크기 합계가 허용 범위를 초과했습니다: "
+                    f"{declared_total} > {maximum_uncompressed_bytes} bytes"
                 )
+
+            member = info.filename.lower()
+            if member.endswith(".xml") or member.endswith(".rels"):
+                declared_xml += max(0, int(info.file_size))
+                if declared_xml > maximum_xml_bytes:
+                    raise ValueError(
+                        "PPTX 내부 XML 해제 크기 합계가 허용 범위를 초과했습니다: "
+                        f"{declared_xml} > {maximum_xml_bytes} bytes"
+                    )
+
+        # Stream every member through a small buffer as a second bound. This
+        # verifies the actual decompressed byte count without retaining media in
+        # memory, before python-pptx is allowed to load the package.
+        total_uncompressed = 0
+        total_xml = 0
+        for info in infos:
+            member = info.filename.lower()
+            is_xml = member.endswith(".xml") or member.endswith(".rels")
+            with archive.open(info, "r") as source:
+                while True:
+                    remaining = maximum_uncompressed_bytes - total_uncompressed
+                    chunk = source.read(min(64 * 1024, remaining + 1))
+                    if not chunk:
+                        break
+                    total_uncompressed += len(chunk)
+                    if total_uncompressed > maximum_uncompressed_bytes:
+                        raise ValueError(
+                            "PPTX 전체 해제 크기 합계가 허용 범위를 초과했습니다: "
+                            f"> {maximum_uncompressed_bytes} bytes"
+                        )
+                    if is_xml:
+                        total_xml += len(chunk)
+                        if total_xml > maximum_xml_bytes:
+                            raise ValueError(
+                                "PPTX 내부 XML 해제 크기 합계가 허용 범위를 초과했습니다: "
+                                f"> {maximum_xml_bytes} bytes"
+                            )
 
 
 def _extract_pptx(path: Path) -> str:
-    _validate_pptx_xml_size(path)
+    _validate_pptx_archive_size(path)
     presentation = Presentation(path)
     chunks: list[str] = []
     for index, slide in enumerate(presentation.slides, start=1):

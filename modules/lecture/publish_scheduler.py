@@ -55,26 +55,23 @@ def _heartbeat_seconds() -> int:
 async def _lease_heartbeat(lecture_id: int, lease_token: str) -> None:
     while True:
         await asyncio.sleep(_heartbeat_seconds())
-        if not await renew_publish_schedule_lease(
-            lecture_id,
-            lease_token,
-            lease_seconds=_lease_seconds(),
-        ):
-            return
+        try:
+            renewed = await renew_publish_schedule_lease(
+                lecture_id,
+                lease_token,
+                lease_seconds=_lease_seconds(),
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            # Fail closed: if ownership cannot be renewed/verified, the active
+            # publish task must stop rather than continue external Moodle calls.
+            raise LeaseLost("예약 게시 lease heartbeat 갱신에 실패했습니다.") from exc
+        if not renewed:
+            raise LeaseLost("예약 게시 lease 소유권을 잃었습니다.")
 
 
-async def _run_one(lecture_id: int) -> None:
-    lease_token = await claim_publish_schedule(
-        lecture_id,
-        lease_seconds=_lease_seconds(),
-    )
-    if not lease_token:
-        return
-
-    heartbeat = asyncio.create_task(
-        _lease_heartbeat(lecture_id, lease_token),
-        name=f"publish-heartbeat-{lecture_id}",
-    )
+async def _run_claimed_publish(lecture_id: int, lease_token: str) -> None:
     attempts = 0
     try:
         schedule = await get_publish_schedule(lecture_id)
@@ -113,9 +110,9 @@ async def _run_one(lecture_id: int) -> None:
             last_error=None,
         )
     except asyncio.CancelledError:
-        # A clean shutdown may happen before or after the non-idempotent create
-        # request. create_state is deliberately retained. If it is 'running',
-        # the next attempt will stop as ambiguous instead of recreating it.
+        # Shutdown or lease-loss fencing may cancel this task before or after
+        # the non-idempotent create request. create_state is deliberately
+        # retained; if it is 'running', the next attempt stops as ambiguous.
         with contextlib.suppress(LeaseLost, ValueError):
             await update_publish_schedule(
                 lecture_id,
@@ -208,9 +205,43 @@ async def _run_one(lecture_id: int) -> None:
                 lecture_id,
                 status_message="강의 생성 완료 · Moodle 예약 업로드 실패",
             )
+
+
+async def _run_one(lecture_id: int) -> None:
+    lease_token = await claim_publish_schedule(
+        lecture_id,
+        lease_seconds=_lease_seconds(),
+    )
+    if not lease_token:
+        return
+
+    heartbeat = asyncio.create_task(
+        _lease_heartbeat(lecture_id, lease_token),
+        name=f"publish-heartbeat-{lecture_id}",
+    )
+    publishing = asyncio.create_task(
+        _run_claimed_publish(lecture_id, lease_token),
+        name=f"publish-work-{lecture_id}",
+    )
+    try:
+        done, _ = await asyncio.wait(
+            {publishing, heartbeat},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if heartbeat in done:
+            # _lease_heartbeat only completes by raising LeaseLost (or another
+            # unexpected exception). Raising here immediately fences the worker.
+            heartbeat.result()
+        publishing.result()
+    except LeaseLost:
+        # A recovered/expired lease belongs to another scheduler now. The finally
+        # block cancels any in-flight Moodle request and stale state writes are
+        # already fenced by lease_token checks in the repository.
+        return
     finally:
-        heartbeat.cancel()
-        await asyncio.gather(heartbeat, return_exceptions=True)
+        for task in (publishing, heartbeat):
+            task.cancel()
+        await asyncio.gather(publishing, heartbeat, return_exceptions=True)
 
 
 async def _scheduler_loop() -> None:
