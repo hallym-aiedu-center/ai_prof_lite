@@ -74,7 +74,7 @@ async def save_reference_files(uploads: list[UploadFile] | None) -> list[dict]:
                 raise HTTPException(422, f"빈 참고자료는 사용할 수 없습니다: {upload.filename}")
 
             filename = _safe_name(upload.filename, suffix)
-            path = directory / f"{uuid4().hex[:10]}_{filename}"
+            path = directory / f"{uuid4().hex}{suffix}"
             temporary = path.with_suffix(path.suffix + ".tmp")
             try:
                 await asyncio.to_thread(temporary.write_bytes, bytes(content))

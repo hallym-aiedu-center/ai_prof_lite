@@ -1,4 +1,5 @@
 """Shared web/worker configuration. Relative paths are project-relative."""
+import math
 import os
 from pathlib import Path
 
@@ -77,7 +78,7 @@ def server_openai_account_budget_usd() -> float | None:
         value = float(raw)
     except ValueError as exc:
         raise ValueError("SERVER_OPENAI_ACCOUNT_BUDGET_USD must be a number") from exc
-    if value <= 0 or value > 100000:
+    if not math.isfinite(value) or value <= 0 or value > 100000:
         raise ValueError(
             "SERVER_OPENAI_ACCOUNT_BUDGET_USD must be greater than 0 and at most 100000"
         )

@@ -146,7 +146,10 @@ async def register(
         return response
 
     required_code = registration_code()
-    if required_code and not compare_digest(required_code, registration_code_input.strip()):
+    if required_code and not compare_digest(
+        required_code.encode("utf-8"),
+        registration_code_input.strip().encode("utf-8"),
+    ):
         return templates.TemplateResponse(
             request=request,
             name="auth/register.html",
