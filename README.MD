@@ -172,6 +172,126 @@ Ditto       : Python 3.10
 
 # 설치
 
+## 빠른 설치 (Docker 권장)
+
+Linux + NVIDIA GPU 서버에서는 프로젝트 루트의 설치 스크립트를 사용하면 Ditto checkpoint 준비부터 Docker 실행까지 한 번에 설정할 수 있습니다.
+
+- `setup.sh`: 한국어 안내 메시지를 사용하는 설치 스크립트
+- `setup_en.sh`: 영어 안내 메시지를 사용하는 설치 스크립트
+
+두 스크립트의 설치 동작과 설정 항목은 동일하며, 안내 언어만 다릅니다.
+
+### 사전 요구사항
+
+호스트에 다음 항목이 먼저 준비되어 있어야 합니다.
+
+- Linux
+- Docker Engine
+- NVIDIA Driver (`nvidia-smi`가 정상 동작해야 함)
+- NVIDIA Container Toolkit (`docker run --gpus ...` 사용 가능)
+- Git
+- Git LFS
+- OpenSSL
+
+Ubuntu/Debian에서 Git LFS가 없다면 예를 들어 다음과 같이 설치할 수 있습니다.
+
+```bash
+sudo apt update
+sudo apt install -y git-lfs
+```
+
+### 실행
+
+프로젝트 루트에서 실행 권한을 부여한 뒤 원하는 언어의 스크립트를 실행합니다.
+
+한국어:
+
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+English:
+
+```bash
+chmod +x setup_en.sh
+./setup_en.sh
+```
+
+설치 과정에서 기본적으로 다음 작업을 수행합니다.
+
+1. Docker daemon, NVIDIA GPU 및 필수 명령을 확인합니다.
+2. 외부 접속 포트를 선택합니다. 컨테이너 내부 포트는 `8002`로 고정됩니다.
+3. 공식 Ditto checkpoint가 없으면 Hugging Face의 `digital-avatar/ditto-talkinghead`에서 필요한 파일을 다운로드합니다.
+4. `.env`가 없으면 `.env.example`을 복사해 생성합니다.
+5. `SESSION_SECRET`과 `CREDENTIAL_MASTER_KEY`가 비어 있거나 placeholder이면 안전한 랜덤 값으로 자동 생성합니다.
+6. OpenAI API Key 사용 방식을 `user`(사용자별 BYOK) 또는 `server`(서버 공용 Key) 중에서 선택합니다.
+7. 감지된 GPU 수를 기준으로 `JOB_CONCURRENCY`와 `JOB_GPU_IDS`를 설정합니다. 기본 동시 job 수는 최대 4개입니다.
+8. 영속 데이터 디렉터리를 준비하고 Docker image를 빌드합니다.
+9. Docker 내부에서 NVIDIA GPU와 Ditto/PyTorch CUDA 사용 가능 여부를 확인합니다.
+10. 기존 동일 이름 컨테이너가 있으면 교체한 뒤 새 컨테이너를 시작하고 HTTP readiness를 확인합니다.
+
+기본 컨테이너 이름과 image는 다음과 같습니다.
+
+```text
+Container : ai-prof-lite
+Image     : ai-prof-lite:latest
+Internal  : 8002
+```
+
+설치가 완료되면 터미널에 실제 외부 포트와 접속 URL이 출력됩니다.
+
+### 비대화형 설치
+
+환경변수로 주요 값을 미리 지정하면 입력 없이 설치할 수도 있습니다.
+
+```bash
+EXTERNAL_PORT=18002 \
+SETUP_OPENAI_KEY_MODE=user \
+SETUP_JOB_CONCURRENCY=1 \
+./setup.sh
+```
+
+영어 스크립트를 사용할 경우 마지막 명령만 `./setup_en.sh`로 변경하면 됩니다.
+
+지원하는 주요 override:
+
+```text
+EXTERNAL_PORT            외부에서 접속할 host port
+SETUP_OPENAI_KEY_MODE    user 또는 server
+SETUP_JOB_CONCURRENCY    동시에 실행할 GPU lecture job 수
+IMAGE_NAME               Docker image 이름
+CONTAINER_NAME           Docker container 이름
+ENV_FILE                 사용할 .env 경로
+DATA_DIR                 영속 데이터 디렉터리
+```
+
+`SETUP_OPENAI_KEY_MODE=server`를 비대화형으로 사용할 경우 `SERVER_OPENAI_API_KEY`가 `.env`에 미리 설정되어 있어야 합니다.
+
+### 재실행 및 데이터 보존
+
+설치 스크립트는 다시 실행할 수 있습니다.
+
+- 이미 다운로드된 Ditto checkpoint는 재사용합니다.
+- 기존 `.env`는 유지하면서 설치 스크립트가 관리하는 항목만 갱신합니다.
+- 동일한 이름의 기존 Docker container는 제거 후 새 image로 다시 생성합니다.
+- 애플리케이션 데이터는 기본적으로 호스트의 `./data`를 `/app/data`에 bind mount하므로 컨테이너를 다시 생성해도 유지됩니다.
+- Ditto checkpoint는 container image에 포함하지 않고 read-only volume으로 mount합니다.
+
+운영 상태 확인에 자주 사용하는 명령:
+
+```bash
+docker logs -f ai-prof-lite
+docker exec ai-prof-lite nvidia-smi
+docker restart ai-prof-lite
+```
+
+> 설치 스크립트는 Docker port mapping까지 구성하지만 UFW 또는 클라우드 방화벽 규칙은 변경하지 않습니다. 외부에서 접속해야 한다면 선택한 외부 포트를 별도로 허용해야 합니다.
+
+### 수동 설치
+
+자동 설치 스크립트를 사용하지 않거나 Python/Ditto 환경을 직접 구성하려면 아래 절차를 따릅니다.
+
 ## 1. 저장소 준비
 
 ```bash
