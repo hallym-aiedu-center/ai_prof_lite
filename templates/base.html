@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="{{ current_language() }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -40,7 +40,7 @@
 
             <div>
                 <div class="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                    Workspace
+                    {{ t("base.workspace") }}
                 </div>
 
                 <div class="space-y-1">
@@ -54,7 +54,7 @@
                        {% endif %}">
 
                         <span class="h-2 w-2 rounded-full bg-indigo-400"></span>
-                        대시보드
+                        {{ t("base.dashboard") }}
                     </a>
 
                     <a href="/lectures"
@@ -66,14 +66,14 @@
                        {% endif %}">
 
                         <span class="h-2 w-2 rounded-full bg-violet-400"></span>
-                        강의 제작
+                        {{ t("common.lecture_creation") }}
                     </a>
 
                     <a href="/lectures/new"
                        class="ml-5 flex items-center gap-3 rounded-xl px-3 py-2 text-xs
                        text-slate-500 hover:bg-white/5 hover:text-white">
 
-                        새 강의 만들기
+                        {{ t("base.create_lecture") }}
                     </a>
 
                     <a href="/instructor"
@@ -85,7 +85,7 @@
                        {% endif %}">
 
                         <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
-                        AI 강사 위임
+                        {{ t("base.instructor_delegate") }}
                     </a>
 
                     <a href="/instructor/activity"
@@ -95,7 +95,7 @@
                        {% else %}
                            text-slate-500 hover:bg-white/5 hover:text-white
                        {% endif %}">
-                        AI 강사 활동
+                        {{ t("common.ai_instructor_activity") }}
                     </a>
                 </div>
             </div>
@@ -117,7 +117,7 @@
                        {% endif %}">
 
                         <span class="h-2 w-2 rounded-full bg-amber-400"></span>
-                        내 강좌
+                        {{ t("common.my_courses") }}
                     </a>
 
                     <a href="/settings/credentials"
@@ -128,7 +128,7 @@
                            text-slate-500 hover:bg-white/5 hover:text-white
                        {% endif %}">
 
-                        API / 연결 설정
+                        {{ t("common.connection_settings") }}
                     </a>
                 </div>
             </div>
@@ -136,7 +136,7 @@
 
             <div>
                 <div class="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                    Account
+                    {{ t("base.account") }}
                 </div>
 
                 <a href="/settings/profile"
@@ -148,7 +148,7 @@
                    {% endif %}">
 
                     <span class="h-2 w-2 rounded-full bg-sky-400"></span>
-                    회원정보
+                    {{ t("common.profile") }}
                 </a>
 
                 <a href="/settings/openai-usage"
@@ -158,7 +158,7 @@
                    {% else %}
                        text-slate-500 hover:bg-white/5 hover:text-white
                    {% endif %}">
-                    OpenAI 사용 내역
+                    {{ t("common.openai_usage") }}
                 </a>
             </div>
 
@@ -169,7 +169,7 @@
 
             <div class="mb-3 rounded-xl bg-white/5 p-3">
                 <div class="truncate text-sm font-medium text-white">
-                    {{ user.name or user.nickname or '사용자' }}
+                    {{ user.name or user.nickname or t("common.user") }}
                 </div>
 
                 <div class="truncate text-xs text-slate-400">
@@ -185,7 +185,7 @@
                        value="{{ csrf_token }}">
 
                 <button class="w-full rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white">
-                    로그아웃
+                    {{ t("base.logout") }}
                 </button>
             </form>
         </div>
@@ -212,10 +212,23 @@
                     </div>
                 </div>
 
-                <a href="/lectures/new"
-                   class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
-                    + 새 강의
-                </a>
+                <div class="flex items-center gap-2">
+                    <form method="post" action="/settings/language" class="shrink-0">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="return_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                        <label class="sr-only" for="header-language">{{ t("language.select") }}</label>
+                        <select id="header-language" name="language"
+                                class="max-w-36 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-600 outline-none hover:bg-slate-50 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 sm:max-w-none">
+                            {% for code, name in language_options() %}
+                            <option value="{{ code }}" {% if current_language_preference() == code %}selected{% endif %}>{% if code == 'auto' %}{{ t("common.auto_browser") }}{% else %}{{ name }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    <a href="/lectures/new"
+                       class="hidden rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 sm:inline-flex">
+                        {{ t("base.new_lecture_plus") }}
+                    </a>
+                </div>
             </div>
         </header>
 
@@ -226,29 +239,29 @@
 
     </div>
 
-    <nav aria-label="모바일 하단 메뉴"
+    <nav aria-label="{{ t("base.mobile_nav_aria") }}"
          class="mobile-bottom-nav-safe fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 shadow-[0_-10px_30px_rgba(15,23,42,.08)] backdrop-blur lg:hidden">
         <div class="mx-auto grid max-w-lg grid-cols-5 px-2 pt-2">
             <a href="/dashboard"
                class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page == 'dashboard' %}text-indigo-600{% else %}text-slate-500{% endif %}">
                 <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"></path><path d="M5.5 9.5V21h13V9.5"></path><path d="M9.5 21v-6h5v6"></path></svg>
-                <span>홈</span>
+                <span>{{ t("base.home") }}</span>
             </a>
             <a href="/lectures"
                class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page == 'lectures' %}text-indigo-600{% else %}text-slate-500{% endif %}">
                 <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 5.5v15A2.5 2.5 0 0 1 6.5 18H20"></path></svg>
-                <span>강의</span>
+                <span>{{ t("common.lecture") }}</span>
             </a>
             <a href="/lectures/new" class="-mt-5 flex min-w-0 flex-col items-center gap-1 px-1 py-1 text-[10px] font-semibold text-slate-700">
                 <span class="grid h-12 w-12 place-items-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/20">
                     <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
                 </span>
-                <span>새 강의</span>
+                <span>{{ t("common.new_lecture") }}</span>
             </a>
             <a href="/instructor"
                class="flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold {% if active_page in ['instructor', 'instructor_activity'] %}text-indigo-600{% else %}text-slate-500{% endif %}">
                 <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6"></path></svg>
-                <span>AI 강사</span>
+                <span>{{ t("common.ai_instructor") }}</span>
             </a>
             <button type="button"
                     id="mobile-menu-trigger"
@@ -261,7 +274,7 @@
                     <rect x="4" y="14" width="6" height="6" rx="1.5"></rect>
                     <rect x="14" y="14" width="6" height="6" rx="1.5"></rect>
                 </svg>
-                <span>전체메뉴</span>
+                <span>{{ t("base.all_menu") }}</span>
             </button>
         </div>
     </nav>
@@ -270,7 +283,7 @@
         <button type="button"
                 class="mobile-menu-backdrop"
                 data-mobile-menu-close
-                aria-label="전체메뉴 닫기"></button>
+                aria-label="{{ t("base.close_all_menu") }}"></button>
 
         <section id="mobile-menu-sheet"
                  class="mobile-menu-sheet"
@@ -282,15 +295,15 @@
 
             <div class="mobile-menu-header flex items-start justify-between gap-4 px-5 pt-2">
                 <div class="min-w-0">
-                    <div id="mobile-menu-title" class="text-lg font-bold text-slate-900">전체메뉴</div>
+                    <div id="mobile-menu-title" class="text-lg font-bold text-slate-900">{{ t("base.all_menu") }}</div>
                     <div class="mt-1 truncate text-xs text-slate-500">
-                        {{ user.name or user.nickname or '사용자' }} · {{ user.email }}
+                        {{ user.name or user.nickname or t("common.user") }} · {{ user.email }}
                     </div>
                 </div>
                 <button type="button"
                         class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-50"
                         data-mobile-menu-close
-                        aria-label="전체메뉴 닫기">
+                        aria-label="{{ t("base.close_all_menu") }}">
                     <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path d="M6 6l12 12M18 6 6 18"></path>
                     </svg>
@@ -304,8 +317,8 @@
                             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"></path><path d="M5.5 9.5V21h13V9.5"></path><path d="M9.5 21v-6h5v6"></path></svg>
                         </span>
                         <span>
-                            <span class="block text-sm font-semibold text-slate-900">대시보드</span>
-                            <span class="mt-1 block text-[11px] text-slate-500">작업 현황 보기</span>
+                            <span class="block text-sm font-semibold text-slate-900">{{ t("base.dashboard") }}</span>
+                            <span class="mt-1 block text-[11px] text-slate-500">{{ t("base.dashboard_hint") }}</span>
                         </span>
                     </a>
                     <a href="/lectures" class="mobile-menu-primary-link {% if active_page == 'lectures' %}is-active{% endif %}">
@@ -313,8 +326,8 @@
                             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 5.5v15A2.5 2.5 0 0 1 6.5 18H20"></path></svg>
                         </span>
                         <span>
-                            <span class="block text-sm font-semibold text-slate-900">강의 제작</span>
-                            <span class="mt-1 block text-[11px] text-slate-500">강의 목록 관리</span>
+                            <span class="block text-sm font-semibold text-slate-900">{{ t("common.lecture_creation") }}</span>
+                            <span class="mt-1 block text-[11px] text-slate-500">{{ t("base.lectures_hint") }}</span>
                         </span>
                     </a>
                     <a href="/lectures/new" class="mobile-menu-primary-link">
@@ -322,8 +335,8 @@
                             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
                         </span>
                         <span>
-                            <span class="block text-sm font-semibold text-slate-900">새 강의</span>
-                            <span class="mt-1 block text-[11px] text-slate-500">강의 바로 만들기</span>
+                            <span class="block text-sm font-semibold text-slate-900">{{ t("common.new_lecture") }}</span>
+                            <span class="mt-1 block text-[11px] text-slate-500">{{ t("base.new_lecture_hint") }}</span>
                         </span>
                     </a>
                     <a href="/instructor" class="mobile-menu-primary-link {% if active_page in ['instructor', 'instructor_activity'] %}is-active{% endif %}">
@@ -331,17 +344,17 @@
                             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6"></path></svg>
                         </span>
                         <span>
-                            <span class="block text-sm font-semibold text-slate-900">AI 강사</span>
-                            <span class="mt-1 block text-[11px] text-slate-500">위임 및 자동화</span>
+                            <span class="block text-sm font-semibold text-slate-900">{{ t("common.ai_instructor") }}</span>
+                            <span class="mt-1 block text-[11px] text-slate-500">{{ t("base.instructor_hint") }}</span>
                         </span>
                     </a>
                 </div>
 
                 <div class="mt-5">
-                    <div class="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace</div>
+                    <div class="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{{ t("base.workspace") }}</div>
                     <div class="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white">
                         <a href="/instructor/activity" class="mobile-menu-row {% if active_page == 'instructor_activity' %}is-active{% endif %}">
-                            <span>AI 강사 활동</span>
+                            <span>{{ t("common.ai_instructor_activity") }}</span>
                             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
                         </a>
                     </div>
@@ -351,25 +364,25 @@
                     <div class="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Moodle</div>
                     <div class="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white">
                         <a href="/moodle/courses" class="mobile-menu-row {% if active_page == 'moodle_courses' %}is-active{% endif %}">
-                            <span>내 강좌</span>
+                            <span>{{ t("common.my_courses") }}</span>
                             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
                         </a>
                         <a href="/settings/credentials" class="mobile-menu-row border-t border-slate-100 {% if active_page == 'credentials' %}is-active{% endif %}">
-                            <span>API / 연결 설정</span>
+                            <span>{{ t("common.connection_settings") }}</span>
                             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
                         </a>
                     </div>
                 </div>
 
                 <div class="mt-5">
-                    <div class="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Account</div>
+                    <div class="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{{ t("base.account") }}</div>
                     <div class="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white">
                         <a href="/settings/profile" class="mobile-menu-row {% if active_page == 'profile' %}is-active{% endif %}">
-                            <span>회원정보</span>
+                            <span>{{ t("common.profile") }}</span>
                             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
                         </a>
                         <a href="/settings/openai-usage" class="mobile-menu-row border-t border-slate-100 {% if active_page == 'openai_usage' %}is-active{% endif %}">
-                            <span>OpenAI 사용 내역</span>
+                            <span>{{ t("common.openai_usage") }}</span>
                             <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
                         </a>
                     </div>
@@ -378,7 +391,7 @@
                 <form method="post" action="/logout" class="mt-5">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-                        로그아웃
+                        {{ t("base.logout") }}
                     </button>
                 </form>
             </div>
@@ -387,6 +400,7 @@
 </div>
 
 <script src="/static/mobile-menu.js" defer></script>
+<script src="/static/language-selector.js" defer></script>
 
 {% else %}
 

@@ -1,49 +1,49 @@
 {% extends "base.html" %}
 
-{% block title %}대시보드 · AI Professor Lite{% endblock %}
-{% block header_title %}대시보드{% endblock %}
-{% block header_subtitle %}강의 제작 · TalkingHead · Moodle 배포{% endblock %}
+{% block title %}{{ t("dashboard.title") }}{% endblock %}
+{% block header_title %}{{ t("base.dashboard") }}{% endblock %}
+{% block header_subtitle %}{{ t("dashboard.subtitle") }}{% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-7xl space-y-7">
     <section class="overflow-hidden rounded-2xl bg-slate-950 p-7 text-white shadow-panel sm:p-9">
         <div class="flex flex-col gap-7 md:flex-row md:items-center md:justify-between">
             <div class="max-w-2xl">
-                <p class="text-sm font-medium text-indigo-300">AI Professor Pipeline</p>
+                <p class="text-sm font-medium text-indigo-300">{{ t("dashboard.pipeline_label") }}</p>
                 <h1 class="mt-2 text-3xl font-semibold tracking-tight">
-                    PPT + Ditto TalkingHead + Moodle
+                    {{ t("dashboard.pipeline_stack") }}
                 </h1>
                 <p class="mt-3 text-sm leading-6 text-slate-400">
-                    강의 주제를 입력하면 강의 구성, 이미지, PPT, 설명 음성, TalkingHead 영상, 최종 MP4, 퀴즈까지 한 작업으로 생성합니다.
+                    {{ t("dashboard.hero_desc") }}
                 </p>
             </div>
             <a href="/lectures/new"
                class="inline-flex shrink-0 items-center justify-center rounded-xl bg-indigo-500 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-400">
-                새 강의 만들기
+                {{ t("base.create_lecture") }}
             </a>
         </div>
     </section>
 
     <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs font-medium uppercase tracking-wider text-slate-400">API 연결</div>
+            <div class="text-xs font-medium uppercase tracking-wider text-slate-400">{{ t("dashboard.api_connections") }}</div>
             <div class="mt-3 text-3xl font-semibold">{{ connected_count }}</div>
-            <div class="mt-1 text-sm text-slate-500">활성 외부 연결</div>
+            <div class="mt-1 text-sm text-slate-500">{{ t("dashboard.active_connections") }}</div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs font-medium uppercase tracking-wider text-slate-400">완료 강의</div>
+            <div class="text-xs font-medium uppercase tracking-wider text-slate-400">{{ t("dashboard.completed_lectures") }}</div>
             <div class="mt-3 text-3xl font-semibold">{{ completed_count }}</div>
-            <div class="mt-1 text-sm text-slate-500">최근 목록 기준</div>
+            <div class="mt-1 text-sm text-slate-500">{{ t("dashboard.recent_basis") }}</div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs font-medium uppercase tracking-wider text-slate-400">생성 중</div>
+            <div class="text-xs font-medium uppercase tracking-wider text-slate-400">{{ t("dashboard.in_progress") }}</div>
             <div class="mt-3 text-3xl font-semibold">{{ running_count }}</div>
-            <div class="mt-1 text-sm text-slate-500">queued / running</div>
+            <div class="mt-1 text-sm text-slate-500">{{ t("dashboard.queued_running") }}</div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
             <div class="text-xs font-medium uppercase tracking-wider text-slate-400">Ditto</div>
             <div class="mt-3 text-3xl font-semibold">TRT</div>
-            <div class="mt-1 text-sm text-slate-500">로컬 TalkingHead 엔진</div>
+            <div class="mt-1 text-sm text-slate-500">{{ t("dashboard.local_engine") }}</div>
         </div>
     </section>
 
@@ -53,12 +53,12 @@
             <div class="flex items-start justify-between">
                 <div>
                     <div class="font-semibold">{{ item.name }}</div>
-                    <div class="mt-1 text-xs text-slate-500">{{ item.detail }}</div>
+                    <div class="mt-1 text-xs text-slate-500">{{ t(item.detail_key) }}</div>
                 </div>
                 {% if item.connected %}
-                <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">연결됨</span>
+                <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">{{ t("common.connected") }}</span>
                 {% else %}
-                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">미연결</span>
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">{{ t("common.disconnected") }}</span>
                 {% endif %}
             </div>
         </div>
@@ -68,10 +68,10 @@
     <section class="rounded-2xl border border-slate-200 bg-white shadow-panel">
         <div class="flex items-center justify-between border-b border-slate-200 px-6 py-5">
             <div>
-                <h2 class="font-semibold">최근 강의</h2>
-                <p class="mt-1 text-sm text-slate-500">강의 생성 작업과 배포 상태</p>
+                <h2 class="font-semibold">{{ t("dashboard.recent_lectures") }}</h2>
+                <p class="mt-1 text-sm text-slate-500">{{ t("dashboard.recent_desc") }}</p>
             </div>
-            <a href="/lectures" class="text-sm font-medium text-indigo-600">전체 보기 →</a>
+            <a href="/lectures" class="text-sm font-medium text-indigo-600">{{ t("dashboard.view_all") }}</a>
         </div>
 
         {% if lectures %}
@@ -88,7 +88,7 @@
                             class="app-progress"
                             max="100"
                             value="{{ lecture.progress }}"
-                            aria-label="강의 생성 진행률">{{ lecture.progress }}%</progress>
+                            aria-label="{{ t("common.lecture_progress") }}">{{ lecture.progress }}%</progress>
                     </div>
                     <span class="rounded-full px-2.5 py-1 text-xs font-medium
                         {% if lecture.status == 'completed' %}bg-emerald-50 text-emerald-700
@@ -102,8 +102,8 @@
         </div>
         {% else %}
         <div class="px-6 py-12 text-center">
-            <div class="text-sm font-medium">아직 생성한 강의가 없습니다.</div>
-            <a href="/lectures/new" class="mt-3 inline-block text-sm font-medium text-indigo-600">첫 강의 만들기 →</a>
+            <div class="text-sm font-medium">{{ t("dashboard.empty") }}</div>
+            <a href="/lectures/new" class="mt-3 inline-block text-sm font-medium text-indigo-600">{{ t("dashboard.first_lecture") }}</a>
         </div>
         {% endif %}
     </section>

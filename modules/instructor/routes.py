@@ -9,9 +9,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
-from core.config import PROJECT_ROOT, data_dir
+from core.config import data_dir
+from core.templates import templates
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -34,7 +34,6 @@ from modules.moodle.service import get_user_moodle_client
 from modules.users.service import get_user
 
 router = APIRouter(prefix="/instructor")
-templates = Jinja2Templates(directory=str(PROJECT_ROOT / "templates"))
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,79}$")
 WEEKDAYS = [
     (0, "월"),
@@ -156,6 +155,7 @@ def _next_slots(profile: dict, count: int = 6) -> list[dict]:
                     "total_weeks": total_weeks,
                     "label": candidate.strftime("%m/%d %H:%M"),
                     "weekday": WEEKDAYS[candidate.weekday()][1],
+                    "weekday_index": candidate.weekday(),
                 }
             )
             if len(results) >= count:

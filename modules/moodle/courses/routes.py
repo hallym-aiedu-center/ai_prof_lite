@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from fastapi.templating import Jinja2Templates
 
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT
+from core.templates import templates
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -31,8 +30,6 @@ api_router = APIRouter(
     prefix="/api/moodle",
     tags=["moodle-api"],
 )
-
-templates = Jinja2Templates(directory=str(TEMPLATE_ROOT / "templates"))
 
 
 def _clean_course(

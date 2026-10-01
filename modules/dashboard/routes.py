@@ -2,10 +2,9 @@ import os
 
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT
 from core.config import openai_key_mode
+from core.templates import templates
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -16,7 +15,6 @@ from modules.lecture.repository import list_lectures
 from modules.users.service import get_user
 
 router = APIRouter()
-templates = Jinja2Templates(directory=str(TEMPLATE_ROOT / "templates"))
 
 
 @router.get("/")
@@ -61,25 +59,27 @@ async def dashboard(request: Request):
             "key": "openai",
             "name": "OpenAI",
             "connected": openai_connected,
-            "detail": "서버 공용 Key" if openai_server_mode else "사용자별 BYOK",
+            "detail_key": "dashboard.provider.openai_server_key"
+            if openai_server_mode
+            else "dashboard.provider.openai_byok",
         },
         {
             "key": "moodle",
             "name": "Moodle",
             "connected": "moodle" in provider_map,
-            "detail": "VideoTracker · Quiz · LMS",
+            "detail_key": "dashboard.provider.moodle_features",
         },
         {
             "key": "google",
             "name": "Google",
             "connected": "google" in provider_map,
-            "detail": "OAuth 연결",
+            "detail_key": "dashboard.provider.oauth",
         },
         {
             "key": "github",
             "name": "GitHub",
             "connected": "github" in provider_map,
-            "detail": "개발 연동",
+            "detail_key": "dashboard.provider.developer",
         },
     ]
 

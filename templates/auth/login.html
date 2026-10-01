@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}로그인 · AI Professor Lite{% endblock %}
+{% block title %}{{ t("auth.login.title") }}{% endblock %}
 
 {% block auth_content %}
 <div class="grid min-h-screen lg:grid-cols-2">
@@ -9,15 +9,15 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 font-bold">AI</div>
             <div>
                 <div class="font-semibold">AI Professor Lite</div>
-                <div class="text-xs text-slate-400">Lecture Automation Console</div>
+                <div class="text-xs text-slate-400">{{ t("base.console") }}</div>
             </div>
         </div>
         <div class="max-w-xl">
             <h1 class="text-4xl font-semibold leading-tight text-white">
-                강의 생성부터 Moodle 배포까지 한 흐름으로.
+                {{ t("auth.login.hero") }}
             </h1>
             <p class="mt-5 text-base leading-7 text-slate-400">
-                OpenAI, Ditto TalkingHead, Moodle을 연결해 강의·영상·퀴즈 제작 파이프라인을 운영합니다.
+                {{ t("auth.login.hero_desc") }}
             </p>
         </div>
         <div class="text-xs text-slate-500">AI Professor Lite</div>
@@ -27,11 +27,11 @@
         <div class="w-full max-w-md">
             <div class="mb-8 lg:hidden">
                 <div class="text-lg font-semibold">AI Professor Lite</div>
-                <div class="text-sm text-slate-500">Lecture Automation Console</div>
+                <div class="text-sm text-slate-500">{{ t("base.console") }}</div>
             </div>
 
-            <h2 class="text-2xl font-semibold tracking-tight">로그인</h2>
-            <p class="mt-2 text-sm text-slate-500">계정으로 AI 교수 콘솔에 접속합니다.</p>
+            <h2 class="text-2xl font-semibold tracking-tight">{{ t("common.login") }}</h2>
+            <p class="mt-2 text-sm text-slate-500">{{ t("auth.login.desc") }}</p>
 
             {% if error %}
             <div class="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -41,7 +41,7 @@
 
             {% if account_deleted %}
             <div class="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                회원탈퇴가 완료되었습니다.
+                {{ t("auth.login.account_deleted") }}
             </div>
             {% endif %}
 
@@ -49,25 +49,25 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
                 <div>
-                    <label class="mb-2 block text-sm font-medium">이메일</label>
+                    <label class="mb-2 block text-sm font-medium">{{ t("common.email") }}</label>
                     <input type="email" name="email" value="{{ email or '' }}" required
                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none ring-indigo-500 focus:border-indigo-500 focus:ring-2">
                 </div>
 
                 <div>
-                    <label class="mb-2 block text-sm font-medium">비밀번호</label>
+                    <label class="mb-2 block text-sm font-medium">{{ t("common.password") }}</label>
                     <input type="password" name="password" required
                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none ring-indigo-500 focus:border-indigo-500 focus:ring-2">
                 </div>
 
                 <button class="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800">
-                    로그인
+                    {{ t("common.login") }}
                 </button>
             </form>
 
             <p class="mt-6 text-center text-sm text-slate-500">
-                계정이 없나요?
-                <a href="/register" class="font-medium text-indigo-600 hover:text-indigo-500">회원가입</a>
+                {{ t("auth.login.no_account") }}
+                <a href="/register" class="font-medium text-indigo-600 hover:text-indigo-500">{{ t("common.signup") }}</a>
             </p>
         </div>
     </div>

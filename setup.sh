@@ -24,7 +24,8 @@ IMAGE_NAME="${IMAGE_NAME:-ai-prof-lite:latest}"
 CONTAINER_NAME="${CONTAINER_NAME:-ai-prof-lite}"
 INTERNAL_PORT=8002
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env}"
-DATA_DIR="${DATA_DIR:-$ROOT_DIR/data}"
+DEFAULT_DATA_DIR="$ROOT_DIR/data"
+DATA_DIR="${DATA_DIR:-}"
 DITTO_ROOT="$ROOT_DIR/core/ditto-talkinghead"
 CHECKPOINT_DIR="$DITTO_ROOT/checkpoints"
 DITTO_REPO="https://huggingface.co/digital-avatar/ditto-talkinghead"
@@ -32,6 +33,7 @@ DEFAULT_EXTERNAL_PORT=8002
 DEFAULT_GPU_CAP=4
 
 # Optional non-interactive overrides:
+#   DATA_DIR=/u2a/ai-prof-lite-data ./setup.sh
 #   EXTERNAL_PORT=18002 ./setup.sh
 #   SETUP_OPENAI_KEY_MODE=user ./setup.sh
 #   SETUP_JOB_CONCURRENCY=4 ./setup.sh
@@ -323,19 +325,14 @@ ok "GPU workers: JOB_CONCURRENCY=$SETUP_JOB_CONCURRENCY / JOB_GPU_IDS=$GPU_IDS"
 # -----------------------------------------------------------------------------
 # 4. Persistent data directory
 # -----------------------------------------------------------------------------
-mkdir -p "$DATA_DIR"
-
-# Dockerfile runtime user is uid/gid 10001.
-if [[ "$(stat -c '%u' "$DATA_DIR")" != "10001" ]]; then
-  if [[ "$(id -u)" -eq 0 ]]; then
-    chown -R 10001:10001 "$DATA_DIR"
-  elif command -v sudo >/dev/null 2>&1; then
-    sudo chown -R 10001:10001 "$DATA_DIR"
-  else
-    die "$DATA_DIR 를 uid 10001이 쓸 수 있도록 권한 설정이 필요합니다."
-  fi
+if [[ -z "$DATA_DIR" ]]; then
+  DATA_DIR="$(prompt_value '영구 데이터를 저장할 호스트 디렉터리' "$DEFAULT_DATA_DIR")"
 fi
-ok "데이터 디렉터리 준비: $DATA_DIR"
+
+mkdir -p "$DATA_DIR"
+DATA_DIR="$(cd "$DATA_DIR" && pwd -P)"
+
+ok "데이터 저장 경로: $DATA_DIR"
 
 # -----------------------------------------------------------------------------
 # 5. Docker build
@@ -353,9 +350,9 @@ ok "Docker GPU passthrough 정상"
 # -----------------------------------------------------------------------------
 # 6. Docker run - external port -> internal 8002
 # -----------------------------------------------------------------------------
-if docker inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
-  log "기존 컨테이너 제거: $CONTAINER_NAME"
-  docker rm -f "$CONTAINER_NAME" >/dev/null
+if docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
+  die "기존 컨테이너가 이미 존재합니다: $CONTAINER_NAME
+필요하면 직접 중지/삭제한 뒤 setup.sh를 다시 실행하세요."
 fi
 
 log "컨테이너 시작"
@@ -385,7 +382,7 @@ docker exec "$CONTAINER_NAME" nvidia-smi >/dev/null 2>&1 \
   || { docker logs --tail 100 "$CONTAINER_NAME" >&2 || true; die "컨테이너 내부 nvidia-smi 실패"; }
 ok "컨테이너 NVIDIA GPU 정상"
 
-docker exec "$CONTAINER_NAME" /opt/conda/envs/ditto/bin/python -c \
+docker exec "$CONTAINER_NAME" /opt/conda/envs/runtime/bin/python -c \
   'import torch; assert torch.cuda.is_available(); print("CUDA devices:", torch.cuda.device_count())' \
   || { docker logs --tail 100 "$CONTAINER_NAME" >&2 || true; die "Ditto Python CUDA 초기화 실패"; }
 ok "Ditto/PyTorch CUDA 정상"

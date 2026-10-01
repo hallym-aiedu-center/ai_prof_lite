@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}강의 제작 · AI Professor Lite{% endblock %}
-{% block header_title %}강의 제작{% endblock %}
+{% block title %}{{ t("lectures.list.title") }}{% endblock %}
+{% block header_title %}{{ t("common.lecture_creation") }}{% endblock %}
 {% block header_subtitle %}PPT · TalkingHead · Quiz · Moodle{% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-7xl space-y-6">
     <div class="flex items-end justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-semibold">강의</h1>
-            <p class="mt-1 text-sm text-slate-500">생성된 강의 및 진행 중인 작업입니다.</p>
+            <h1 class="text-2xl font-semibold">{{ t("common.lecture") }}</h1>
+            <p class="mt-1 text-sm text-slate-500">{{ t("lectures.list.desc") }}</p>
         </div>
         <a href="/lectures/new" class="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-500">
-            + 새 강의
+            {{ t("base.new_lecture_plus") }}
         </a>
     </div>
 
@@ -33,26 +33,26 @@
                         class="app-progress {% if lecture.status == 'failed' %}app-progress-danger{% endif %}"
                         max="100"
                         value="{{ lecture.progress }}"
-                        aria-label="강의 생성 진행률">{{ lecture.progress }}%</progress>
+                        aria-label="{{ t("common.lecture_progress") }}">{{ lecture.progress }}%</progress>
                 </div>
                 <div class="text-right text-xs text-slate-400">{{ lecture.created_at }}</div>
             </a>
             {% endfor %}
         </div>
         {% else %}
-        <div class="px-6 py-14 text-center text-sm text-slate-500">강의가 없습니다.</div>
+        <div class="px-6 py-14 text-center text-sm text-slate-500">{{ t("lectures.list.empty") }}</div>
         {% endif %}
 
         {% if has_previous or has_next %}
         <div class="flex items-center justify-between border-t border-slate-100 px-4 py-4 sm:px-6">
             {% if has_previous %}
-            <a href="/lectures?page={{ page - 1 }}" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">← 이전</a>
+            <a href="/lectures?page={{ page - 1 }}" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ t("common.previous") }}</a>
             {% else %}
             <span></span>
             {% endif %}
-            <span class="text-xs font-semibold text-slate-400">{{ page }} 페이지</span>
+            <span class="text-xs font-semibold text-slate-400">{{ page }} {{ t("common.page") }}</span>
             {% if has_next %}
-            <a href="/lectures?page={{ page + 1 }}" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">다음 →</a>
+            <a href="/lectures?page={{ page + 1 }}" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ t("common.next") }}</a>
             {% else %}
             <span></span>
             {% endif %}

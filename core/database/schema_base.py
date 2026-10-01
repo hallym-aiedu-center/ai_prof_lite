@@ -117,7 +117,7 @@ async def _create_base_tables(db) -> None:
         CREATE TABLE IF NOT EXISTS user_settings (
             user_id INTEGER PRIMARY KEY,
 
-            language TEXT NOT NULL DEFAULT 'ko',
+            language TEXT NOT NULL DEFAULT 'auto',
 
             default_openai_model TEXT,
             default_image_model TEXT,

@@ -1,92 +1,291 @@
 {% extends "base.html" %}
 
-{% block title %}OpenAI 사용 내역 · AI Professor Lite{% endblock %}
-{% block header_title %}OpenAI 사용 내역{% endblock %}
-{% block header_subtitle %}최근 API 호출 · 토큰 · 비용{% endblock %}
+{% block title %}{{ t("common.openai_usage") }} · AI Professor Lite<script src="/static/openai-usage-pagination.js" defer></script>
+{% endblock %}
+{% block header_title %}{{ t("common.openai_usage") }}{% endblock %}
+{% block header_subtitle %}{{ t("settings.usage.subtitle") }}{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-6xl space-y-6">
-    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">누적 사용액</div>
-            <div class="mt-2 text-2xl font-black text-slate-900">${{ '%.4f'|format(openai_usage.spent) }}</div>
+<div class="mx-auto w-full max-w-6xl space-y-4 sm:space-y-6">
+
+    <!-- Summary -->
+    <section class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-panel sm:p-5">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {{ t("settings.usage.spent") }}
+            </div>
+            <div class="mt-2 break-words text-xl font-black text-slate-900 sm:text-2xl">
+                ${{ '%.4f'|format(openai_usage.spent) }}
+            </div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">예약/불확정</div>
-            <div class="mt-2 text-2xl font-black text-slate-900">${{ '%.4f'|format(openai_usage.reserved) }}</div>
+
+        <div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-panel sm:p-5">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {{ t("settings.usage.reserved") }}
+            </div>
+            <div class="mt-2 break-words text-xl font-black text-slate-900 sm:text-2xl">
+                ${{ '%.4f'|format(openai_usage.reserved) }}
+            </div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">비용 한도</div>
-            <div class="mt-2 text-2xl font-black text-slate-900">{% if openai_usage.budget is none %}무제한{% else %}${{ '%.2f'|format(openai_usage.budget) }}{% endif %}</div>
+
+        <div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-panel sm:p-5">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {{ t("settings.usage.budget") }}
+            </div>
+            <div class="mt-2 break-words text-xl font-black text-slate-900 sm:text-2xl">
+                {% if openai_usage.budget is none %}
+                    {{ t("common.unlimited") }}
+                {% else %}
+                    ${{ '%.2f'|format(openai_usage.budget) }}
+                {% endif %}
+            </div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">남은 한도</div>
-            <div class="mt-2 text-2xl font-black text-slate-900">{% if openai_usage.remaining is none %}무제한{% else %}${{ '%.4f'|format(openai_usage.remaining) }}{% endif %}</div>
+
+        <div class="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-panel sm:p-5">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {{ t("settings.usage.remaining") }}
+            </div>
+            <div class="mt-2 break-words text-xl font-black text-slate-900 sm:text-2xl">
+                {% if openai_usage.remaining is none %}
+                    {{ t("common.unlimited") }}
+                {% else %}
+                    ${{ '%.4f'|format(openai_usage.remaining) }}
+                {% endif %}
+            </div>
         </div>
     </section>
 
+    <!-- Breakdown -->
     {% if openai_usage.breakdown %}
-    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 class="text-sm font-semibold text-slate-700">유형별 누적 비용</h2>
-        <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-panel sm:p-5">
+        <h2 class="text-sm font-semibold text-slate-700">
+            {{ t("settings.usage.breakdown") }}
+        </h2>
+
+        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {% for kind, amount in openai_usage.breakdown.items() %}
-            <div class="rounded-xl bg-slate-50 p-4 text-xs">
-                <div class="uppercase tracking-wide text-slate-400">{{ kind }}</div>
-                <div class="mt-1 text-base font-bold">${{ '%.4f'|format(amount) }}</div>
+            <div class="min-w-0 rounded-xl bg-slate-50 p-4 text-xs">
+                <div class="break-words uppercase tracking-wide text-slate-400">
+                    {{ kind }}
+                </div>
+                <div class="mt-1 break-words text-base font-bold text-slate-900">
+                    ${{ '%.4f'|format(amount) }}
+                </div>
             </div>
             {% endfor %}
         </div>
     </section>
     {% endif %}
 
+    <!-- Recent usage -->
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-panel">
-        <div class="border-b border-slate-200 px-6 py-5">
-            <h2 class="font-semibold">최근 OpenAI 사용 내역</h2>
-            <p class="mt-1 text-sm text-slate-500">최근 100건의 API 호출 위치, 모델, 토큰과 과금 정보를 표시합니다.</p>
+        <div class="border-b border-slate-200 px-4 py-4 sm:px-6 sm:py-5">
+            <h2 class="font-semibold text-slate-900">
+                {{ t("settings.usage.recent") }}
+            </h2>
+            <p class="mt-1 text-sm leading-5 text-slate-500">
+                {{ t("settings.usage.recent_desc") }}
+            </p>
         </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
+
+        {% if usage_events %}
+
+        <!-- Mobile / Tablet -->
+        <div class="divide-y divide-slate-100 lg:hidden">
+            {% for event in usage_events %}
+            <article data-usage-page-item="mobile" class="space-y-4 p-4 sm:p-5">
+
+                <div class="flex min-w-0 items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium text-slate-400">
+                            {{ t("common.time") }}
+                        </div>
+                        <div class="mt-1 break-words text-xs text-slate-600">
+                            {{ event.created_at }}
+                        </div>
+                    </div>
+
+                    <div class="shrink-0 text-right">
+                        <div class="text-xs font-medium text-slate-400">
+                            {{ t("common.cost") }}
+                        </div>
+                        <div class="mt-1 text-sm font-bold text-slate-900">
+                            ${{ '%.4f'|format(event.cost_usd) }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="min-w-0">
+                    <div class="text-xs font-medium text-slate-400">
+                        {{ t("common.location") }}
+                    </div>
+                    <div class="mt-1 break-words text-sm font-semibold text-slate-800">
+                        {{ event.operation or event.kind }}
+                    </div>
+                    <div class="mt-1 break-all text-xs leading-5 text-slate-500">
+                        {{ event.endpoint or '-' }}
+                        {% if event.stage %} · {{ event.stage }}{% endif %}
+                        {% if event.item_key %}
+                            <br>
+                            {{ event.item_key }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium text-slate-400">
+                            {{ t("settings.usage.api_model") }}
+                        </div>
+                        <div class="mt-1 break-all text-sm font-semibold text-slate-800">
+                            {{ event.model }}
+                        </div>
+                        <div class="mt-1 break-all text-xs leading-5 text-slate-500">
+                            {{ event.kind }}
+                            {% if event.request_id %}
+                                · req {{ event.request_id }}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium text-slate-400">
+                            {{ t("settings.usage.tokens_billing") }}
+                        </div>
+                        <div class="mt-1 break-words text-xs leading-5 text-slate-600">
+                            {{ t("settings.usage.input") }} {{ event.input_tokens }}
+                            ·
+                            {{ t("settings.usage.output") }} {{ event.output_tokens }}
+
+                            {% if event.cached_input_tokens %}
+                                · {{ t("settings.usage.cache") }} {{ event.cached_input_tokens }}
+                            {% endif %}
+                        </div>
+                        <div class="mt-1 break-all text-xs leading-5 text-slate-500">
+                            {{ event.metadata.billing_basis or '-' }}
+                        </div>
+                    </div>
+                </div>
+
+            </article>
+            {% endfor %}
+        </div>
+
+        <!-- Desktop -->
+        <div class="hidden overflow-x-auto lg:block">
+            <table class="min-w-[960px] w-full table-fixed text-sm">
                 <thead class="bg-slate-50 text-left text-slate-500">
                     <tr>
-                        <th class="px-4 py-3 font-medium">시각</th>
-                        <th class="px-4 py-3 font-medium">위치</th>
-                        <th class="px-4 py-3 font-medium">API/모델</th>
-                        <th class="px-4 py-3 font-medium">토큰/과금 방식</th>
-                        <th class="px-4 py-3 font-medium text-right">비용</th>
+                        <th class="w-[13%] px-4 py-3 font-medium">
+                            {{ t("common.time") }}
+                        </th>
+                        <th class="w-[28%] px-4 py-3 font-medium">
+                            {{ t("common.location") }}
+                        </th>
+                        <th class="w-[25%] px-4 py-3 font-medium">
+                            {{ t("settings.usage.api_model") }}
+                        </th>
+                        <th class="w-[25%] px-4 py-3 font-medium">
+                            {{ t("settings.usage.tokens_billing") }}
+                        </th>
+                        <th class="w-[9%] px-4 py-3 text-right font-medium">
+                            {{ t("common.cost") }}
+                        </th>
                     </tr>
                 </thead>
+
                 <tbody>
-                    {% if usage_events %}
-                        {% for event in usage_events %}
-                        <tr class="border-t border-slate-100 align-top">
-                            <td class="px-4 py-3 text-xs text-slate-500">{{ event.created_at }}</td>
-                            <td class="px-4 py-3">
-                                <div class="font-medium text-slate-800">{{ event.operation or event.kind }}</div>
-                                <div class="mt-1 text-xs text-slate-500">
-                                    {{ event.endpoint or '-' }}
-                                    {% if event.stage %} · {{ event.stage }}{% endif %}
-                                    {% if event.item_key %}<br>{{ event.item_key }}{% endif %}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="font-medium text-slate-800">{{ event.model }}</div>
-                                <div class="mt-1 text-xs text-slate-500">{{ event.kind }}{% if event.request_id %} · req {{ event.request_id }}{% endif %}</div>
-                            </td>
-                            <td class="px-4 py-3 text-xs text-slate-600">
-                                <div>입력 {{ event.input_tokens }} / 출력 {{ event.output_tokens }}{% if event.cached_input_tokens %} / 캐시 {{ event.cached_input_tokens }}{% endif %}</div>
-                                <div class="mt-1">{{ event.metadata.billing_basis or '-' }}</div>
-                            </td>
-                            <td class="px-4 py-3 text-right font-semibold">${{ '%.4f'|format(event.cost_usd) }}</td>
-                        </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="5" class="px-4 py-10 text-center text-sm text-slate-500">아직 저장된 OpenAI 사용 내역이 없습니다.</td>
-                        </tr>
-                    {% endif %}
+                    {% for event in usage_events %}
+                    <tr data-usage-page-item="desktop" class="border-t border-slate-100 align-top">
+                        <td class="px-4 py-3 text-xs text-slate-500">
+                            {{ event.created_at }}
+                        </td>
+
+                        <td class="min-w-0 px-4 py-3">
+                            <div class="break-words font-medium text-slate-800">
+                                {{ event.operation or event.kind }}
+                            </div>
+                            <div class="mt-1 break-all text-xs leading-5 text-slate-500">
+                                {{ event.endpoint or '-' }}
+                                {% if event.stage %} · {{ event.stage }}{% endif %}
+                                {% if event.item_key %}
+                                    <br>
+                                    {{ event.item_key }}
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <td class="min-w-0 px-4 py-3">
+                            <div class="break-all font-medium text-slate-800">
+                                {{ event.model }}
+                            </div>
+                            <div class="mt-1 break-all text-xs leading-5 text-slate-500">
+                                {{ event.kind }}
+                                {% if event.request_id %}
+                                    · req {{ event.request_id }}
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <td class="min-w-0 px-4 py-3 text-xs leading-5 text-slate-600">
+                            <div class="break-words">
+                                {{ t("settings.usage.input") }} {{ event.input_tokens }}
+                                ·
+                                {{ t("settings.usage.output") }} {{ event.output_tokens }}
+
+                                {% if event.cached_input_tokens %}
+                                    · {{ t("settings.usage.cache") }} {{ event.cached_input_tokens }}
+                                {% endif %}
+                            </div>
+                            <div class="mt-1 break-all text-slate-500">
+                                {{ event.metadata.billing_basis or '-' }}
+                            </div>
+                        </td>
+
+                        <td class="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-900">
+                            ${{ '%.4f'|format(event.cost_usd) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination -->
+        <nav
+            id="usage-pagination"
+            class="hidden items-center justify-between gap-3 border-t border-slate-200 px-4 py-4 sm:px-6"
+            aria-label="Usage pagination"
+        >
+            <button
+                id="usage-prev"
+                type="button"
+                class="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+                ← {{ t("settings.usage.previous") }}
+            </button>
+
+            <span
+                id="usage-page-status"
+                class="shrink-0 text-sm font-medium text-slate-500"
+            >
+                1 / 1
+            </span>
+
+            <button
+                id="usage-next"
+                type="button"
+                class="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+                {{ t("settings.usage.next") }} →
+            </button>
+        </nav>
+
+        {% else %}
+        <div class="px-4 py-10 text-center text-sm text-slate-500 sm:px-6">
+            {{ t("settings.usage.empty") }}
+        </div>
+        {% endif %}
     </section>
 </div>
 {% endblock %}

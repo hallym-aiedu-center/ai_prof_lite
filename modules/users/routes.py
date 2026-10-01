@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT
 from core.config import openai_key_mode
+from core.lang import AUTO_LANGUAGE, SUPPORTED_LANGUAGES, resolve_language, translate
 from core.openai.usage import list_usage_events, usage_summary
+from core.templates import templates
 from modules.auth.service import verify_user_password
 from modules.auth.session import (
     current_user_id,
@@ -12,10 +12,14 @@ from modules.auth.session import (
     login_redirect,
     verify_csrf,
 )
-from modules.users.service import delete_account, get_user, update_profile
+from modules.users.service import (
+    delete_account,
+    get_user,
+    update_language,
+    update_profile,
+)
 
 router = APIRouter(prefix="/settings")
-templates = Jinja2Templates(directory=str(TEMPLATE_ROOT / "templates"))
 
 
 @router.get("/profile")
@@ -48,7 +52,7 @@ async def save_profile(
     name: str = Form(""),
     nickname: str = Form(""),
     phone: str = Form(""),
-    language: str = Form("ko"),
+    language: str = Form("auto"),
     openai_budget_usd: str = Form(""),
     csrf_token: str = Form(...),
 ):
@@ -58,6 +62,10 @@ async def save_profile(
         return login_redirect()
 
     verify_csrf(request, csrf_token)
+
+    allowed_languages = {AUTO_LANGUAGE, *SUPPORTED_LANGUAGES}
+    if language not in allowed_languages:
+        language = AUTO_LANGUAGE
 
     if openai_key_mode() == "server":
         current = await get_user(user_id)
@@ -95,6 +103,33 @@ async def save_profile(
     )
 
 
+@router.post("/language")
+async def save_language(
+    request: Request,
+    language: str = Form(...),
+    return_to: str = Form("/dashboard"),
+    csrf_token: str = Form(...),
+):
+    user_id = current_user_id(request)
+    if user_id is None:
+        return login_redirect()
+
+    verify_csrf(request, csrf_token)
+
+    allowed_languages = {AUTO_LANGUAGE, *SUPPORTED_LANGUAGES}
+    if language not in allowed_languages:
+        language = AUTO_LANGUAGE
+
+    await update_language(user_id=user_id, language=language)
+
+    # Only allow local redirects. This form is rendered by our own templates,
+    # but keep the endpoint safe if it is called directly.
+    if not return_to.startswith("/") or return_to.startswith("//"):
+        return_to = "/dashboard"
+
+    return RedirectResponse(url=return_to, status_code=303)
+
+
 @router.get("/openai-usage")
 async def openai_usage_page(request: Request):
     user_id = current_user_id(request)
@@ -126,7 +161,10 @@ async def delete_account_route(
         return login_redirect()
 
     verify_csrf(request, csrf_token)
-    if confirmation.strip() != "회원탈퇴":
+    user = await get_user(user_id)
+    language = resolve_language(request, user)
+    expected_confirmation = translate("settings.profile.delete_account", language)
+    if confirmation.strip() != expected_confirmation:
         return RedirectResponse(
             url="/settings/profile?delete_failed=1",
             status_code=303,

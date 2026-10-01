@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ lecture.title }} · AI Professor Lite{% endblock %}
-{% block header_title %}강의 상세{% endblock %}
-{% block header_subtitle %}생성 진행상태 및 산출물{% endblock %}
+{% block header_title %}{{ t("lectures.detail.header") }}{% endblock %}
+{% block header_subtitle %}{{ t("lectures.detail.subtitle") }}{% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-6xl space-y-6">
@@ -31,7 +31,7 @@
                 class="app-progress app-progress-lg"
                 max="100"
                 value="{{ lecture.progress }}"
-                aria-label="강의 생성 진행률">{{ lecture.progress }}%</progress>
+                aria-label="{{ t("common.lecture_progress") }}">{{ lecture.progress }}%</progress>
         </div>
 
         <div id="errorBox" class="{% if not lecture.error_message %}hidden {% endif %}mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -41,13 +41,13 @@
             {% if lecture.status == 'failed' %}
             <form method="post" action="/lectures/{{ lecture.id }}/retry">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button class="rounded-lg bg-indigo-600 px-4 py-2 text-white">완료한 단계부터 재시도</button>
+                <button class="rounded-lg bg-indigo-600 px-4 py-2 text-white">{{ t("lectures.detail.retry") }}</button>
             </form>
             {% endif %}
             {% if lecture.status == 'queued' %}
             <form method="post" action="/lectures/{{ lecture.id }}/cancel">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100">대기 작업 취소</button>
+                <button class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100">{{ t("lectures.detail.cancel_queued") }}</button>
             </form>
             {% endif %}
         </div>
@@ -55,33 +55,33 @@
 
     <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs uppercase tracking-wider text-slate-400">강의 설계</div>
+            <div class="text-xs uppercase tracking-wider text-slate-400">{{ t("common.lecture_design") }}</div>
             <div class="mt-2 font-medium">{{ lecture.text_model }}</div>
-            <div class="mt-1 text-xs text-slate-400">강의안·퀴즈를 한 번에 생성</div>
+            <div class="mt-1 text-xs text-slate-400">{{ t("lectures.detail.design_desc") }}</div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs uppercase tracking-wider text-slate-400">참고자료</div>
-            <div class="mt-2 font-medium">{{ (lecture.source_files_json or []) | length }}개</div>
+            <div class="text-xs uppercase tracking-wider text-slate-400">{{ t("common.references") }}</div>
+            <div class="mt-2 font-medium">{{ t("lectures.detail.reference_count", count=(lecture.source_files_json or []) | length) }}</div>
             <div class="mt-1 text-xs text-slate-400">
                 {% if lecture.source_files_json %}
-                    {% if lecture.reference_mode == 'full' %}전체 파일을 GPT에 직접 전달{% else %}RAG 분할·검색으로 관련 내용 사용{% endif %}
+                    {% if lecture.reference_mode == 'full' %}{{ t("lectures.detail.ref_full") }}{% else %}{{ t("lectures.detail.ref_rag") }}{% endif %}
                 {% else %}
-                    첨부자료 없이 LLM 지식으로 생성
+                    {{ t("lectures.detail.ref_none") }}
                 {% endif %}
             </div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs uppercase tracking-wider text-slate-400">OpenAI 비용</div>
-            <div class="mt-2 font-medium">누적 ${{ '%.4f'|format(openai_usage.spent) }}</div>
-            <div class="mt-1 text-xs text-slate-400">{% if openai_usage.budget is none %}사용자 한도 없음{% else %}사용자 한도 ${{ '%.2f'|format(openai_usage.budget) }}{% endif %}</div>
+            <div class="text-xs uppercase tracking-wider text-slate-400">{{ t("common.openai_cost") }}</div>
+            <div class="mt-2 font-medium">{{ t("common.cumulative_dollar") }}{{ '%.4f'|format(openai_usage.spent) }}</div>
+            <div class="mt-1 text-xs text-slate-400">{% if openai_usage.budget is none %}{{ t("lectures.detail.no_user_limit") }}{% else %}{{ t("lectures.detail.user_limit_dollar") }}{{ '%.2f'|format(openai_usage.budget) }}{% endif %}</div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs uppercase tracking-wider text-slate-400">PPT 검토</div>
-            <div class="mt-2 font-medium">{% if lecture.review_before_video %}사용{% else %}자동 진행{% endif %}</div>
+            <div class="text-xs uppercase tracking-wider text-slate-400">{{ t("lectures.detail.ppt_review") }}</div>
+            <div class="mt-2 font-medium">{% if lecture.review_before_video %}{{ t("common.enabled") }}{% else %}{{ t("common.auto_continue") }}{% endif %}</div>
             <div class="mt-1 text-xs text-slate-400">{{ lecture.review_status or 'not_required' }}</div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
-            <div class="text-xs uppercase tracking-wider text-slate-400">Image / TTS</div>
+            <div class="text-xs uppercase tracking-wider text-slate-400">{{ t("lectures.detail.image_tts") }}</div>
             <div class="mt-2 font-medium">{{ lecture.image_model }}</div>
             <div class="mt-1 text-xs text-slate-400">{{ lecture.tts_model }} · {{ lecture.tts_voice }}</div>
         </div>
@@ -89,7 +89,7 @@
             <div class="text-xs uppercase tracking-wider text-slate-400">Moodle</div>
             <div class="mt-2 font-medium">
                 {% if lecture.moodle_videotracker_cmid %}CMID {{ lecture.moodle_videotracker_cmid }}
-                {% elif lecture.upload_to_moodle %}생성 대기{% else %}미사용{% endif %}
+                {% elif lecture.upload_to_moodle %}{{ t("common.pending_generation") }}{% else %}{{ t("common.disabled") }}{% endif %}
             </div>
             <div class="mt-1 text-xs text-slate-400">{{ lecture.moodle_deploy_mode or 'create' }}</div>
         </div>
@@ -100,15 +100,15 @@
         <div class="border-b border-amber-100 bg-amber-50 px-6 py-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <div class="text-xs font-black uppercase tracking-[.15em] text-amber-700">PPT Review Gate</div>
-                    <h2 class="mt-1 text-lg font-semibold text-slate-900">슬라이드를 확인한 뒤 영상 생성 여부를 결정하세요.</h2>
-                    <p class="mt-1 text-sm text-slate-600">그대로 승인하면 TTS·TalkingHead·영상 합성 단계로 이어집니다. 수정 후 저장하면 PPT만 다시 생성한 뒤 다시 검토 상태로 돌아옵니다.</p>
+                    <div class="text-xs font-black uppercase tracking-[.15em] text-amber-700">{{ t("lectures.detail.review_gate") }}</div>
+                    <h2 class="mt-1 text-lg font-semibold text-slate-900">{{ t("lectures.detail.review_title") }}</h2>
+                    <p class="mt-1 text-sm text-slate-600">{{ t("lectures.detail.review_desc") }}</p>
                 </div>
                 <div class="flex shrink-0 flex-wrap gap-2">
-                    <a href="/lectures/{{ lecture.id }}/download/pptx" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">PPTX 보기</a>
+                    <a href="/lectures/{{ lecture.id }}/download/pptx" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{{ t("lectures.detail.view_pptx") }}</a>
                     <form method="post" action="/lectures/{{ lecture.id }}/review/approve">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">이대로 승인하고 영상 생성</button>
+                        <button class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">{{ t("lectures.detail.approve_video") }}</button>
                     </form>
                 </div>
             </div>
@@ -123,25 +123,25 @@
                         <span class="text-xs font-black text-indigo-600">SLIDE {{ '%02d'|format(loop.index) }}</span>
                         <span class="ml-2 text-sm font-semibold text-slate-900">{{ slide.title }}</span>
                     </div>
-                    <span class="text-xs font-semibold text-slate-400 group-open:hidden">편집 열기</span>
-                    <span class="hidden text-xs font-semibold text-slate-400 group-open:inline">접기</span>
+                    <span class="text-xs font-semibold text-slate-400 group-open:hidden">{{ t("lectures.detail.open_editor") }}</span>
+                    <span class="hidden text-xs font-semibold text-slate-400 group-open:inline">{{ t("common.collapse") }}</span>
                 </summary>
                 <div class="grid gap-5 border-t border-slate-100 bg-slate-50/40 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                     <div>
-                        <img src="/lectures/{{ lecture.id }}/slides/{{ loop.index }}.png" alt="{{ loop.index }}번 슬라이드 미리보기" class="aspect-video w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm">
+                        <img src="/lectures/{{ lecture.id }}/slides/{{ loop.index }}.png" alt="{{ t('lectures.detail.slide_preview', index=loop.index) }}" class="aspect-video w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm">
                     </div>
                     <div class="space-y-4">
                         <div>
-                            <label class="mb-1.5 block text-xs font-bold text-slate-600">제목</label>
+                            <label class="mb-1.5 block text-xs font-bold text-slate-600">{{ t("common.title") }}</label>
                             <input name="slide_{{ loop.index }}_title" value="{{ slide.title }}" required maxlength="300" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400">
                         </div>
                         <div>
-                            <label class="mb-1.5 block text-xs font-bold text-slate-600">Bullet · 한 줄에 하나</label>
+                            <label class="mb-1.5 block text-xs font-bold text-slate-600">{{ t("lectures.detail.bullets") }}</label>
                             <textarea name="slide_{{ loop.index }}_bullets" rows="5" required class="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-indigo-400">{% for bullet in slide.bullets %}{{ bullet }}{% if not loop.last %}
 {% endif %}{% endfor %}</textarea>
                         </div>
                         <div>
-                            <label class="mb-1.5 block text-xs font-bold text-slate-600">설명 대본</label>
+                            <label class="mb-1.5 block text-xs font-bold text-slate-600">{{ t("lectures.detail.narration") }}</label>
                             <textarea name="slide_{{ loop.index }}_narration" rows="9" required maxlength="20000" class="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-indigo-400">{{ slide.narration }}</textarea>
                         </div>
                     </div>
@@ -149,8 +149,8 @@
             </details>
             {% endfor %}
             <div class="flex flex-col gap-2 bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-xs leading-5 text-slate-500">수정 저장 시 슬라이드/PPT 체크포인트만 다시 만들고, 아직 시작하지 않은 영상 단계는 실행하지 않습니다.</p>
-                <button class="shrink-0 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500">수정사항 저장 · PPT 다시 생성</button>
+                <p class="text-xs leading-5 text-slate-500">{{ t("lectures.detail.edit_help") }}</p>
+                <button class="shrink-0 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500">{{ t("lectures.detail.save_regenerate") }}</button>
             </div>
         </form>
     </section>
@@ -158,8 +158,8 @@
 
     <section id="artifactSection" class="rounded-2xl border border-slate-200 bg-white shadow-panel">
         <div class="border-b border-slate-200 px-6 py-5">
-            <h2 class="font-semibold">산출물</h2>
-            <p class="mt-1 text-sm text-slate-500">완료된 파일을 내려받을 수 있습니다.</p>
+            <h2 class="font-semibold">{{ t("lectures.detail.outputs") }}</h2>
+            <p class="mt-1 text-sm text-slate-500">{{ t("lectures.detail.outputs_desc") }}</p>
         </div>
         <div class="grid gap-3 p-6 sm:grid-cols-2 lg:grid-cols-4">
             <a href="/lectures/{{ lecture.id }}/download/pptx"
@@ -169,18 +169,18 @@
             </a>
             <a href="/lectures/{{ lecture.id }}/download/video"
                class="rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50">
-                <div class="text-sm font-semibold">최종 강의 MP4</div>
+                <div class="text-sm font-semibold">{{ t("lectures.detail.final_mp4") }}</div>
                 <div class="mt-1 text-xs text-slate-500">final_lecture.mp4</div>
             </a>
             <a href="/lectures/{{ lecture.id }}/download/audio"
                class="rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50">
-                <div class="text-sm font-semibold">Narration WAV</div>
+                <div class="text-sm font-semibold">{{ t("lectures.detail.narration_wav") }}</div>
                 <div class="mt-1 text-xs text-slate-500">narration.wav</div>
             </a>
             <a href="/lectures/{{ lecture.id }}/quiz.json"
                class="rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50">
-                <div class="text-sm font-semibold">Quiz JSON</div>
-                <div class="mt-1 text-xs text-slate-500">강의 기반 퀴즈</div>
+                <div class="text-sm font-semibold">{{ t("lectures.detail.quiz_json") }}</div>
+                <div class="mt-1 text-xs text-slate-500">{{ t("lectures.detail.quiz") }}</div>
             </a>
         </div>
     </section>
@@ -188,7 +188,7 @@
     {% if lecture.plan_json %}
     <section class="rounded-2xl border border-slate-200 bg-white shadow-panel">
         <div class="border-b border-slate-200 px-6 py-5">
-            <h2 class="font-semibold">슬라이드 구성</h2>
+            <h2 class="font-semibold">{{ t("lectures.detail.slides") }}</h2>
         </div>
         <div class="divide-y divide-slate-100">
             {% for slide in lecture.plan_json.slides %}

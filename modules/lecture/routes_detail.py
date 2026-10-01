@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from core.jobs.factory import get_queue
 from core.openai.usage import usage_summary
+from core.templates import templates
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -15,7 +16,7 @@ from modules.auth.session import (
 from modules.lecture.checkpoints import get_stage
 from modules.lecture.repository import get_lecture, list_lecture_queue_status
 from modules.lecture.review import approve_and_resume_review, update_review_plan
-from modules.lecture.route_support import _queue_runtime_config, templates
+from modules.lecture.route_support import _queue_runtime_config
 from modules.users.service import get_user
 
 router = APIRouter()

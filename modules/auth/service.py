@@ -82,11 +82,12 @@ async def register_user(
         await db.execute(
             """
             INSERT INTO user_settings (
-                user_id
+                user_id,
+                language
             )
-            VALUES (?)
+            VALUES (?, ?)
             """,
-            (user_id,),
+            (user_id, "auto"),
         )
 
         await db.commit()

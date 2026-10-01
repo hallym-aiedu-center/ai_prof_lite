@@ -1,10 +1,6 @@
 from fastapi import Request
-from fastapi.templating import Jinja2Templates
 
-from core.config import PROJECT_ROOT as TEMPLATE_ROOT
 from core.config import job_gpu_ids, positive_int
-
-templates = Jinja2Templates(directory=str(TEMPLATE_ROOT / "templates"))
 
 
 def _wants_json(request: Request) -> bool:

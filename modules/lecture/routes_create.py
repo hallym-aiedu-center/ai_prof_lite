@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from core.jobs.factory import get_queue
 from core.openai.usage import usage_summary
+from core.templates import templates
 from modules.auth.session import (
     current_user_id,
     get_csrf_token,
@@ -18,7 +19,7 @@ from modules.credentials.required import (
     require_user_openai_api_key,
 )
 from modules.lecture.repository import list_lectures
-from modules.lecture.route_support import _wants_json, templates
+from modules.lecture.route_support import _wants_json
 from modules.lecture.submission import (
     persist_lecture_submission,
     validate_lecture_submission,

@@ -62,13 +62,30 @@ async def get_user(user_id: int):
         await db.close()
 
 
+async def update_language(*, user_id: int, language: str) -> None:
+    db = await get_connection()
+    try:
+        await db.execute(
+            """
+            UPDATE user_settings
+            SET language = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+            """,
+            (language, user_id),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+
 async def update_profile(
     *,
     user_id: int,
     name: str | None,
     nickname: str | None,
     phone: str | None,
-    language: str = "ko",
+    language: str = "auto",
     openai_budget_usd: float | None = None,
 ):
     db = await get_connection()

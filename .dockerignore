@@ -23,3 +23,6 @@ temp/
 .idea
 
 docker-compose*.yml
+
+# Ditto model files are mounted at runtime by setup.sh
+core/ditto-talkinghead/checkpoints/

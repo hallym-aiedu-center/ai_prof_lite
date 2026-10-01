@@ -26,10 +26,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ------------------------------------------------------------
 # Miniconda
-# Pinned installer + SHA256 verification
+#
+# Base environment is used only to manage Conda.
+# The application itself runs in a single "runtime" environment.
 # ------------------------------------------------------------
-ARG MINICONDA_VERSION=py312_26.7.1-1
-ARG MINICONDA_SHA256=b27f60ab63e77eeab50a5417c989120f767e863df32400190d4c7262369f8695
+ARG MINICONDA_VERSION=py310_26.7.1-1
+ARG MINICONDA_SHA256=fb1af4c45e6e73fe193c2398b4346b1e45522f729cdfccfdb18f6c765954dbd9
 
 RUN curl -fsSL \
       -o /tmp/miniconda.sh \
@@ -45,32 +47,37 @@ RUN curl -fsSL \
           --override-channels \
           --channel https://repo.anaconda.com/pkgs/r || true)
 
-ENV PATH=${CONDA_DIR}/bin:${PATH}
+# ------------------------------------------------------------
+# Single Python 3.10 runtime environment
+# ------------------------------------------------------------
+RUN ${CONDA_DIR}/bin/conda create -y \
+      -n runtime \
+      python=3.10 \
+      pip
+
+ENV PATH=${CONDA_DIR}/envs/runtime/bin:${CONDA_DIR}/bin:${PATH}
 
 WORKDIR /app
 
 # ------------------------------------------------------------
-# Main application environment - Python 3.12
+# Application dependencies
 # ------------------------------------------------------------
 COPY requirements.txt /tmp/requirements.txt
 
-RUN conda create -y -n app python=3.12 pip \
-    && ${CONDA_DIR}/envs/app/bin/python -m pip install \
-         --upgrade pip setuptools wheel \
-    && ${CONDA_DIR}/envs/app/bin/python -m pip install \
+RUN python --version \
+    && which python \
+    && python -m pip install --upgrade \
+         pip \
+         setuptools \
+         wheel \
+         packaging \
+    && python -m pip install \
          -r /tmp/requirements.txt
-
-# ------------------------------------------------------------
-# Ditto environment - Python 3.10
-# ------------------------------------------------------------
-RUN conda create -y -n ditto python=3.10 pip \
-    && ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
-         --upgrade pip setuptools wheel packaging
 
 # ------------------------------------------------------------
 # PyTorch CUDA 12.1
 # ------------------------------------------------------------
-RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
+RUN python -m pip install \
     torch==2.3.1 \
     torchvision==0.18.1 \
     torchaudio==2.3.1 \
@@ -78,11 +85,19 @@ RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
 
 # ------------------------------------------------------------
 # Ditto dependencies
+#
+# Application and Ditto share this same Python environment.
+#
+# Packages already managed by requirements.txt such as:
+#   cffi
+#   Pillow
+#   pycparser
+#   rembg
+# are not downgraded here.
 # ------------------------------------------------------------
-RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
+RUN python -m pip install \
     numpy==2.0.1 \
     audioread==3.0.1 \
-    cffi==1.17.1 \
     cuda-python==12.1.0 \
     cython==3.0.11 \
     decorator==5.1.1 \
@@ -97,14 +112,10 @@ RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
     msgpack==1.1.0 \
     numba==0.60.0 \
     opencv-python-headless==4.10.0.84 \
-    packaging==24.2 \
-    pillow==11.0.0 \
     platformdirs==4.3.6 \
     pooch==1.8.2 \
-    pycparser==2.22 \
     pyyaml==6.0.2 \
     requests==2.32.3 \
-    rembg==2.0.69 \
     scikit-image==0.25.0 \
     scikit-learn==1.6.0 \
     scipy==1.15.0 \
@@ -114,54 +125,74 @@ RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
     tifffile==2024.12.12 \
     tqdm==4.67.1
 
-RUN ${CONDA_DIR}/envs/ditto/bin/python - <<'PY'
-import numpy as np
-
-print("NumPy:", np.__version__)
-assert np.__version__ == "2.0.1"
-assert hasattr(np, "atan2")
-print("np.atan2 OK:", np.atan2(1.0, 1.0))
-PY
-
 # ------------------------------------------------------------
 # TensorRT 8.6.1
 # ------------------------------------------------------------
-RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
+RUN python -m pip install \
     tensorrt-bindings==8.6.1 \
     tensorrt-libs==8.6.1 \
     --extra-index-url https://pypi.nvidia.com
 
-RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
+RUN python -m pip install \
     --no-build-isolation \
     --no-deps \
     tensorrt==8.6.1 \
     --extra-index-url https://pypi.nvidia.com
 
-RUN ${CONDA_DIR}/envs/ditto/bin/python -m pip install \
+RUN python -m pip install \
     polygraphy \
     colored
 
 # ------------------------------------------------------------
-# Verify CUDA / cuDNN / TensorRT
+# Verify dependency consistency
 # ------------------------------------------------------------
-RUN ${CONDA_DIR}/envs/ditto/bin/python - <<'PY'
+RUN python -m pip check
+
+# ------------------------------------------------------------
+# Verify unified Python / CUDA / cuDNN / TensorRT
+# ------------------------------------------------------------
+RUN python - <<'PY'
+import sys
+
+import aiosqlite
+import fastapi
+import numpy as np
 import torch
 import tensorrt as trt
 
 print("================================")
-print("PyTorch :", torch.__version__)
-print("CUDA    :", torch.version.cuda)
-print("cuDNN   :", torch.backends.cudnn.version())
-print("TensorRT:", trt.__version__)
+print("Python   :", sys.version.split()[0])
+print("Executable:", sys.executable)
+print("FastAPI  :", fastapi.__version__)
+print("NumPy    :", np.__version__)
+print("PyTorch  :", torch.__version__)
+print("CUDA     :", torch.version.cuda)
+print("cuDNN    :", torch.backends.cudnn.version())
+print("TensorRT :", trt.__version__)
 print("================================")
 
-cudnn = torch.backends.cudnn.version()
+assert sys.version_info[:2] == (3, 10), sys.version
+assert sys.executable == "/opt/conda/envs/runtime/bin/python", sys.executable
 
+assert np.__version__ == "2.0.1", np.__version__
+assert hasattr(np, "atan2")
+
+assert torch.version.cuda is not None
 assert torch.version.cuda.startswith("12.1"), torch.version.cuda
+
+cudnn = torch.backends.cudnn.version()
 assert cudnn is not None
 assert str(cudnn).startswith("8"), cudnn
+
 assert trt.__version__.startswith("8.6.1"), trt.__version__
 PY
+
+# ------------------------------------------------------------
+# Cleanup
+# ------------------------------------------------------------
+RUN ${CONDA_DIR}/bin/conda clean -afy \
+    && rm -rf /root/.cache/pip \
+    && rm -f /tmp/requirements.txt
 
 # ------------------------------------------------------------
 # Application source
@@ -171,25 +202,10 @@ COPY . /app
 # ------------------------------------------------------------
 # Non-root runtime user
 # ------------------------------------------------------------
-ARG APP_UID=10001
-ARG APP_GID=10001
-
-RUN groupadd --gid ${APP_GID} app \
-    && useradd \
-        --uid ${APP_UID} \
-        --gid ${APP_GID} \
-        --create-home \
-        --home-dir /home/app \
-        --shell /usr/sbin/nologin \
-        app \
-    && mkdir -p /app/data \
-    && chown -R app:app /app/data /home/app
 
 # ------------------------------------------------------------
 # Runtime
 # ------------------------------------------------------------
-ENV PATH=${CONDA_DIR}/envs/app/bin:${PATH}
-ENV DITTO_PYTHON=${CONDA_DIR}/envs/ditto/bin/python
 ENV HOME=/home/app
 
 ENV APP_HOST=0.0.0.0
@@ -201,9 +217,9 @@ ENV DATA_DIR=/app/data
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-USER app
 
 EXPOSE 8002
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/opt/conda/envs/app/bin/python", "app.py"]
+
+CMD ["/opt/conda/envs/runtime/bin/python", "app.py"]
