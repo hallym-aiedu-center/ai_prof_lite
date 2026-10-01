@@ -824,6 +824,36 @@ credential 作成時と現在の `CREDENTIAL_MASTER_KEY` が異なる場合、�
 └── data/
 ```
 
+
+---
+
+# プロジェクトと貢献者
+
+AI Professor Lite は、**学生が主体となって開発したオープンソースプロジェクト**です。開発には技術的な助言およびプロジェクト支援が提供されています。
+
+## 現在の貢献者
+
+| 名前 | GitHub | 役割 |
+|---|---|---|
+| **Iamjunseok** | [@Iamjunseok](https://github.com/Iamjunseok) | 開発者 / Collaborator |
+| **Wonyoung Choi** | [@waitinghm-creator](https://github.com/waitinghm-creator) | 開発者 / Collaborator |
+| **ChunCheon Man** | [@hero707](https://github.com/hero707) | 技術アドバイザー / プロジェクト支援 |
+| **hallymgitoslab** | @hallymgitoslab | プロジェクト支援 / Contributor |
+
+---
+
+# 支援・謝辞
+
+以下は、研究費支援に関する公式の謝辞です。
+
+**Korean**
+
+본 과제(결과물)는 2026년도 교육부 및 강원특별자치도의 재원으로 강원앵커센터의 지원을 받아 수행된 지역성장 인재양성체계(앵커) 글로컬대학 30의 결과입니다.(2026-ANCHOR-10-009)
+
+**English**
+
+This research was supported by the ANCHOR program(Glocal University30) through the Gangwon ANCHOR Center, funded by the Ministry of Education(MOE) and the Gangwon State(G.S.),Republic of Korea.(2026-ANCHOR-10-009)
+
 ---
 
 # ライセンス

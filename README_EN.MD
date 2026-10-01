@@ -836,6 +836,32 @@ Credentials encrypted with a different `CREDENTIAL_MASTER_KEY` cannot be decrypt
 └── data/
 ```
 
+
+---
+
+# Project and Contributors
+
+AI Professor Lite is a **student-led open-source project**. Its development has been supported through technical guidance and project support.
+
+## Current Contributors
+
+| Name | GitHub | Role |
+|---|---|---|
+| **Iamjunseok** | [@Iamjunseok](https://github.com/Iamjunseok) | Developer / Collaborator |
+| **Wonyoung Choi** | [@waitinghm-creator](https://github.com/waitinghm-creator) | Developer / Collaborator |
+| **ChunCheon Man** | [@hero707](https://github.com/hero707) | Technical Advisor / Project Support |
+| **hallymgitoslab** | @hallymgitoslab | Project Support / Contributor |
+
+---
+
+# Acknowledgement
+
+This research was supported by the ANCHOR program(Glocal University30) through the Gangwon ANCHOR Center, funded by the Ministry of Education(MOE) and the Gangwon State(G.S.),Republic of Korea.(2026-ANCHOR-10-009)
+
+**Korean acknowledgement**
+
+본 과제(결과물)는 2026년도 교육부 및 강원특별자치도의 재원으로 강원앵커센터의 지원을 받아 수행된 지역성장 인재양성체계(앵커) 글로컬대학 30의 결과입니다.(2026-ANCHOR-10-009)
+
 ---
 
 # License
