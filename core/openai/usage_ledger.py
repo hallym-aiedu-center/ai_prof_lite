@@ -40,10 +40,17 @@ def _reservation_ttl_minutes() -> int:
     return max(15, min(24 * 60, value))
 
 
-async def _delete_stale_reservations(db, *, user_id: int) -> None:
+async def _mark_stale_reservations_ambiguous(db, *, user_id: int) -> None:
+    """Preserve stale reservations instead of silently forgetting possible spend.
+
+    A request can legitimately outlive the reservation TTL.  Deleting it would
+    reopen budget and make a later finalize a no-op even when the provider billed
+    the request.  Ambiguous reservations remain budgeted and can still finalize.
+    """
     ttl = _reservation_ttl_minutes()
     await db.execute(
-        """DELETE FROM openai_usage_events
+        """UPDATE openai_usage_events
+           SET status='ambiguous'
            WHERE user_id=? AND status='reserved'
              AND created_at < datetime('now', ?)""",
         (user_id, f"-{ttl} minutes"),
@@ -81,7 +88,7 @@ def _ambiguous_provider_error(exc: BaseException) -> bool:
 async def usage_summary(user_id: int) -> dict[str, Any]:
     db = await get_connection()
     try:
-        await _delete_stale_reservations(db, user_id=user_id)
+        await _mark_stale_reservations_ambiguous(db, user_id=user_id)
         await db.commit()
         row = await _fetchone(
             db,
@@ -198,7 +205,7 @@ async def reserve_usage(
     db = await get_connection()
     try:
         await db.execute("BEGIN IMMEDIATE")
-        await _delete_stale_reservations(db, user_id=user_id)
+        await _mark_stale_reservations_ambiguous(db, user_id=user_id)
         budget = await _account_budget(db, user_id=user_id)
         totals = await _fetchone(
             db,
@@ -244,7 +251,7 @@ async def cancel_reservation(event_id: int) -> None:
     db = await get_connection()
     try:
         await db.execute(
-            "DELETE FROM openai_usage_events WHERE id = ? AND status='reserved'",
+            "DELETE FROM openai_usage_events WHERE id = ? AND status IN ('reserved','ambiguous')",
             (event_id,),
         )
         await db.commit()
@@ -271,7 +278,7 @@ async def mark_ambiguous_usage(event_id: int, exc: BaseException) -> None:
         await db.execute(
             """UPDATE openai_usage_events
                SET status='ambiguous', metadata_json=?
-               WHERE id=? AND status='reserved'""",
+               WHERE id=? AND status IN ('reserved','ambiguous')""",
             (json.dumps(_jsonable(existing), ensure_ascii=False), event_id),
         )
         await db.commit()
@@ -314,12 +321,12 @@ async def finalize_usage(
             except (TypeError, ValueError, json.JSONDecodeError):
                 existing = {}
         merged = existing | _jsonable(metadata or {})
-        await db.execute(
+        cursor = await db.execute(
             """UPDATE openai_usage_events
                SET status='finalized', reserved_cost_usd=0, cost_usd=?, input_tokens=?,
                    output_tokens=?, cached_input_tokens=?, request_id=?, metadata_json=?,
                    usage_json=?, pricing_json=?
-               WHERE id=? AND status='reserved'""",
+               WHERE id=? AND status IN ('reserved','ambiguous')""",
             (
                 max(0.0, float(cost_usd)),
                 max(0, int(input_tokens)),
@@ -332,6 +339,12 @@ async def finalize_usage(
                 event_id,
             ),
         )
+        if cursor.rowcount != 1:
+            await db.rollback()
+            raise RuntimeError(
+                f"OpenAI usage event {event_id} could not be finalized; "
+                "the accounting reservation is missing or already settled."
+            )
         await db.commit()
     finally:
         await db.close()

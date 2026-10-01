@@ -164,6 +164,11 @@ async def _patch_deploy_common(monkeypatch, lecture):
     monkeypatch.setattr(
         publishing, "ensure_lecture_ready_for_publish", AsyncMock(return_value=lecture)
     )
+    # Direct/manual deployment is the default for unit tests. Tests that cover
+    # scheduled publishing explicitly override this with a schedule row.
+    monkeypatch.setattr(
+        publishing, "get_publish_schedule", AsyncMock(return_value=None)
+    )
     monkeypatch.setattr(
         publishing, "get_user_moodle_client", AsyncMock(return_value=object())
     )
@@ -172,6 +177,9 @@ async def _patch_deploy_common(monkeypatch, lecture):
         publishing, "set_video_from_file", AsyncMock(return_value={"success": True})
     )
     monkeypatch.setattr(publishing, "update_lecture", AsyncMock())
+    monkeypatch.setattr(
+        publishing, "assert_publish_schedule_lease", AsyncMock(return_value=None)
+    )
 
 
 @pytest.mark.asyncio
@@ -192,11 +200,19 @@ async def test_deploy_create_scheduled_marks_and_uploads(tmp_path, monkeypatch):
 
     result = await publishing.deploy_lecture_to_moodle(10, publish_lease_token="lease")
     assert result["cmid"] == 42 and result["mode"] == "create"
-    assert update_schedule.await_count == 2
+    assert update_schedule.await_count == 4
     assert update_schedule.await_args_list[0].kwargs["create_state"] == "running"
     assert update_schedule.await_args_list[1].kwargs["create_state"] == "completed"
+    assert update_schedule.await_args_list[2].kwargs["video_state"] == "running"
+    assert update_schedule.await_args_list[3].kwargs["video_state"] == "completed"
     publishing.set_video_from_file.assert_awaited_once()
-    assert publishing.update_lecture.await_count == 2
+    # Scheduled publication projects CMID + result/status in one lease-fenced
+    # UPDATE so a stale publisher cannot win between two separate writes.
+    publishing.update_lecture.assert_awaited_once()
+    projected = publishing.update_lecture.await_args.kwargs
+    assert projected["publish_lease_token"] == "lease"
+    assert projected["moodle_videotracker_cmid"] == 42
+    assert projected["moodle_result_json"]["cmid"] == 42
 
 
 @pytest.mark.asyncio
@@ -253,6 +269,27 @@ async def test_deploy_ambiguous_schedule_states(tmp_path, monkeypatch):
     )
     with pytest.raises(AmbiguousDeploymentError, match="응답"):
         await publishing.deploy_lecture_to_moodle(10, publish_lease_token="lease")
+
+
+@pytest.mark.asyncio
+async def test_deploy_video_running_state_blocks_duplicate_upload(tmp_path, monkeypatch):
+    video = tmp_path / "final.mp4"
+    video.write_bytes(b"video")
+    lecture = _lecture(
+        video, moodle_deploy_mode="existing", moodle_videotracker_cmid=77
+    )
+    await _patch_deploy_common(monkeypatch, lecture)
+    monkeypatch.setattr(
+        publishing,
+        "get_publish_schedule",
+        AsyncMock(return_value={"video_state": "running"}),
+    )
+    monkeypatch.setattr(publishing, "create_activity", AsyncMock())
+    monkeypatch.setattr(publishing, "update_publish_schedule", AsyncMock())
+
+    with pytest.raises(AmbiguousDeploymentError, match="영상 업로드/연결"):
+        await publishing.deploy_lecture_to_moodle(10, publish_lease_token="lease")
+    publishing.set_video_from_file.assert_not_awaited()
 
 
 @pytest.mark.asyncio

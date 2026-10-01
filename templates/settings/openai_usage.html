@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ t("common.openai_usage") }} · AI Professor Lite<script src="/static/openai-usage-pagination.js" defer></script>
-{% endblock %}
+{% block title %}{{ t("common.openai_usage") }} · AI Professor Lite{% endblock %}
 {% block header_title %}{{ t("common.openai_usage") }}{% endblock %}
 {% block header_subtitle %}{{ t("settings.usage.subtitle") }}{% endblock %}
 
@@ -288,4 +287,5 @@
         {% endif %}
     </section>
 </div>
+<script src="/static/openai-usage-pagination.js" defer></script>
 {% endblock %}

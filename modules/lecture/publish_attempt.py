@@ -50,6 +50,13 @@ async def _run_claimed_publish(
     settle_source_failed_publish_schedule_fn=settle_source_failed_publish_schedule,
 ) -> None:
     attempts = 0
+    async def update_lecture_projection(lecture_id_value: int, **values) -> None:
+        await update_lecture_fn(
+            lecture_id_value,
+            publish_lease_token=lease_token,
+            **values,
+        )
+
     try:
         schedule = await get_publish_schedule_fn(lecture_id)
         attempts = int((schedule or {}).get("attempts") or 0)
@@ -64,7 +71,7 @@ async def _run_claimed_publish(
             lease_token=lease_token,
             attempts=attempts,
             update_publish_schedule_fn=update_publish_schedule_fn,
-            update_lecture_fn=update_lecture_fn,
+            update_lecture_fn=update_lecture_projection,
         )
         await deploy_lecture_to_moodle_fn(
             lecture_id,
@@ -90,7 +97,7 @@ async def _run_claimed_publish(
             lecture_id=lecture_id,
             lease_token=lease_token,
             update_publish_schedule_fn=update_publish_schedule_fn,
-            update_lecture_fn=update_lecture_fn,
+            update_lecture_fn=update_lecture_projection,
         )
     except PublishSourceFailedError as exc:
         await settle_source_failed(
@@ -100,7 +107,6 @@ async def _run_claimed_publish(
             settle_source_failed_publish_schedule_fn=(
                 settle_source_failed_publish_schedule_fn
             ),
-            update_lecture_fn=update_lecture_fn,
         )
     except AmbiguousDeploymentError as exc:
         await settle_ambiguous(
@@ -108,7 +114,7 @@ async def _run_claimed_publish(
             lease_token=lease_token,
             error=exc,
             update_publish_schedule_fn=update_publish_schedule_fn,
-            update_lecture_fn=update_lecture_fn,
+            update_lecture_fn=update_lecture_projection,
         )
     except Exception as exc:  # noqa: BLE001
         await settle_unexpected_failure(
@@ -119,5 +125,5 @@ async def _run_claimed_publish(
             max_attempts=_max_attempts(),
             retry_minutes=_retry_minutes(),
             update_publish_schedule_fn=update_publish_schedule_fn,
-            update_lecture_fn=update_lecture_fn,
+            update_lecture_fn=update_lecture_projection,
         )

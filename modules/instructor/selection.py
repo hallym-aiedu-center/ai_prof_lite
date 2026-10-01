@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 
 from core.openai.client import get_client
@@ -110,6 +111,11 @@ async def _choose_course(
         return courses[
             0
         ], "AI 선택 응답 형식을 사용할 수 없어 첫 번째 허용 강좌를 선택했습니다."
+    finally:
+        close = getattr(client, "close", None)
+        if close is not None:
+            with contextlib.suppress(Exception):
+                await close()
 
 
 async def _choose_lesson(
@@ -226,3 +232,8 @@ async def _choose_lesson(
             ),
             "rationale": "AI 응답을 사용할 수 없어 강좌의 첫 번째 게시 가능 섹션을 기준으로 구성했습니다.",
         }
+    finally:
+        close = getattr(client, "close", None)
+        if close is not None:
+            with contextlib.suppress(Exception):
+                await close()

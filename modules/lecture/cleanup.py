@@ -133,7 +133,29 @@ async def cleanup_all_orphan_runs() -> int:
     finally:
         await db.close()
 
+    lecture_ids = {int(row["id"]) for row in rows}
     removed = 0
-    for row in rows:
-        removed += len(await cleanup_lecture_runs(int(row["id"])))
+    for lecture_id in lecture_ids:
+        removed += len(await cleanup_lecture_runs(lecture_id))
+
+    # A crash can happen after a planning lecture row is deleted but before its
+    # filesystem root is removed.  Sweep old numeric lecture roots that no longer
+    # have a DB owner so those crash windows cannot leak storage forever.
+    lectures_root = data_dir() / "lectures"
+    cutoff = time.time() - _retention_seconds()
+    if lectures_root.is_dir():
+        for candidate in lectures_root.iterdir():
+            if not candidate.name.isdigit() or int(candidate.name) in lecture_ids:
+                continue
+            try:
+                stat = candidate.lstat()
+            except FileNotFoundError:
+                continue
+            if stat.st_mtime > cutoff:
+                continue
+            if candidate.is_symlink() or candidate.is_file():
+                candidate.unlink(missing_ok=True)
+            elif candidate.is_dir():
+                shutil.rmtree(candidate, ignore_errors=True)
+            removed += 1
     return removed

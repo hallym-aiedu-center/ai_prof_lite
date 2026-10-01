@@ -57,6 +57,12 @@ class MoodleCreateState:
 
 
 @dataclass(frozen=True)
+class MoodleVideoState:
+    status: str = "idle"
+    result: Any = None
+
+
+@dataclass(frozen=True)
 class MoodleDeploymentResult:
     mode: str
     cmid: int
@@ -78,6 +84,12 @@ class MoodleCreateMarker(Protocol):
     async def mark_running(self) -> None: ...
 
     async def mark_completed(self, activity: dict[str, Any]) -> None: ...
+
+    async def load_video(self) -> MoodleVideoState: ...
+
+    async def mark_video_running(self) -> None: ...
+
+    async def mark_video_completed(self, result: Any) -> None: ...
 
 
 GetClient = Callable[[int], Awaitable[Any]]
@@ -147,14 +159,38 @@ async def deploy_moodle_video(
     if not cmid:
         raise RuntimeError("Moodle VideoTracker CMID가 없습니다.")
 
-    video_result = await set_video_from_file(
-        client=client,
-        cmid=int(cmid),
-        path=spec.video_path,
-        duration=spec.duration,
-    )
-    if isinstance(video_result, dict) and video_result.get("success") is False:
-        raise RuntimeError("Moodle 영상 연결에 실패했습니다.")
+    video_state = await marker.load_video()
+    if video_state.status == "completed":
+        video_result = video_state.result
+    elif video_state.status == "running":
+        raise AmbiguousDeploymentError(
+            "이전 Moodle 영상 업로드/연결 요청의 결과가 불확실합니다. "
+            "Moodle에서 영상 연결 상태를 확인한 뒤 다시 진행하세요. "
+            "중복 업로드를 막기 위해 자동 재시도는 중단했습니다."
+        )
+    else:
+        await marker.mark_video_running()
+        try:
+            video_result = await set_video_from_file(
+                client=client,
+                cmid=int(cmid),
+                path=spec.video_path,
+                duration=spec.duration,
+            )
+        except Exception as exc:
+            # upload.php or set_video may have committed even if the response was lost.
+            # Keep the durable marker in running state so a retry cannot duplicate it.
+            raise AmbiguousDeploymentError(
+                "Moodle 영상 업로드/연결 응답을 확인하지 못했습니다. "
+                "Moodle에서 실제 반영 여부를 확인하세요."
+            ) from exc
+
+        if isinstance(video_result, dict) and video_result.get("success") is False:
+            raise AmbiguousDeploymentError(
+                "Moodle 영상 연결이 실패 응답을 반환했습니다. "
+                "업로드된 draft 파일의 반영 여부를 확인하세요."
+            )
+        await marker.mark_video_completed(video_result)
 
     return MoodleDeploymentResult(
         mode=spec.deploy_mode,

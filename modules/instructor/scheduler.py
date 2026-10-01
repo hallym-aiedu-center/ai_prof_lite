@@ -214,5 +214,6 @@ async def stop_instructor_scheduler() -> None:
             await asyncio.wait_for(_task, timeout=5.0)
         except (asyncio.TimeoutError, asyncio.CancelledError):
             _task.cancel()
+            await asyncio.gather(_task, return_exceptions=True)
         _task = None
     _stop_event = None

@@ -8,7 +8,7 @@ from PIL import Image
 from core.database.client import get_connection
 from core.jobs.errors import AmbiguousDeploymentError, retryable
 from core.jobs.sqlite import SQLiteJobQueue
-from modules.lecture import narration, publish_scheduler, stages
+from modules.lecture import narration, publish_scheduler, stage_moodle, stages
 from modules.lecture.checkpoints import get_stage
 from modules.lecture.composer import (
     detect_video_encoder,
@@ -150,10 +150,10 @@ async def test_moodle_ambiguous_create_not_repeated(make_lecture, monkeypatch):
         outputs={"compose": {"video": "fake.mp4"}},
     )
     monkeypatch.setattr(
-        stages, "get_user_moodle_client", AsyncMock(return_value=object())
+        stage_moodle, "get_user_moodle_client", AsyncMock(return_value=object())
     )
     create = AsyncMock(side_effect=TimeoutError("response lost"))
-    monkeypatch.setattr(stages, "create_activity", create)
+    monkeypatch.setattr(stage_moodle, "create_activity", create)
     for _ in range(2):
         with pytest.raises(AmbiguousDeploymentError) as caught:
             await stages.deploy_stage(ctx)
@@ -162,33 +162,33 @@ async def test_moodle_ambiguous_create_not_repeated(make_lecture, monkeypatch):
     assert (await get_stage(job.lecture_id, "moodle_create"))["status"] == "running"
 
 
-async def test_moodle_reuses_cmid_after_video_upload_failure(make_lecture, monkeypatch):
+async def test_moodle_ambiguous_video_upload_is_not_repeated(make_lecture, monkeypatch):
     queue, job = await ready(
         make_lecture, upload_to_moodle=True, moodle_course_id=7, moodle_section_num=0
     )
     monkeypatch.setattr(
-        stages, "get_user_moodle_client", AsyncMock(return_value=object())
+        stage_moodle, "get_user_moodle_client", AsyncMock(return_value=object())
     )
     create = AsyncMock(return_value={"cmid": 42, "success": True})
-    monkeypatch.setattr(stages, "create_activity", create)
-    attach = AsyncMock(
-        side_effect=[TimeoutError("upload interrupted"), {"success": True}]
-    )
-    monkeypatch.setattr(stages, "set_video_from_file", attach)
+    monkeypatch.setattr(stage_moodle, "create_activity", create)
+    attach = AsyncMock(side_effect=TimeoutError("upload interrupted"))
+    monkeypatch.setattr(stage_moodle, "set_video_from_file", attach)
     ctx = stages.StageContext(
         job,
         queue,
         await get_lecture(job.lecture_id),
         outputs={"compose": {"video": "fake.mp4"}},
     )
-    with pytest.raises(TimeoutError):
+    with pytest.raises(AmbiguousDeploymentError):
         await stages.deploy_stage(ctx)
     restored = stages.StageContext(
         job, queue, await get_lecture(job.lecture_id), outputs=ctx.outputs
     )
-    result = await stages.deploy_stage(restored)
-    assert result["result"]["cmid"] == 42
+    with pytest.raises(AmbiguousDeploymentError):
+        await stages.deploy_stage(restored)
     assert create.await_count == 1
+    assert attach.await_count == 1
+    assert (await get_stage(job.lecture_id, "moodle_video"))["status"] == "running"
 
 
 async def test_truncated_concatenated_video_is_rejected(monkeypatch, tmp_path):

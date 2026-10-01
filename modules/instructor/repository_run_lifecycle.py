@@ -1,5 +1,6 @@
 from core.database.client import get_connection
 from core.jobs.base import LeaseLost
+from modules.instructor.storage_cleanup import remove_planning_lecture_storage
 
 
 async def finalize_instructor_run(
@@ -37,6 +38,7 @@ async def finalize_instructor_run(
               AND id = (
                     SELECT lecture_id FROM ai_instructor_runs
                     WHERE id = ? AND status = 'planning' AND planning_token = ?
+                      AND planning_lease_until > CURRENT_TIMESTAMP
               )
             """,
             (lecture_id, run_id, planning_token),
@@ -55,6 +57,7 @@ async def finalize_instructor_run(
                 last_error = NULL,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND status = 'planning' AND planning_token = ?
+              AND planning_lease_until > CURRENT_TIMESTAMP
             """,
             (run_id, planning_token),
         )
@@ -76,12 +79,9 @@ async def fail_instructor_run(
     retryable: bool = True,
     max_attempts: int | None = None,
 ) -> bool:
-    """Fail an owned planning attempt and delete only its not-yet-queued lecture.
-
-    Non-retryable failures exhaust the planning attempt budget so the existing
-    reservation logic cannot automatically execute the paid operation again.
-    """
+    """Fail an owned planning attempt and remove its unqueued DB/filesystem state."""
     terminal_attempts = max(1, int(max_attempts or 1))
+    deleted_lecture_id: int | None = None
     db = await get_connection()
     try:
         await db.execute("BEGIN IMMEDIATE")
@@ -91,6 +91,7 @@ async def fail_instructor_run(
             SELECT lecture_id
             FROM ai_instructor_runs
             WHERE id = ? AND status = 'planning' AND planning_token = ?
+              AND planning_lease_until > CURRENT_TIMESTAMP
             """,
                 (run_id, planning_token),
             )
@@ -101,10 +102,12 @@ async def fail_instructor_run(
 
         lecture_id = row["lecture_id"]
         if lecture_id is not None:
-            await db.execute(
+            cursor = await db.execute(
                 "DELETE FROM lectures WHERE id = ? AND status = 'planning'",
                 (int(lecture_id),),
             )
+            if cursor.rowcount == 1:
+                deleted_lecture_id = int(lecture_id)
 
         cursor = await db.execute(
             """
@@ -120,16 +123,22 @@ async def fail_instructor_run(
                 last_error = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND status = 'planning' AND planning_token = ?
+              AND planning_lease_until > CURRENT_TIMESTAMP
             """,
             (retryable, terminal_attempts, error[:1200], run_id, planning_token),
         )
+        if cursor.rowcount != 1:
+            await db.rollback()
+            return False
         await db.commit()
-        return cursor.rowcount == 1
     except BaseException:
         await db.rollback()
         raise
     finally:
         await db.close()
+
+    await remove_planning_lecture_storage(deleted_lecture_id)
+    return True
 
 
 async def recover_stale_instructor_runs() -> list[int]:
@@ -140,6 +149,7 @@ async def recover_stale_instructor_runs() -> list[int]:
     retryable failed reservation.
     """
     recovered_lecture_ids: list[int] = []
+    deleted_lecture_ids: set[int] = set()
     db = await get_connection()
     try:
         await db.execute("BEGIN IMMEDIATE")
@@ -167,10 +177,12 @@ async def recover_stale_instructor_runs() -> list[int]:
 
             if user_status != "active":
                 if lecture_id is not None and lecture_status == "planning":
-                    await db.execute(
+                    cursor = await db.execute(
                         "DELETE FROM lectures WHERE id = ? AND status = 'planning'",
                         (int(lecture_id),),
                     )
+                    if cursor.rowcount == 1:
+                        deleted_lecture_ids.add(int(lecture_id))
                 await db.execute(
                     """
                     UPDATE ai_instructor_runs
@@ -204,10 +216,12 @@ async def recover_stale_instructor_runs() -> list[int]:
                 continue
 
             if lecture_id is not None and lecture_status == "planning":
-                await db.execute(
+                cursor = await db.execute(
                     "DELETE FROM lectures WHERE id = ? AND status = 'planning'",
                     (int(lecture_id),),
                 )
+                if cursor.rowcount == 1:
+                    deleted_lecture_ids.add(int(lecture_id))
 
             await db.execute(
                 """
@@ -224,22 +238,35 @@ async def recover_stale_instructor_runs() -> list[int]:
         # Clean up the tiny create/link crash window. Only AI Instructor uses
         # the temporary lecture status='planning'; keep a grace period so a live
         # planner has time to attach the new lecture_id to its run.
-        await db.execute(
-            """
-            DELETE FROM lectures
-            WHERE status = 'planning'
-              AND created_at <= datetime('now', '-10 minutes')
-              AND id NOT IN (
-                    SELECT lecture_id FROM ai_instructor_runs
-                    WHERE lecture_id IS NOT NULL
-              )
-            """
-        )
+        orphan_rows = await (
+            await db.execute(
+                """
+                SELECT id FROM lectures
+                WHERE status = 'planning'
+                  AND created_at <= datetime('now', '-10 minutes')
+                  AND id NOT IN (
+                        SELECT lecture_id FROM ai_instructor_runs
+                        WHERE lecture_id IS NOT NULL
+                  )
+                """
+            )
+        ).fetchall()
+        for orphan in orphan_rows:
+            orphan_id = int(orphan["id"])
+            cursor = await db.execute(
+                "DELETE FROM lectures WHERE id = ? AND status = 'planning'",
+                (orphan_id,),
+            )
+            if cursor.rowcount == 1:
+                deleted_lecture_ids.add(orphan_id)
 
         await db.commit()
-        return recovered_lecture_ids
     except BaseException:
         await db.rollback()
         raise
     finally:
         await db.close()
+
+    for lecture_id in deleted_lecture_ids:
+        await remove_planning_lecture_storage(lecture_id)
+    return recovered_lecture_ids

@@ -1,3 +1,5 @@
+import math
+
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
@@ -81,7 +83,7 @@ async def save_profile(
                 raise HTTPException(
                     422, "OpenAI 비용 한도는 숫자로 입력하세요."
                 ) from exc
-            if budget <= 0 or budget > 100000:
+            if not math.isfinite(budget) or budget <= 0 or budget > 100000:
                 from fastapi import HTTPException
 
                 raise HTTPException(

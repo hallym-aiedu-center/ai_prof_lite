@@ -137,12 +137,35 @@ def _extract_pdf(path: Path) -> str:
         from pypdf import PdfReader
     except ImportError as exc:  # pragma: no cover - installation guard
         raise RuntimeError("PDF 참고자료 처리를 위해 pypdf가 필요합니다.") from exc
-    reader = PdfReader(str(path))
-    return "\n\n".join(
-        (page.extract_text() or "").strip()
-        for page in reader.pages
-        if (page.extract_text() or "").strip()
-    )
+
+    maximum_pages = positive_int("MAX_PDF_PAGES", 300)
+    maximum_chars = positive_int("MAX_PDF_EXTRACTED_CHARS", 2_000_000)
+    maximum_page_chars = positive_int("MAX_PDF_PAGE_CHARS", 200_000)
+    reader = PdfReader(str(path), strict=False)
+    if len(reader.pages) > maximum_pages:
+        raise ValueError(
+            f"PDF 페이지 수가 허용 범위를 초과했습니다: "
+            f"{len(reader.pages)} > {maximum_pages}"
+        )
+
+    chunks: list[str] = []
+    total_chars = 0
+    for index, page in enumerate(reader.pages, start=1):
+        text = (page.extract_text() or "").strip()
+        if len(text) > maximum_page_chars:
+            raise ValueError(
+                f"PDF {index}페이지의 추출 텍스트가 허용 범위를 초과했습니다: "
+                f"{len(text)} > {maximum_page_chars} chars"
+            )
+        total_chars += len(text)
+        if total_chars > maximum_chars:
+            raise ValueError(
+                "PDF 전체 추출 텍스트가 허용 범위를 초과했습니다: "
+                f"> {maximum_chars} chars"
+            )
+        if text:
+            chunks.append(text)
+    return "\n\n".join(chunks)
 
 
 def _read_zip_member_limited(

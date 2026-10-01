@@ -18,18 +18,13 @@ from modules.lecture.composer import (
     compose_final_video,
     media_duration,
 )
-from modules.lecture.moodle_deployment import (
-    MoodleCreateState,
-    MoodleDeploymentSpec,
-    deploy_moodle_video,
-)
 from modules.lecture.narration import build_narration
 from modules.lecture.planner import create_lecture_plan, expand_lecture_narrations
 from modules.lecture.references import build_reference_context
-from modules.lecture.repository import get_publish_schedule, update_lecture
+from modules.lecture.repository import update_lecture
+from modules.lecture.stage_moodle import deploy_stage
 from modules.lecture.slides import build_slide_assets, use_image_model_slide_rendering
 from modules.moodle.service import get_user_moodle_client
-from modules.moodle.videotracker.service import create_activity, set_video_from_file
 
 
 @dataclass
@@ -408,71 +403,6 @@ async def compose_stage(ctx):
         "files": [str(path)],
     }
 
-
-class _StageMoodleCreateMarker:
-    def __init__(self, ctx: StageContext):
-        self.ctx = ctx
-
-    async def load(self) -> MoodleCreateState:
-        previous = await get_stage(self.ctx.job.lecture_id, "moodle_create")
-        if not previous:
-            return MoodleCreateState()
-        if previous["status"] == "completed":
-            activity = (previous.get("outputs") or {}).get("activity")
-            return MoodleCreateState(status="completed", activity=activity)
-        return MoodleCreateState(status="running")
-
-    async def mark_running(self) -> None:
-        await self.ctx.checkpoint("moodle_create", "running", {})
-
-    async def mark_completed(self, activity: dict) -> None:
-        await self.ctx.checkpoint("moodle_create", "completed", {"activity": activity})
-
-
-async def deploy_stage(ctx):
-    lecture = ctx.lecture
-    if not lecture["upload_to_moodle"]:
-        return {"result": None}
-
-    # AI Instructor can generate a lecture ahead of its class time. Once a
-    # publish row exists, publish_scheduler exclusively owns Moodle deployment.
-    schedule = await get_publish_schedule(ctx.job.lecture_id)
-    if schedule:
-        return {
-            "result": None,
-            "scheduled_publish": True,
-            "scheduled_at": schedule.get("scheduled_at"),
-            "publish_status": schedule.get("status"),
-        }
-
-    await ctx.check()
-    video_path = ctx.outputs["compose"]["video"]
-    duration = ctx.outputs["compose"].get("duration")
-    if duration is None:
-        # Backward compatibility for checkpoints created before duration was
-        # recorded in compose-stage outputs.
-        video_file = Path(video_path)
-        if video_file.is_file():
-            duration = await media_duration(video_file)
-
-    spec = MoodleDeploymentSpec.from_lecture(
-        lecture,
-        video_path=video_path,
-        duration=duration,
-    )
-    result = await deploy_moodle_video(
-        spec,
-        marker=_StageMoodleCreateMarker(ctx),
-        get_client=get_user_moodle_client,
-        create_activity=create_activity,
-        set_video_from_file=set_video_from_file,
-    )
-
-    if result.cmid != lecture.get("moodle_videotracker_cmid"):
-        await ctx.update(moodle_videotracker_cmid=result.cmid)
-    payload = result.as_dict()
-    await ctx.update(moodle_result_json=payload)
-    return {"result": payload}
 
 
 STAGES = (

@@ -7,6 +7,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from pptx import Presentation
 from pptx.util import Inches
 
+from modules.lecture.image_io import save_image_atomic
+
 PPT_IMAGE_WIDTH = 1920
 PPT_IMAGE_HEIGHT = 1080
 WIDTH = PPT_IMAGE_WIDTH
@@ -237,8 +239,7 @@ def render_local_slide(
         _draw_supporting_visual(canvas, draw, visual_path=visual_path, safe=safe)
     _draw_presenter_safe_zone(draw, safe)
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    canvas.save(output_path, "PNG")
+    save_image_atomic(canvas, output_path, "PNG")
     return output_path
 
 

@@ -103,6 +103,7 @@ async def update_lecture(
     lecture_id: int,
     *,
     run_token: str | None = None,
+    publish_lease_token: str | None = None,
     **values: Any,
 ) -> None:
     if not values:
@@ -150,12 +151,29 @@ async def update_lecture(
 
     assignments = ", ".join(f"{key} = ?" for key in serialized)
 
+    if run_token is not None and publish_lease_token is not None:
+        raise ValueError("run_token and publish_lease_token are mutually exclusive")
+
     params = list(serialized.values())
     params.append(lecture_id)
     guard = ""
     if run_token is not None:
         guard = " AND run_token = ?"
         params.append(run_token)
+    elif publish_lease_token is not None:
+        guard = """
+            AND EXISTS (
+                SELECT 1
+                FROM lecture_publish_schedules AS s
+                JOIN users AS u ON u.id = s.user_id
+                WHERE s.lecture_id = lectures.id
+                  AND s.status = 'publishing'
+                  AND s.lease_token = ?
+                  AND s.lease_until > CURRENT_TIMESTAMP
+                  AND u.status = 'active'
+            )
+        """
+        params.append(publish_lease_token)
 
     db = await get_connection()
 
@@ -170,7 +188,7 @@ async def update_lecture(
             params,
         )
 
-        if run_token is not None and cursor.rowcount != 1:
+        if (run_token is not None or publish_lease_token is not None) and cursor.rowcount != 1:
             raise LeaseLost("This worker no longer owns the lecture.")
 
         await db.commit()

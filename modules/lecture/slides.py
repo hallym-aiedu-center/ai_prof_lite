@@ -11,6 +11,7 @@ from PIL import Image, ImageOps
 
 from core.openai.client import get_client
 from core.openai.usage import images_generate
+from modules.lecture.image_io import atomic_write_bytes, is_valid_image, save_image_atomic
 from modules.lecture.slide_rendering import (
     PPT_IMAGE_HEIGHT,
     PPT_IMAGE_WIDTH,
@@ -47,10 +48,7 @@ def use_image_model_slide_rendering() -> bool:
 def _atomic_write(path: Path, content: bytes):
     if not content:
         raise ValueError("Image API returned an empty image.")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_bytes(content)
-    temporary.replace(path)
+    atomic_write_bytes(path, content)
 
 
 async def _save_openai_image(
@@ -145,7 +143,8 @@ def _slide_cache_key(*, model: str, quality: str, size: str, prompt: str) -> str
 
 
 def _copy_cached_image(cache_path: Path, output_path: Path) -> bool:
-    if not cache_path.is_file() or cache_path.stat().st_size <= 0:
+    if not is_valid_image(cache_path):
+        cache_path.unlink(missing_ok=True)
         return False
     _atomic_write(output_path, cache_path.read_bytes())
     return True
@@ -163,8 +162,7 @@ def _fit_to_ppt_canvas(*, source_path: Path, output_path: Path):
             image,
             ((PPT_IMAGE_WIDTH - width) // 2, (PPT_IMAGE_HEIGHT - height) // 2),
         )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    canvas.save(output_path, "PNG")
+    save_image_atomic(canvas, output_path, "PNG")
 
 
 async def generate_slide_image(
@@ -264,7 +262,8 @@ async def build_slide_assets(
     slide_png_paths: list[Path] = []
     for idx, slide in enumerate(slides, start=1):
         png_path = output_dir / f"slide_{idx:03d}.png"
-        if not png_path.is_file() or not png_path.stat().st_size:
+        if not is_valid_image(png_path):
+            png_path.unlink(missing_ok=True)
             if render_with_image_model:
                 await generate_slide_image(
                     api_key=api_key,

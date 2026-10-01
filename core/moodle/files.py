@@ -10,4 +10,11 @@ async def upload(client: MoodleClient, path: str) -> list[dict[str, Any]]:
 
 
 async def upload_draft(client: MoodleClient, path: str) -> int:
-    return await client.upload_file_and_get_draft_id(path)
+    uploaded = await client.upload_file(path)
+    if not uploaded:
+        raise RuntimeError("Moodle file upload returned no draft metadata.")
+    first = uploaded[0]
+    draft_id = first.get("itemid") or first.get("draftitemid")
+    if not draft_id:
+        raise RuntimeError(f"Could not resolve Moodle draft item id: {first}")
+    return int(draft_id)

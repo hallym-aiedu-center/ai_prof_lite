@@ -188,6 +188,7 @@ async def update_instructor_run(
     if planning_token is not None:
         where += (
             " AND status = 'planning' AND planning_token = ?"
+            " AND planning_lease_until > CURRENT_TIMESTAMP"
             " AND EXISTS (SELECT 1 FROM users AS u"
             " WHERE u.id = ai_instructor_runs.user_id AND u.status = 'active')"
         )

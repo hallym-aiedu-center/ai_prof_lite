@@ -73,7 +73,19 @@ async def release_not_ready(
     update_publish_schedule_fn: AsyncFn,
     update_lecture_fn: AsyncFn,
 ) -> None:
-    with contextlib.suppress(LeaseLost):
+    try:
+        # Fence the projection write while the lease is still live.  Clearing the
+        # lease first would make a subsequent ownership-checked lecture update
+        # impossible and reintroduce stale-writer races.
+        await update_publish_schedule_fn(
+            lecture_id,
+            lease_token=lease_token,
+            last_error=None,
+        )
+        await update_lecture_fn(
+            lecture_id,
+            status_message="예약 시각 도달 · 최종 강의 영상 생성 완료 대기 중",
+        )
         await update_publish_schedule_fn(
             lecture_id,
             lease_token=lease_token,
@@ -81,10 +93,8 @@ async def release_not_ready(
             status="pending",
             last_error=None,
         )
-    await update_lecture_fn(
-        lecture_id,
-        status_message="예약 시각 도달 · 최종 강의 영상 생성 완료 대기 중",
-    )
+    except LeaseLost:
+        return
 
 
 async def settle_source_failed(
@@ -93,21 +103,15 @@ async def settle_source_failed(
     lease_token: str,
     error: Exception,
     settle_source_failed_publish_schedule_fn: AsyncFn,
-    update_lecture_fn: AsyncFn,
 ) -> None:
     try:
-        still_failed = await settle_source_failed_publish_schedule_fn(
+        await settle_source_failed_publish_schedule_fn(
             lecture_id,
             lease_token=lease_token,
             last_error=str(error),
         )
     except LeaseLost:
         return
-    if still_failed:
-        await update_lecture_fn(
-            lecture_id,
-            status_message="강의 생성 실패 · Moodle 예약 게시 중단",
-        )
 
 
 async def settle_ambiguous(
@@ -118,18 +122,26 @@ async def settle_ambiguous(
     update_publish_schedule_fn: AsyncFn,
     update_lecture_fn: AsyncFn,
 ) -> None:
-    with contextlib.suppress(LeaseLost):
+    try:
+        error_text = str(error)[:1200]
+        await update_publish_schedule_fn(
+            lecture_id,
+            lease_token=lease_token,
+            last_error=error_text,
+        )
+        await update_lecture_fn(
+            lecture_id,
+            status_message="강의 생성 완료 · Moodle 활동 생성 결과 수동 확인 필요",
+        )
         await update_publish_schedule_fn(
             lecture_id,
             lease_token=lease_token,
             clear_lease=True,
             status="failed",
-            last_error=str(error)[:1200],
+            last_error=error_text,
         )
-    await update_lecture_fn(
-        lecture_id,
-        status_message="강의 생성 완료 · Moodle 활동 생성 결과 수동 확인 필요",
-    )
+    except LeaseLost:
+        return
 
 
 async def settle_unexpected_failure(
@@ -149,7 +161,18 @@ async def settle_unexpected_failure(
             datetime.now(timezone.utc).replace(tzinfo=None)
             + timedelta(minutes=retry_minutes)
         ).strftime("%Y-%m-%d %H:%M:%S")
-        with contextlib.suppress(LeaseLost):
+        try:
+            await update_publish_schedule_fn(
+                lecture_id,
+                lease_token=lease_token,
+                last_error=error_text,
+            )
+            await update_lecture_fn(
+                lecture_id,
+                status_message=(
+                    f"Moodle 업로드 재시도 대기 중 · {retry_minutes}분 후 재시도"
+                ),
+            )
             await update_publish_schedule_fn(
                 lecture_id,
                 lease_token=lease_token,
@@ -158,15 +181,20 @@ async def settle_unexpected_failure(
                 scheduled_at=retry_at,
                 last_error=error_text,
             )
-        await update_lecture_fn(
-            lecture_id,
-            status_message=(
-                f"Moodle 업로드 재시도 대기 중 · {retry_minutes}분 후 재시도"
-            ),
-        )
+        except LeaseLost:
+            return
         return
 
-    with contextlib.suppress(LeaseLost):
+    try:
+        await update_publish_schedule_fn(
+            lecture_id,
+            lease_token=lease_token,
+            last_error=error_text,
+        )
+        await update_lecture_fn(
+            lecture_id,
+            status_message="강의 생성 완료 · Moodle 예약 업로드 실패",
+        )
         await update_publish_schedule_fn(
             lecture_id,
             lease_token=lease_token,
@@ -174,7 +202,5 @@ async def settle_unexpected_failure(
             status="failed",
             last_error=error_text,
         )
-    await update_lecture_fn(
-        lecture_id,
-        status_message="강의 생성 완료 · Moodle 예약 업로드 실패",
-    )
+    except LeaseLost:
+        return

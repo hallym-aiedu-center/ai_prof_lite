@@ -8,6 +8,7 @@ from modules.lecture.repository_lectures import (
     update_lecture,
 )
 from modules.lecture.repository_publishing import (
+    assert_publish_schedule_lease,
     claim_publish_schedule,
     create_publish_schedule_config,
     get_publish_schedule,
@@ -18,6 +19,7 @@ from modules.lecture.repository_publishing import (
 )
 
 __all__ = [
+    "assert_publish_schedule_lease",
     "claim_publish_schedule",
     "create_lecture",
     "create_publish_schedule_config",

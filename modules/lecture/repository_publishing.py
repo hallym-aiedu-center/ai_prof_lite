@@ -52,6 +52,10 @@ async def create_publish_schedule_config(
                 published_at = NULL,
                 lease_token = NULL,
                 lease_until = NULL,
+                create_state = 'idle',
+                create_result_json = NULL,
+                video_state = 'idle',
+                video_result_json = NULL,
                 updated_at = CURRENT_TIMESTAMP
             """,
             (
@@ -93,17 +97,21 @@ async def list_due_publish_schedule_ids(limit: int = 10) -> list[int]:
             SELECT s.lecture_id
             FROM lecture_publish_schedules AS s
             JOIN lectures AS l ON l.id = s.lecture_id
-            WHERE (
-                    s.status = 'pending'
-                    AND s.scheduled_at <= CURRENT_TIMESTAMP
-                    AND (
-                        l.final_video_path IS NOT NULL
-                        OR l.status = 'failed'
+            JOIN users AS u ON u.id = s.user_id
+            WHERE u.status = 'active'
+              AND (
+                    (
+                        s.status = 'pending'
+                        AND s.scheduled_at <= CURRENT_TIMESTAMP
+                        AND (
+                            l.final_video_path IS NOT NULL
+                            OR l.status = 'failed'
+                        )
                     )
-                  )
-               OR (
-                    s.status = 'publishing'
-                    AND (s.lease_until IS NULL OR s.lease_until <= CURRENT_TIMESTAMP)
+                    OR (
+                        s.status = 'publishing'
+                        AND (s.lease_until IS NULL OR s.lease_until <= CURRENT_TIMESTAMP)
+                    )
                   )
             ORDER BY
                 CASE
@@ -138,6 +146,11 @@ async def claim_publish_schedule(lecture_id: int, *, lease_seconds: int) -> str 
                 lease_until = datetime('now', ?),
                 updated_at = CURRENT_TIMESTAMP
             WHERE lecture_id = ?
+              AND EXISTS (
+                    SELECT 1 FROM users AS u
+                    WHERE u.id = lecture_publish_schedules.user_id
+                      AND u.status = 'active'
+              )
               AND (
                     (status = 'pending' AND scheduled_at <= CURRENT_TIMESTAMP)
                  OR (status = 'publishing'
@@ -173,6 +186,11 @@ async def renew_publish_schedule_lease(
               AND status = 'publishing'
               AND lease_token = ?
               AND lease_until > CURRENT_TIMESTAMP
+              AND EXISTS (
+                    SELECT 1 FROM users AS u
+                    WHERE u.id = lecture_publish_schedules.user_id
+                      AND u.status = 'active'
+              )
             """,
             (modifier, lecture_id, lease_token),
         )
@@ -222,6 +240,12 @@ async def settle_source_failed_publish_schedule(
                 WHERE lecture_id = ?
                   AND status = 'publishing'
                   AND lease_token = ?
+                  AND lease_until > CURRENT_TIMESTAMP
+                  AND EXISTS (
+                        SELECT 1 FROM users AS u
+                        WHERE u.id = lecture_publish_schedules.user_id
+                          AND u.status = 'active'
+                  )
                 """,
                 (last_error[:1200], lecture_id, lease_token),
             )
@@ -237,6 +261,12 @@ async def settle_source_failed_publish_schedule(
                 WHERE lecture_id = ?
                   AND status = 'publishing'
                   AND lease_token = ?
+                  AND lease_until > CURRENT_TIMESTAMP
+                  AND EXISTS (
+                        SELECT 1 FROM users AS u
+                        WHERE u.id = lecture_publish_schedules.user_id
+                          AND u.status = 'active'
+                  )
                 """,
                 (lecture_id, lease_token),
             )
@@ -245,11 +275,51 @@ async def settle_source_failed_publish_schedule(
             await db.rollback()
             raise LeaseLost("This process no longer owns the publish schedule.")
 
+        if still_failed:
+            lecture_cursor = await db.execute(
+                """
+                UPDATE lectures
+                SET status_message = '강의 생성 실패 · Moodle 예약 게시 중단',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND status = 'failed'
+                """,
+                (lecture_id,),
+            )
+            if lecture_cursor.rowcount != 1:
+                await db.rollback()
+                raise LeaseLost("The lecture changed while settling publication.")
+
         await db.commit()
         return still_failed
     except BaseException:
         await db.rollback()
         raise
+    finally:
+        await db.close()
+
+
+async def assert_publish_schedule_lease(lecture_id: int, lease_token: str) -> None:
+    """Fence all scheduled-publish side effects behind a live lease."""
+    db = await get_connection()
+    try:
+        row = await (
+            await db.execute(
+                """
+                SELECT 1
+                FROM lecture_publish_schedules AS s
+                JOIN users AS u ON u.id = s.user_id
+                WHERE s.lecture_id = ?
+                  AND s.status = 'publishing'
+                  AND s.lease_token = ?
+                  AND s.lease_until > CURRENT_TIMESTAMP
+                  AND u.status = 'active'
+                LIMIT 1
+                """,
+                (lecture_id, lease_token),
+            )
+        ).fetchone()
+        if row is None:
+            raise LeaseLost("This process no longer owns the publish schedule.")
     finally:
         await db.close()
 
@@ -276,6 +346,8 @@ async def update_publish_schedule(
         "timezone",
         "create_state",
         "create_result_json",
+        "video_state",
+        "video_result_json",
     }
     invalid = set(values) - allowed
     if invalid:
@@ -290,7 +362,13 @@ async def update_publish_schedule(
     where = "lecture_id = ?"
     params.append(lecture_id)
     if lease_token is not None:
-        where += " AND status = 'publishing' AND lease_token = ?"
+        where += (
+            " AND status = 'publishing' AND lease_token = ?"
+            " AND lease_until > CURRENT_TIMESTAMP"
+            " AND EXISTS (SELECT 1 FROM users AS u"
+            " WHERE u.id = lecture_publish_schedules.user_id"
+            " AND u.status = 'active')"
+        )
         params.append(lease_token)
 
     db = await get_connection()

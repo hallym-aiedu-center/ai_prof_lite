@@ -5,6 +5,7 @@ import os
 import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -190,7 +191,7 @@ async def _save_avatar_file(user_id: int, avatar: UploadFile) -> str:
     avatar_dir = data_dir() / "instructor" / str(user_id)
     avatar_dir.mkdir(parents=True, exist_ok=True)
     target = avatar_dir / "avatar.png"
-    temporary = avatar_dir / "avatar.tmp"
+    temporary = avatar_dir / f".avatar.{uuid4().hex}.tmp"
     try:
         await asyncio.to_thread(temporary.write_bytes, normalized)
         await asyncio.to_thread(temporary.replace, target)
@@ -397,6 +398,14 @@ async def save_instructor(
             status_code=400, detail="선택 강좌 모드에서는 강좌를 하나 이상 지정하세요."
         )
 
+    # Validate all scalar settings before mutating the avatar file.  A bad model
+    # value must not replace a previously valid avatar as a side effect of a
+    # rejected profile submission.
+    validated_text_model = _validate_model(text_model, "강의 설계 모델")
+    validated_image_model = _validate_model(image_model, "이미지 모델")
+    validated_tts_model = _validate_model(tts_model, "TTS 모델")
+    validated_tts_voice = _validate_model(tts_voice, "TTS Voice")
+
     old = await get_instructor_profile(user_id) or _default_profile(user_id)
     avatar_path: str | None = None
     if avatar is not None and getattr(avatar, "filename", ""):
@@ -421,10 +430,10 @@ async def save_instructor(
         selected_course_ids=selected_ids,
         instructions=instructions[:5000],
         avatar_path=avatar_path,
-        text_model=_validate_model(text_model, "강의 설계 모델"),
-        image_model=_validate_model(image_model, "이미지 모델"),
-        tts_model=_validate_model(tts_model, "TTS 모델"),
-        tts_voice=_validate_model(tts_voice, "TTS Voice"),
+        text_model=validated_text_model,
+        image_model=validated_image_model,
+        tts_model=validated_tts_model,
+        tts_voice=validated_tts_voice,
         generate_images=(generate_images is not None),
         target_duration_minutes=target_duration_minutes,
         target_slide_count=target_slide_count,

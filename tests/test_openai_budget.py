@@ -44,6 +44,41 @@ async def _events(user_id: int):
         await db.close()
 
 
+async def test_stale_reservation_is_preserved_and_can_still_finalize(
+    database, monkeypatch
+):
+    monkeypatch.setenv("OPENAI_USAGE_RESERVATION_TTL_MINUTES", "15")
+    await _set_budget(1, 1.00)
+    event_id = await reserve_usage(
+        user_id=1, kind="responses", model="gpt-5.1", reserve_usd=0.40
+    )
+    db = await get_connection()
+    try:
+        await db.execute(
+            "UPDATE openai_usage_events SET created_at=datetime('now', '-20 minutes') "
+            "WHERE id=?",
+            (event_id,),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+    summary = await usage_summary(1)
+    assert summary["reserved"] == pytest.approx(0.40)
+    row = (await _events(1))[-1]
+    assert row["status"] == "ambiguous"
+
+    await finalize_usage(event_id, cost_usd=0.25)
+    summary = await usage_summary(1)
+    assert summary["spent"] == pytest.approx(0.25)
+    assert summary["reserved"] == pytest.approx(0.0)
+
+
+async def test_finalize_usage_rejects_missing_reservation(database):
+    with pytest.raises(RuntimeError, match="could not be finalized"):
+        await finalize_usage(999999, cost_usd=0.10)
+
+
 async def test_user_budget_blocks_concurrent_reserved_spend(database):
     await _set_budget(1, 1.00)
     first = await reserve_usage(

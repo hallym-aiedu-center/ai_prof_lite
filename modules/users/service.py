@@ -1,3 +1,4 @@
+import asyncio
 import json
 import shutil
 from pathlib import Path
@@ -147,6 +148,50 @@ def _remove_path(path: Path) -> None:
         shutil.rmtree(path, ignore_errors=True)
 
 
+async def _quiesce_user_work(db, user_id: int) -> None:
+    """Revoke local work before account rows/files disappear."""
+    await db.execute("BEGIN IMMEDIATE")
+    cursor = await db.execute(
+        """
+        UPDATE users
+        SET status='deleting', updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (user_id,),
+    )
+    if cursor.rowcount != 1:
+        await db.rollback()
+        raise ValueError("삭제할 계정을 찾을 수 없습니다.")
+    # Do not delete durable jobs here.  ``users.status != 'active'`` is already
+    # part of the queue ownership/claim predicates, so changing the account to
+    # ``deleting`` fences workers immediately.  Keeping the rows until the final
+    # user DELETE means a cancelled/failed account deletion can restore the user
+    # without silently losing queued work.
+    await db.execute(
+        """
+        UPDATE lecture_publish_schedules
+        SET lease_until=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+        WHERE user_id=? AND status='publishing'
+        """,
+        (user_id,),
+    )
+    instructor_table = await (
+        await db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ai_instructor_runs'"
+        )
+    ).fetchone()
+    if instructor_table is not None:
+        await db.execute(
+            """
+            UPDATE ai_instructor_runs
+            SET planning_lease_until=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+            WHERE user_id=? AND status='planning'
+            """,
+            (user_id,),
+        )
+    await db.commit()
+
+
 async def delete_account(user_id: int) -> None:
     """Delete an account and its user-owned files.
 
@@ -158,7 +203,16 @@ async def delete_account(user_id: int) -> None:
     db = await get_connection()
     paths: set[Path] = set()
     lecture_ids: list[int] = []
+    original_status: str | None = None
+    quiesced = False
     try:
+        user_row = await (
+            await db.execute("SELECT status FROM users WHERE id = ? LIMIT 1", (user_id,))
+        ).fetchone()
+        if user_row is None:
+            raise ValueError("삭제할 계정을 찾을 수 없습니다.")
+        original_status = str(user_row["status"] or "active")
+
         lectures = await (
             await db.execute(
                 """
@@ -204,14 +258,28 @@ async def delete_account(user_id: int) -> None:
             if candidate:
                 paths.add(candidate)
 
+        await _quiesce_user_work(db, user_id)
+        quiesced = True
+        # runner.py checks ownership at least every two seconds.  The ``deleting``
+        # account status makes those ownership checks fail; give the process a
+        # brief cancellation window before removing filesystem roots so a stale
+        # process cannot recreate them.
+        await asyncio.sleep(2.25)
+
         await db.execute("BEGIN IMMEDIATE")
         cursor = await db.execute("DELETE FROM users WHERE id = ?", (user_id,))
         if cursor.rowcount != 1:
             await db.rollback()
             raise ValueError("삭제할 계정을 찾을 수 없습니다.")
         await db.commit()
-    except Exception:
+    except BaseException:
         await db.rollback()
+        if quiesced and original_status is not None:
+            await db.execute(
+                "UPDATE users SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (original_status, user_id),
+            )
+            await db.commit()
         raise
     finally:
         await db.close()

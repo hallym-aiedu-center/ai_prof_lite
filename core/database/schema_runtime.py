@@ -113,3 +113,15 @@ async def ensure_runtime_schema(db) -> None:
         "create_result_json",
         "TEXT",
     )
+    await _add_column_if_missing(
+        db,
+        "lecture_publish_schedules",
+        "video_state",
+        "TEXT NOT NULL DEFAULT 'idle'",
+    )
+    await _add_column_if_missing(
+        db,
+        "lecture_publish_schedules",
+        "video_result_json",
+        "TEXT",
+    )

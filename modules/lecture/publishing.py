@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,7 @@ from modules.lecture.composer import media_duration
 from modules.lecture.moodle_deployment import (
     MoodleCreateState,
     MoodleDeploymentSpec,
+    MoodleVideoState,
     deploy_moodle_video,
 )
 from modules.lecture.publish_planning import (
@@ -27,6 +29,7 @@ from modules.lecture.publish_planning import (
     validate_publish_payload,
 )
 from modules.lecture.repository import (
+    assert_publish_schedule_lease,
     get_lecture,
     get_publish_schedule,
     update_lecture,
@@ -135,6 +138,11 @@ async def choose_ai_publish_plan(
             exc_info=True,
         )
         payload = fallback_publish_payload(now_local)
+    finally:
+        close = getattr(client, "close", None)
+        if close is not None:
+            with contextlib.suppress(Exception):
+                await close()
 
     weekday, hour, minute = validate_publish_payload(payload)
     scheduled_local = next_weekday_datetime(
@@ -189,6 +197,15 @@ class _DirectCreateMarker:
     async def mark_completed(self, activity: dict) -> None:
         pass
 
+    async def load_video(self) -> MoodleVideoState:
+        return MoodleVideoState()
+
+    async def mark_video_running(self) -> None:
+        pass
+
+    async def mark_video_completed(self, result) -> None:
+        pass
+
 
 class _PublishScheduleCreateMarker:
     def __init__(self, lecture_id: int, lease_token: str | None):
@@ -201,7 +218,8 @@ class _PublishScheduleCreateMarker:
         return self.lease_token
 
     async def load(self) -> MoodleCreateState:
-        self._require_lease_token()
+        lease_token = self._require_lease_token()
+        await assert_publish_schedule_lease(self.lecture_id, lease_token)
         schedule = await get_publish_schedule(self.lecture_id)
         if schedule is None:
             raise RuntimeError("예약 게시 정보를 찾을 수 없습니다.")
@@ -235,6 +253,42 @@ class _PublishScheduleCreateMarker:
             create_result_json=json.dumps(activity, ensure_ascii=False),
         )
 
+    async def load_video(self) -> MoodleVideoState:
+        lease_token = self._require_lease_token()
+        await assert_publish_schedule_lease(self.lecture_id, lease_token)
+        schedule = await get_publish_schedule(self.lecture_id)
+        if schedule is None:
+            raise RuntimeError("예약 게시 정보를 찾을 수 없습니다.")
+        state = str(schedule.get("video_state") or "idle")
+        if state != "completed":
+            return MoodleVideoState(status=state)
+        try:
+            result = json.loads(schedule.get("video_result_json") or "null")
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise AmbiguousDeploymentError(
+                "저장된 Moodle 영상 연결 결과가 손상되었습니다. "
+                "Moodle에서 실제 영상 연결 상태를 확인하세요."
+            ) from exc
+        return MoodleVideoState(status="completed", result=result)
+
+    async def mark_video_running(self) -> None:
+        lease_token = self._require_lease_token()
+        await update_publish_schedule(
+            self.lecture_id,
+            lease_token=lease_token,
+            video_state="running",
+            video_result_json=None,
+        )
+
+    async def mark_video_completed(self, result) -> None:
+        lease_token = self._require_lease_token()
+        await update_publish_schedule(
+            self.lecture_id,
+            lease_token=lease_token,
+            video_state="completed",
+            video_result_json=json.dumps(result, ensure_ascii=False, default=str),
+        )
+
 
 async def deploy_lecture_to_moodle(
     lecture_id: int,
@@ -253,17 +307,14 @@ async def deploy_lecture_to_moodle(
         video_path=final_video_path,
         duration=duration,
     )
-    # A publish schedule / lease is relevant only when a new Moodle
-    # activity actually needs to be created. Existing-CMID deployments
-    # must not touch the publish-schedule table.
-    if spec.deploy_mode == "create" and not spec.cmid:
-        schedule = await get_publish_schedule(lecture_id)
-        if schedule is None:
-            marker = _DirectCreateMarker()
-        else:
-            marker = _PublishScheduleCreateMarker(lecture_id, publish_lease_token)
-    else:
+    # Every scheduled deployment uses the durable marker, even when an existing
+    # CMID is selected.  Activity creation may be skipped, but video upload/attach
+    # is still non-idempotent and must remain fenced across retries.
+    schedule = await get_publish_schedule(lecture_id)
+    if schedule is None:
         marker = _DirectCreateMarker()
+    else:
+        marker = _PublishScheduleCreateMarker(lecture_id, publish_lease_token)
 
     result = await deploy_moodle_video(
         spec,
@@ -273,12 +324,27 @@ async def deploy_lecture_to_moodle(
         set_video_from_file=set_video_from_file,
     )
 
-    if result.cmid != lecture.get("moodle_videotracker_cmid"):
-        await update_lecture(lecture_id, moodle_videotracker_cmid=result.cmid)
     payload = result.as_dict()
-    await update_lecture(
-        lecture_id,
-        moodle_result_json=payload,
-        status_message="Moodle 자동 업로드가 완료되었습니다.",
-    )
+    if schedule is None:
+        # Direct/manual uploads do not have a publish-schedule lease.
+        if result.cmid != lecture.get("moodle_videotracker_cmid"):
+            await update_lecture(lecture_id, moodle_videotracker_cmid=result.cmid)
+        await update_lecture(
+            lecture_id,
+            moodle_result_json=payload,
+            status_message="Moodle 자동 업로드가 완료되었습니다.",
+        )
+    else:
+        lease_token = str(publish_lease_token or "")
+        values = {
+            "moodle_result_json": payload,
+            "status_message": "Moodle 자동 업로드가 완료되었습니다.",
+        }
+        if result.cmid != lecture.get("moodle_videotracker_cmid"):
+            values["moodle_videotracker_cmid"] = result.cmid
+        await update_lecture(
+            lecture_id,
+            publish_lease_token=lease_token,
+            **values,
+        )
     return payload
