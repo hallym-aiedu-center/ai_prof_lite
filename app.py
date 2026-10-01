@@ -215,4 +215,9 @@ if __name__ == "__main__":
         port=int(os.getenv("APP_PORT", "8001")),
         reload=os.getenv("APP_RELOAD", "0").strip().lower()
         in {"1", "true", "yes", "on"},
+        proxy_headers=True,
+        forwarded_allow_ips=os.getenv(
+            "FORWARDED_ALLOW_IPS",
+            "127.0.0.1",
+        ),
     )
