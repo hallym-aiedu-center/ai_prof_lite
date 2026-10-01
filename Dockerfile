@@ -197,7 +197,7 @@ RUN ${CONDA_DIR}/bin/conda clean -afy \
 # ------------------------------------------------------------
 # Non-root runtime user
 #
-# Fixed UID/GID makes bind-mounted volume permissions predictable
+# Fixed UID/GID keeps bind-mounted volume ownership predictable
 # on Linux hosts.
 # ------------------------------------------------------------
 ARG APP_UID=10001
@@ -216,14 +216,17 @@ RUN groupadd \
 
 # ------------------------------------------------------------
 # Application source
+#
+# Keep application source root-owned so the runtime process
+# cannot modify its own source/templates/static files.
 # ------------------------------------------------------------
-COPY --chown=app:app . /app
+COPY . /app
 
 # ------------------------------------------------------------
 # Writable runtime directories
 #
-# Keep application source non-root while explicitly preparing
-# directories that the application is expected to write to.
+# Only directories that require runtime writes are owned by app.
+# Add additional paths here if the application writes elsewhere.
 # ------------------------------------------------------------
 RUN mkdir -p \
       /app/data \
@@ -250,8 +253,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # ------------------------------------------------------------
 # Drop root privileges
 #
-# Everything below this point, including tini and Python,
-# runs as the unprivileged application user.
+# tini and Python run as the unprivileged application user.
 # ------------------------------------------------------------
 USER app:app
 
