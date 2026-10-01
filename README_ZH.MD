@@ -8,6 +8,47 @@ AI Professor Lite 是一个 self-hosted 课程制作应用，用一套流程完�
 
 Web UI 基于 FastAPI，任务管理使用 SQLite 队列。耗时的媒体任务由按 GPU 隔离的 runner 执行。OpenAI 用于课程规划、图片、TTS 和参考资料 RAG，Ditto TalkingHead 用于生成教师头像视频。
 
+
+## 界面与生成示例
+
+仪表盘可以集中查看连接状态、正在生成的课程、Ditto 引擎状态以及最近的任务。
+
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="AI Professor Lite 仪表盘" width="100%">
+</p>
+
+课程详情页会显示当前生成 stage 和进度。生成完成后，可以下载 PPTX、最终课程 MP4、narration WAV、Quiz JSON 等产物，并同时支持桌面端与移动端布局。
+
+<table>
+  <tr>
+    <td width="72%"><img src="docs/images/lecture-progress-desktop.png" alt="课程生成进度 - 桌面端"></td>
+    <td width="28%"><img src="docs/images/lecture-progress-mobile.png" alt="课程生成进度 - 移动端"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>桌面端课程详情 / 生成进度</sub></td>
+    <td align="center"><sub>移动端课程详情</sub></td>
+  </tr>
+</table>
+
+实际生成流程会创建幻灯片和讲解音频，使用 Ditto TalkingHead 驱动教师图片，然后通过 FFmpeg 将它们合成为一个最终课程视频。
+
+<table>
+  <tr>
+    <td width="60%"><img src="docs/images/generated-slide.png" alt="生成的课程幻灯片示例"></td>
+    <td width="40%"><img src="docs/images/professor-avatar-source.png" alt="教师头像源图片示例"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>生成的课程幻灯片</sub></td>
+    <td align="center"><sub>用于 TalkingHead 生成的教师图片</sub></td>
+  </tr>
+</table>
+
+**PPT / 幻灯片 + narration + TalkingHead → `final_lecture.mp4`**
+
+> 仓库只保留用于 README 的轻量静态图片。生成的 MP4、WAV 等大型产物由应用的课程详情页进行管理。
+
+---
+
 ## 主要功能
 
 - 用户注册 / 登录和用户级数据隔离

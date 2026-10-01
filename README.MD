@@ -8,6 +8,47 @@ AI Professor Lite는 강의 기획, 슬라이드, 음성, 교수 아바타 영�
 
 FastAPI 기반 웹 UI와 SQLite 작업 큐를 사용하며, 미디어 생성 작업은 GPU별 독립 runner에서 실행됩니다. OpenAI는 강의 구성, 이미지, TTS, 참고자료 RAG에 사용하고 Ditto TalkingHead는 교수 아바타 영상 생성에 사용합니다.
 
+
+## 화면 및 생성 예시
+
+대시보드에서 연결 상태, 생성 중인 강의, Ditto 엔진 상태와 최근 작업을 한눈에 확인할 수 있습니다.
+
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="AI Professor Lite 대시보드" width="100%">
+</p>
+
+강의 상세 화면에서는 현재 생성 stage와 진행률을 확인하고, 완료 후 PPTX, 최종 강의 MP4, narration WAV, Quiz JSON 등의 산출물을 내려받을 수 있습니다. 데스크톱과 모바일 UI를 모두 지원합니다.
+
+<table>
+  <tr>
+    <td width="72%"><img src="docs/images/lecture-progress-desktop.png" alt="강의 생성 진행 화면 - 데스크톱"></td>
+    <td width="28%"><img src="docs/images/lecture-progress-mobile.png" alt="강의 생성 진행 화면 - 모바일"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>데스크톱 강의 상세 / 생성 진행률</sub></td>
+    <td align="center"><sub>모바일 강의 상세</sub></td>
+  </tr>
+</table>
+
+실제 생성 파이프라인은 슬라이드와 설명 음성을 만들고, 교수 이미지를 Ditto TalkingHead로 구동한 뒤 FFmpeg로 하나의 최종 강의 영상으로 합성합니다.
+
+<table>
+  <tr>
+    <td width="60%"><img src="docs/images/generated-slide.png" alt="생성된 강의 슬라이드 예시"></td>
+    <td width="40%"><img src="docs/images/professor-avatar-source.png" alt="교수 아바타 원본 이미지 예시"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>생성된 강의 슬라이드</sub></td>
+    <td align="center"><sub>TalkingHead 생성에 사용하는 교수 이미지</sub></td>
+  </tr>
+</table>
+
+**PPT / 슬라이드 + narration + TalkingHead → `final_lecture.mp4`**
+
+> 저장소에는 README용 정적 이미지만 포함합니다. 생성된 MP4와 WAV 같은 대용량 산출물은 애플리케이션의 강의 상세 화면에서 관리합니다.
+
+---
+
 ## 주요 기능
 
 - 회원가입 / 로그인과 사용자별 데이터 분리

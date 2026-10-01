@@ -8,6 +8,47 @@ AI Professor Lite は、講義設計、スライド、音声、教授アバタ�
 
 Web UI は FastAPI、ジョブ管理は SQLite ベースのキューを使用します。時間のかかるメディア生成処理は GPU ごとの独立 runner で実行します。OpenAI は講義設計、画像、TTS、参考資料 RAG に使用し、Ditto TalkingHead は教授アバター動画の生成に使用します。
 
+
+## 画面と生成例
+
+ダッシュボードでは、接続状態、生成中の講義、Ditto エンジンの状態、最近のジョブを一画面で確認できます。
+
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="AI Professor Lite ダッシュボード" width="100%">
+</p>
+
+講義詳細画面では、現在の生成 stage と進捗率を確認できます。生成完了後は PPTX、最終講義 MP4、narration WAV、Quiz JSON などの成果物をダウンロードできます。デスクトップとモバイルの両方に対応しています。
+
+<table>
+  <tr>
+    <td width="72%"><img src="docs/images/lecture-progress-desktop.png" alt="講義生成の進捗画面 - デスクトップ"></td>
+    <td width="28%"><img src="docs/images/lecture-progress-mobile.png" alt="講義生成の進捗画面 - モバイル"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>デスクトップの講義詳細 / 生成進捗</sub></td>
+    <td align="center"><sub>モバイルの講義詳細</sub></td>
+  </tr>
+</table>
+
+実際の生成パイプラインでは、スライドと説明音声を生成し、教授画像を Ditto TalkingHead でアニメーション化した後、FFmpeg で一つの最終講義動画に合成します。
+
+<table>
+  <tr>
+    <td width="60%"><img src="docs/images/generated-slide.png" alt="生成された講義スライドの例"></td>
+    <td width="40%"><img src="docs/images/professor-avatar-source.png" alt="教授アバター元画像の例"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>生成された講義スライド</sub></td>
+    <td align="center"><sub>TalkingHead 生成に使用する教授画像</sub></td>
+  </tr>
+</table>
+
+**PPT / スライド + narration + TalkingHead → `final_lecture.mp4`**
+
+> リポジトリには README 用の軽量な静止画像のみを含めます。生成された MP4 や WAV などの大容量成果物は、アプリケーションの講義詳細画面で管理します。
+
+---
+
 ## 主な機能
 
 - アカウント登録 / ログインとユーザー単位のデータ分離

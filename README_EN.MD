@@ -8,6 +8,47 @@ AI Professor Lite is a self-hosted lecture production application that handles l
 
 The web application is built with FastAPI and uses a SQLite-backed job queue. Media jobs run in isolated GPU runners. OpenAI is used for lecture planning, images, TTS, and reference-material RAG; Ditto TalkingHead is used for professor-avatar video generation.
 
+
+## Screenshots and generation example
+
+The dashboard provides a single view of connection status, active lecture generation, the Ditto engine, and recent jobs.
+
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="AI Professor Lite dashboard" width="100%">
+</p>
+
+The lecture detail page shows the current generation stage and progress. After completion, users can download artifacts such as the PPTX, final lecture MP4, narration WAV, and Quiz JSON. Both desktop and mobile layouts are supported.
+
+<table>
+  <tr>
+    <td width="72%"><img src="docs/images/lecture-progress-desktop.png" alt="Lecture generation progress - desktop"></td>
+    <td width="28%"><img src="docs/images/lecture-progress-mobile.png" alt="Lecture generation progress - mobile"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Desktop lecture detail / generation progress</sub></td>
+    <td align="center"><sub>Mobile lecture detail</sub></td>
+  </tr>
+</table>
+
+The generation pipeline creates slides and narration, animates the professor image with Ditto TalkingHead, and then composes everything into one final lecture video with FFmpeg.
+
+<table>
+  <tr>
+    <td width="60%"><img src="docs/images/generated-slide.png" alt="Generated lecture slide example"></td>
+    <td width="40%"><img src="docs/images/professor-avatar-source.png" alt="Professor avatar source image example"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Generated lecture slide</sub></td>
+    <td align="center"><sub>Professor image used for TalkingHead generation</sub></td>
+  </tr>
+</table>
+
+**PPT / slides + narration + TalkingHead → `final_lecture.mp4`**
+
+> The repository keeps only lightweight static images for the README. Large generated artifacts such as MP4 and WAV files are managed from the application's lecture detail page.
+
+---
+
 ## Features
 
 - Account registration/login with per-user data isolation
