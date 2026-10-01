@@ -1,4 +1,4 @@
-# Locked runtime dependency closure from the tested Python 3.12 Linux environment.
+# Locked runtime dependency closure from the tested Python 3.10 Linux environment.
 aiosqlite==0.22.1
 annotated-doc==0.0.5
 annotated-types==0.8.0
