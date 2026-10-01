@@ -8,6 +8,11 @@ from argon2.exceptions import (
 )
 
 from core.database.client import get_connection
+from modules.auth.constraints import (
+    EMAIL_MAX_LENGTH,
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+)
 
 _password_hasher = PasswordHasher()
 _DUMMY_PASSWORD_HASH = (
@@ -22,7 +27,19 @@ class EmailAlreadyExistsError(ValueError):
 
 
 def normalize_email(email: str) -> str:
-    return email.strip().lower()
+    if len(email) > EMAIL_MAX_LENGTH:
+        raise ValueError(f"이메일은 {EMAIL_MAX_LENGTH}자 이하여야 합니다.")
+    normalized = email.strip().lower()
+    if len(normalized) > EMAIL_MAX_LENGTH:
+        raise ValueError(f"이메일은 {EMAIL_MAX_LENGTH}자 이하여야 합니다.")
+    return normalized
+
+
+def _validate_password_length(password: str, *, require_minimum: bool) -> None:
+    if len(password) > PASSWORD_MAX_LENGTH:
+        raise ValueError(f"비밀번호는 {PASSWORD_MAX_LENGTH}자 이하여야 합니다.")
+    if require_minimum and len(password) < PASSWORD_MIN_LENGTH:
+        raise ValueError(f"비밀번호는 {PASSWORD_MIN_LENGTH}자 이상이어야 합니다.")
 
 
 async def register_user(
@@ -36,8 +53,7 @@ async def register_user(
     if not email:
         raise ValueError("이메일을 입력하세요.")
 
-    if len(password) < 8:
-        raise ValueError("비밀번호는 8자 이상이어야 합니다.")
+    _validate_password_length(password, require_minimum=True)
 
     password_hash = await asyncio.to_thread(_password_hasher.hash, password)
 
@@ -106,7 +122,12 @@ async def authenticate_user(
     email: str,
     password: str,
 ):
-    email = normalize_email(email)
+    try:
+        email = normalize_email(email)
+        _validate_password_length(password, require_minimum=False)
+    except ValueError:
+        return None
+
     db = await get_connection()
 
     try:
@@ -182,6 +203,8 @@ async def authenticate_user(
 
 async def verify_user_password(*, user_id: int, password: str) -> bool:
     """Verify the current password without mutating login metadata."""
+    if len(password) > PASSWORD_MAX_LENGTH:
+        return False
     db = await get_connection()
     try:
         row = await (

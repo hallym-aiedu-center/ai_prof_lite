@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import heapq
 import math
 import time
 from collections import defaultdict, deque
 from threading import Lock
+
+from modules.auth.constraints import EMAIL_MAX_LENGTH
 
 
 class SlidingWindowRateLimiter:
@@ -93,9 +96,20 @@ def _client_key(request) -> str:
     return str(host or "unknown")
 
 
+def _account_key(email: str) -> str:
+    raw = str(email or "")
+    if len(raw) > EMAIL_MAX_LENGTH:
+        return "<oversize>"
+    normalized = raw.strip().lower()
+    if not normalized:
+        return "<empty>"
+    digest = hashlib.blake2s(normalized.encode("utf-8"), digest_size=16).hexdigest()
+    return f"email:{digest}"
+
+
 def check_login_rate_limit(request, email: str) -> tuple[bool, int]:
     ip_key = _client_key(request)
-    account_key = str(email or "").strip().lower() or "<empty>"
+    account_key = _account_key(email)
 
     # Do not create/update per-account state for traffic already rejected by the
     # source-IP budget.  Otherwise an attacker can retain unbounded email keys by
@@ -111,8 +125,7 @@ def check_login_rate_limit(request, email: str) -> tuple[bool, int]:
 
 
 def reset_login_account(email: str) -> None:
-    account_key = str(email or "").strip().lower() or "<empty>"
-    _LOGIN_ACCOUNT.reset(account_key)
+    _LOGIN_ACCOUNT.reset(_account_key(email))
 
 
 def check_register_rate_limit(request) -> tuple[bool, int]:

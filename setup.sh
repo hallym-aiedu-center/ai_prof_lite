@@ -32,6 +32,10 @@ DITTO_REPO="https://huggingface.co/digital-avatar/ditto-talkinghead"
 DEFAULT_EXTERNAL_PORT=8002
 DEFAULT_GPU_CAP=4
 
+# Dockerfile non-root runtime identity. Keep these aligned with APP_UID/APP_GID there.
+APP_UID="${APP_UID:-10001}"
+APP_GID="${APP_GID:-10001}"
+
 # Optional non-interactive overrides:
 #   DATA_DIR=/u2a/ai-prof-lite-data ./setup.sh
 #   EXTERNAL_PORT=18002 ./setup.sh
@@ -340,6 +344,29 @@ ok "데이터 저장 경로: $DATA_DIR"
 log "Docker image 빌드 중: $IMAGE_NAME"
 docker build -t "$IMAGE_NAME" "$ROOT_DIR"
 ok "Docker build 완료"
+
+# bind mount되는 data 디렉터리를 non-root 애플리케이션 사용자용으로 준비합니다.
+#
+# 기본 방식:
+#   - 방금 빌드한 이미지의 root 권한으로 임시 컨테이너를 실행
+#   - 기존 데이터까지 APP_UID:APP_GID 소유권으로 정리
+#   - 0777 대신 0775 권한을 사용
+#
+# fallback:
+#   - rootless Docker/NFS 등으로 chown이 불가능한 환경에서는
+#     애플리케이션 실행을 막지 않도록 data 디렉터리에만 0777을 적용
+log "data 디렉터리 권한 설정 중 (container UID:GID ${APP_UID}:${APP_GID})..."
+if docker run --rm \
+    --user 0:0 \
+    --entrypoint /bin/sh \
+    -v "$DATA_DIR:/app/data" \
+    "$IMAGE_NAME" \
+    -c "chown -R ${APP_UID}:${APP_GID} /app/data && chmod 0775 /app/data"; then
+  ok "data 디렉터리 소유권 설정 완료: ${APP_UID}:${APP_GID} (mode 0775)"
+else
+  warn "data 디렉터리 chown에 실패했습니다. chmod 0777 fallback을 적용합니다: $DATA_DIR"
+  chmod 0777 "$DATA_DIR" || die "data 디렉터리를 쓰기 가능하게 만들지 못했습니다: $DATA_DIR"
+fi
 
 # Verify NVIDIA Container Toolkit using the image we just built.
 log "Docker GPU passthrough 확인 중..."

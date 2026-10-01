@@ -164,3 +164,58 @@ async def test_streaming_body_limit_without_content_length():
         assert response.status_code == 413
         response = await client.post("/", content=b"12345678901")
         assert response.status_code == 413
+
+
+async def test_body_limit_supports_smaller_auth_route_limit():
+    app = FastAPI()
+    app.add_middleware(
+        BodyLimitMiddleware,
+        max_bytes=100,
+        path_limits={"/login": 10},
+    )
+
+    @app.post("/{path}")
+    async def endpoint(path: str, request: Request):
+        return {"size": len(await request.body())}
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        blocked = await client.post("/login", content=b"12345678901")
+        allowed = await client.post("/other", content=b"12345678901")
+
+    assert blocked.status_code == 413
+    assert allowed.status_code == 200
+
+
+async def test_active_session_middleware_skips_static_user_lookup(monkeypatch):
+    from starlette.requests import Request as StarletteRequest
+    from starlette.responses import Response
+
+    from modules.auth import session as auth_session
+
+    async def fail_lookup(user_id):
+        raise AssertionError("static requests must not query user status")
+
+    monkeypatch.setattr(auth_session, "get_user_status", fail_lookup)
+    middleware = auth_session.ActiveSessionMiddleware(app=lambda scope, receive, send: None)
+    request = StarletteRequest(
+        {
+            "type": "http",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/static/app.css",
+            "raw_path": b"/static/app.css",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 12345),
+            "server": ("test", 80),
+            "session": {"user_id": 1},
+        }
+    )
+
+    async def call_next(_request):
+        return Response(status_code=200)
+
+    response = await middleware.dispatch(request, call_next)
+    assert response.status_code == 200

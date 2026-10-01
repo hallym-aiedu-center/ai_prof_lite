@@ -21,6 +21,7 @@ from core.config import positive_int, session_secret
 from core.database.migrations import init_database
 from core.security_headers import SecurityHeadersMiddleware
 from core.version import __version__
+from modules.auth.constraints import AUTH_BODY_MAX_BYTES
 from modules.auth.routes import router as auth_router
 from modules.auth.session import ActiveSessionMiddleware, AuthenticatedUploadMiddleware
 from modules.credentials.routes import router as credentials_router
@@ -195,6 +196,10 @@ app.add_middleware(
         + positive_int("MAX_REFERENCE_UPLOAD_BYTES", 25 * 1024 * 1024)
         + 512 * 1024
     ),
+    path_limits={
+        "/login": positive_int("MAX_AUTH_BODY_BYTES", AUTH_BODY_MAX_BYTES),
+        "/register": positive_int("MAX_AUTH_BODY_BYTES", AUTH_BODY_MAX_BYTES),
+    },
 )
 app.include_router(dashboard_router)
 app.include_router(users_router)

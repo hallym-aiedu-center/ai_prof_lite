@@ -110,3 +110,61 @@ def test_registration_code_blocks_wrong_code(monkeypatch):
             },
         )
         assert allowed.status_code == 200
+
+
+def test_rate_limit_account_key_is_bounded():
+    from modules.auth.rate_limit import _account_key
+
+    key = _account_key("A@Example.Test ")
+    assert key == _account_key("a@example.test")
+    assert key.startswith("email:") and len(key) == len("email:") + 32
+    assert _account_key("x" * 10_000) == "<oversize>"
+
+
+async def test_register_rejects_oversize_credentials_before_hash(database, monkeypatch):
+    import pytest
+
+    from modules.auth.constraints import EMAIL_MAX_LENGTH, PASSWORD_MAX_LENGTH
+
+    class FailHasher:
+        def hash(self, password):
+            raise AssertionError("oversize credentials must be rejected before Argon2")
+
+    monkeypatch.setattr(service, "_password_hasher", FailHasher())
+
+    with pytest.raises(ValueError, match="이메일"):
+        await service.register_user(
+            email="x" * (EMAIL_MAX_LENGTH + 1),
+            password="password-123",
+        )
+
+    with pytest.raises(ValueError, match="비밀번호"):
+        await service.register_user(
+            email="valid@example.test",
+            password="x" * (PASSWORD_MAX_LENGTH + 1),
+        )
+
+
+async def test_authenticate_rejects_oversize_credentials_without_argon(database, monkeypatch):
+    from modules.auth.constraints import EMAIL_MAX_LENGTH, PASSWORD_MAX_LENGTH
+
+    class FailHasher:
+        def verify(self, password_hash, password):
+            raise AssertionError("oversize credentials must be rejected before Argon2")
+
+    monkeypatch.setattr(service, "_password_hasher", FailHasher())
+
+    assert (
+        await service.authenticate_user(
+            email="x" * (EMAIL_MAX_LENGTH + 1),
+            password="password-123",
+        )
+        is None
+    )
+    assert (
+        await service.authenticate_user(
+            email="missing@example.test",
+            password="x" * (PASSWORD_MAX_LENGTH + 1),
+        )
+        is None
+    )

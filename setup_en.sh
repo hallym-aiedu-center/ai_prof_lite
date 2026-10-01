@@ -32,6 +32,10 @@ DITTO_REPO="https://huggingface.co/digital-avatar/ditto-talkinghead"
 DEFAULT_EXTERNAL_PORT=8002
 DEFAULT_GPU_CAP=4
 
+# Dockerfile non-root runtime identity. Keep these aligned with APP_UID/APP_GID there.
+APP_UID="${APP_UID:-10001}"
+APP_GID="${APP_GID:-10001}"
+
 # Optional non-interactive overrides:
 #   DATA_DIR=/u2a/ai-prof-lite-data ./setup_en.sh
 #   EXTERNAL_PORT=18002 ./setup.sh
@@ -340,6 +344,29 @@ ok "Persistent data directory: $DATA_DIR"
 log "Building Docker image: $IMAGE_NAME"
 docker build -t "$IMAGE_NAME" "$ROOT_DIR"
 ok "Docker build complete"
+
+# Prepare bind-mounted data directory for the non-root application user.
+#
+# Preferred path:
+#   - use a short-lived root container from the just-built image
+#   - chown existing data to APP_UID:APP_GID
+#   - keep permissions at 0775 instead of making the directory world-writable
+#
+# Fallback:
+#   - if the filesystem/daemon does not allow chown (for example some
+#     rootless/NFS setups), use chmod 0777 so the application can still start.
+log "Preparing data directory permissions for container UID:GID ${APP_UID}:${APP_GID}..."
+if docker run --rm \
+    --user 0:0 \
+    --entrypoint /bin/sh \
+    -v "$DATA_DIR:/app/data" \
+    "$IMAGE_NAME" \
+    -c "chown -R ${APP_UID}:${APP_GID} /app/data && chmod 0775 /app/data"; then
+  ok "Data directory ownership set to ${APP_UID}:${APP_GID} (mode 0775)"
+else
+  warn "Could not chown the data directory. Falling back to chmod 0777: $DATA_DIR"
+  chmod 0777 "$DATA_DIR" || die "Failed to make the data directory writable: $DATA_DIR"
+fi
 
 # Verify NVIDIA Container Toolkit using the image we just built.
 log "Checking Docker GPU passthrough..."

@@ -13,6 +13,10 @@ class ActiveSessionMiddleware(BaseHTTPMiddleware):
     """Invalidate an existing signed session as soon as its account is disabled/deleted."""
 
     async def dispatch(self, request: Request, call_next):
+        path = request.url.path.rstrip("/") or "/"
+        if path == "/static" or path.startswith("/static/"):
+            return await call_next(request)
+
         value = request.session.get("user_id")
         if value is not None:
             try:
