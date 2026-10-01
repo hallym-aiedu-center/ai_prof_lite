@@ -193,6 +193,38 @@ docker exec ai-prof-lite nvidia-smi
 docker restart ai-prof-lite
 ```
 
+### Reverse proxy / original client IP
+
+When AI Professor Lite runs behind Nginx, Traefik, or another reverse proxy, set `FORWARDED_ALLOW_IPS` to **only the trusted proxy IP or Docker network range**. Uvicorn uses `X-Forwarded-For` from a trusted proxy to restore the original client address in `request.client.host`.
+
+This also affects IP-based rate limiting for sign-in and registration. If the proxy is not trusted correctly, every request may appear to come from the proxy's single IP address, causing multiple users to share one rate-limit quota.
+
+For the default setup where the Docker port is exposed directly, keep the default value:
+
+```env
+FORWARDED_ALLOW_IPS=127.0.0.1
+```
+
+For example, if Nginx reaches the application from Docker network `172.20.0.0/24`:
+
+```env
+FORWARDED_ALLOW_IPS=172.20.0.0/24
+```
+
+Nginx example:
+
+```nginx
+location / {
+    proxy_pass http://ai-prof-lite:8002;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+> **Warning:** Do not use `FORWARDED_ALLOW_IPS=*` when port `8002` is directly reachable by untrusted clients. Otherwise a client can spoof `X-Forwarded-For` and potentially bypass IP-based rate limits.
+
 ---
 
 # Manual installation
@@ -682,7 +714,13 @@ Production:
 ```env
 APP_ENV=production
 TRUSTED_HOSTS=example.com,www.example.com
+
+# Set only when using a reverse proxy.
+# Keep 127.0.0.1 when exposing the Docker port directly.
+FORWARDED_ALLOW_IPS=127.0.0.1
 ```
+
+When deploying behind a reverse proxy, restrict `FORWARDED_ALLOW_IPS` to the actual proxy IP or internal network range. This setting affects both original client-IP restoration and the accuracy of IP-based rate limiting.
 
 `SESSION_SECRET` and `CREDENTIAL_MASTER_KEY` are runtime secrets managed through `.env`.
 

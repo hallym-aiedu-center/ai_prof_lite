@@ -193,6 +193,38 @@ docker exec ai-prof-lite nvidia-smi
 docker restart ai-prof-lite
 ```
 
+### Reverse proxy / 원본 클라이언트 IP
+
+AI Professor Lite를 Nginx, Traefik 등의 reverse proxy 뒤에서 실행할 경우 `FORWARDED_ALLOW_IPS`에 **신뢰할 수 있는 proxy의 IP 또는 Docker network 대역만** 지정해야 합니다. Uvicorn은 신뢰된 proxy가 전달한 `X-Forwarded-For` 정보를 사용해 `request.client.host`를 원본 클라이언트 IP로 복원합니다.
+
+이 설정은 로그인/회원가입 등의 IP 기반 rate limit에도 사용됩니다. Proxy를 신뢰하지 않으면 모든 요청이 proxy의 동일한 IP에서 온 것으로 보일 수 있어 여러 사용자가 하나의 rate-limit quota를 공유하게 됩니다.
+
+Docker 포트를 직접 노출해 사용하는 기본 구성에서는 기본값을 유지하면 됩니다.
+
+```env
+FORWARDED_ALLOW_IPS=127.0.0.1
+```
+
+예를 들어 Nginx가 Docker network `172.20.0.0/24`에서 애플리케이션에 접근한다면:
+
+```env
+FORWARDED_ALLOW_IPS=172.20.0.0/24
+```
+
+Nginx 예시:
+
+```nginx
+location / {
+    proxy_pass http://ai-prof-lite:8002;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+> **주의:** 애플리케이션의 `8002` 포트가 신뢰할 수 없는 클라이언트에 직접 노출되어 있다면 `FORWARDED_ALLOW_IPS=*`를 사용하지 마세요. 클라이언트가 `X-Forwarded-For`를 위조해 IP 기반 rate limit을 우회할 수 있습니다.
+
 ---
 
 # 수동 설치
@@ -682,7 +714,13 @@ Docker 설치 스크립트는 영구 데이터 저장 경로를 사용자에게 
 ```env
 APP_ENV=production
 TRUSTED_HOSTS=example.com,www.example.com
+
+# Reverse proxy를 사용하는 경우에만 신뢰할 proxy IP/network를 지정합니다.
+# Docker 포트를 직접 노출하는 기본 구성에서는 127.0.0.1을 유지합니다.
+FORWARDED_ALLOW_IPS=127.0.0.1
 ```
+
+Reverse proxy 뒤에서 운영할 경우 `FORWARDED_ALLOW_IPS`를 실제 proxy IP 또는 내부 network 대역으로 제한하세요. 이 값은 원본 클라이언트 IP 복원과 IP 기반 rate limit의 정확성에 영향을 줍니다.
 
 `SESSION_SECRET`과 `CREDENTIAL_MASTER_KEY`는 런타임 secret이며 `.env`에서 관리합니다.
 
