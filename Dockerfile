@@ -161,14 +161,14 @@ import torch
 import tensorrt as trt
 
 print("================================")
-print("Python   :", sys.version.split()[0])
+print("Python    :", sys.version.split()[0])
 print("Executable:", sys.executable)
-print("FastAPI  :", fastapi.__version__)
-print("NumPy    :", np.__version__)
-print("PyTorch  :", torch.__version__)
-print("CUDA     :", torch.version.cuda)
-print("cuDNN    :", torch.backends.cudnn.version())
-print("TensorRT :", trt.__version__)
+print("FastAPI   :", fastapi.__version__)
+print("NumPy     :", np.__version__)
+print("PyTorch   :", torch.__version__)
+print("CUDA      :", torch.version.cuda)
+print("cuDNN     :", torch.backends.cudnn.version())
+print("TensorRT  :", trt.__version__)
 print("================================")
 
 assert sys.version_info[:2] == (3, 10), sys.version
@@ -188,25 +188,55 @@ assert trt.__version__.startswith("8.6.1"), trt.__version__
 PY
 
 # ------------------------------------------------------------
-# Cleanup
+# Cleanup build caches
 # ------------------------------------------------------------
 RUN ${CONDA_DIR}/bin/conda clean -afy \
     && rm -rf /root/.cache/pip \
     && rm -f /tmp/requirements.txt
 
 # ------------------------------------------------------------
+# Non-root runtime user
+#
+# Fixed UID/GID makes bind-mounted volume permissions predictable
+# on Linux hosts.
+# ------------------------------------------------------------
+ARG APP_UID=10001
+ARG APP_GID=10001
+
+RUN groupadd \
+      --gid ${APP_GID} \
+      app \
+    && useradd \
+      --uid ${APP_UID} \
+      --gid ${APP_GID} \
+      --create-home \
+      --home-dir /home/app \
+      --shell /usr/sbin/nologin \
+      app
+
+# ------------------------------------------------------------
 # Application source
 # ------------------------------------------------------------
-COPY . /app
+COPY --chown=app:app . /app
 
 # ------------------------------------------------------------
-# Non-root runtime user
+# Writable runtime directories
+#
+# Keep application source non-root while explicitly preparing
+# directories that the application is expected to write to.
 # ------------------------------------------------------------
+RUN mkdir -p \
+      /app/data \
+      /home/app/.cache \
+    && chown -R app:app \
+      /app/data \
+      /home/app
 
 # ------------------------------------------------------------
-# Runtime
+# Runtime environment
 # ------------------------------------------------------------
 ENV HOME=/home/app
+ENV XDG_CACHE_HOME=/home/app/.cache
 
 ENV APP_HOST=0.0.0.0
 ENV APP_PORT=8002
@@ -217,6 +247,13 @@ ENV DATA_DIR=/app/data
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
+# ------------------------------------------------------------
+# Drop root privileges
+#
+# Everything below this point, including tini and Python,
+# runs as the unprivileged application user.
+# ------------------------------------------------------------
+USER app:app
 
 EXPOSE 8002
 
