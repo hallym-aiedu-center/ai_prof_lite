@@ -6,3 +6,13 @@ extend-immutable-calls = [
     "fastapi.Form",
     "fastapi.File",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"app.py" = ["E402"]
+"worker.py" = ["E402"]
+"scripts/avatar_input_smoke.py" = ["E402"]
+"scripts/chroma_smoke.py" = ["E402"]
+"scripts/preflight.py" = ["E402"]
+"scripts/resolve_deployment.py" = ["E402"]
+"tests/conftest.py" = ["E402"]
+"core/jobs/runner.py" = ["E402"]
