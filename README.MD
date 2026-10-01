@@ -30,22 +30,32 @@ FastAPI 기반 웹 UI와 SQLite 작업 큐를 사용하며, 미디어 생성 작
   </tr>
 </table>
 
-실제 생성 파이프라인은 슬라이드와 설명 음성을 만들고, 교수 이미지를 Ditto TalkingHead로 구동한 뒤 FFmpeg로 하나의 최종 강의 영상으로 합성합니다.
+### 실제 강의 영상 생성 흐름
+
+AI Professor Lite는 생성된 PPT/슬라이드, TTS 음성(`narration.wav`), 교수 이미지를 기반으로 만든 Ditto TalkingHead를 FFmpeg로 합성하여 최종 강의 영상 `final_lecture.mp4`를 생성합니다.
 
 <table>
   <tr>
-    <td width="60%"><img src="docs/images/generated-slide.png" alt="생성된 강의 슬라이드 예시"></td>
-    <td width="40%"><img src="docs/images/professor-avatar-source.png" alt="교수 아바타 원본 이미지 예시"></td>
+    <td width="52%"><img src="docs/images/generated-slide.png" alt="생성된 강의 슬라이드 예시"></td>
+    <td width="14%" align="center"><img src="docs/images/narration-wav.png" alt="narration.wav 음성" width="120"></td>
+    <td width="34%"><img src="docs/images/professor-avatar-source.png" alt="TalkingHead 생성에 사용하는 교수 이미지"></td>
   </tr>
   <tr>
-    <td align="center"><sub>생성된 강의 슬라이드</sub></td>
-    <td align="center"><sub>TalkingHead 생성에 사용하는 교수 이미지</sub></td>
+    <td align="center"><sub>PPT / 생성된 강의 슬라이드</sub></td>
+    <td align="center"><sub><code>narration.wav</code></sub></td>
+    <td align="center"><sub>Ditto TalkingHead용 교수 이미지</sub></td>
   </tr>
 </table>
 
-**PPT / 슬라이드 + narration + TalkingHead → `final_lecture.mp4`**
+<p align="center"><strong>PPT / 슬라이드 + 음성 + TalkingHead → <code>final_lecture.mp4</code></strong></p>
 
-> 저장소에는 README용 정적 이미지만 포함합니다. 생성된 MP4와 WAV 같은 대용량 산출물은 애플리케이션의 강의 상세 화면에서 관리합니다.
+<p align="center">
+  <img src="docs/images/final-lecture-preview.png" alt="PPT와 TalkingHead가 합성된 최종 강의 영상 프레임" width="100%">
+</p>
+
+<p align="center"><sub>실제 최종 강의 영상 프레임 예시 — 슬라이드와 TalkingHead가 하나의 영상으로 합성됩니다.</sub></p>
+
+> 저장소에는 README용 정적 이미지 예시만 포함합니다. 실제 생성된 MP4와 WAV 같은 대용량 산출물은 애플리케이션의 강의 상세 화면에서 관리합니다.
 
 ---
 

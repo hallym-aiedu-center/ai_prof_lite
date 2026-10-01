@@ -30,22 +30,32 @@ Web UI 基于 FastAPI，任务管理使用 SQLite 队列。耗时的媒体任务
   </tr>
 </table>
 
-实际生成流程会创建幻灯片和讲解音频，使用 Ditto TalkingHead 驱动教师图片，然后通过 FFmpeg 将它们合成为一个最终课程视频。
+### 实际课程视频生成流程
+
+AI Professor Lite 使用 FFmpeg 将生成的 PPT / 幻灯片、TTS 音频（`narration.wav`）以及由教师图片生成的 Ditto TalkingHead 合成为最终课程视频 `final_lecture.mp4`。
 
 <table>
   <tr>
-    <td width="60%"><img src="docs/images/generated-slide.png" alt="生成的课程幻灯片示例"></td>
-    <td width="40%"><img src="docs/images/professor-avatar-source.png" alt="教师头像源图片示例"></td>
+    <td width="52%"><img src="docs/images/generated-slide.png" alt="生成的课程幻灯片示例"></td>
+    <td width="14%" align="center"><img src="docs/images/narration-wav.png" alt="narration.wav 音频" width="120"></td>
+    <td width="34%"><img src="docs/images/professor-avatar-source.png" alt="用于 TalkingHead 生成的教师图片"></td>
   </tr>
   <tr>
-    <td align="center"><sub>生成的课程幻灯片</sub></td>
-    <td align="center"><sub>用于 TalkingHead 生成的教师图片</sub></td>
+    <td align="center"><sub>PPT / 生成的课程幻灯片</sub></td>
+    <td align="center"><sub><code>narration.wav</code></sub></td>
+    <td align="center"><sub>用于 Ditto TalkingHead 的教师图片</sub></td>
   </tr>
 </table>
 
-**PPT / 幻灯片 + narration + TalkingHead → `final_lecture.mp4`**
+<p align="center"><strong>PPT / 幻灯片 + 音频 + TalkingHead → <code>final_lecture.mp4</code></strong></p>
 
-> 仓库只保留用于 README 的轻量静态图片。生成的 MP4、WAV 等大型产物由应用的课程详情页进行管理。
+<p align="center">
+  <img src="docs/images/final-lecture-preview.png" alt="由幻灯片和 TalkingHead 合成的最终课程视频画面" width="100%">
+</p>
+
+<p align="center"><sub>最终课程视频的实际画面示例 — 幻灯片与 TalkingHead 会合成为一个视频。</sub></p>
+
+> 仓库仅包含 README 使用的轻量静态图片示例。生成的 MP4、WAV 等大型产物由应用的课程详情页进行管理。
 
 ---
 

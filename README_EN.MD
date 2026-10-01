@@ -30,22 +30,32 @@ The lecture detail page shows the current generation stage and progress. After c
   </tr>
 </table>
 
-The generation pipeline creates slides and narration, animates the professor image with Ditto TalkingHead, and then composes everything into one final lecture video with FFmpeg.
+### Actual lecture-video generation flow
+
+AI Professor Lite combines the generated PPT/slides, TTS audio (`narration.wav`), and a Ditto TalkingHead created from the professor image with FFmpeg to produce the final lecture video, `final_lecture.mp4`.
 
 <table>
   <tr>
-    <td width="60%"><img src="docs/images/generated-slide.png" alt="Generated lecture slide example"></td>
-    <td width="40%"><img src="docs/images/professor-avatar-source.png" alt="Professor avatar source image example"></td>
+    <td width="52%"><img src="docs/images/generated-slide.png" alt="Generated lecture slide example"></td>
+    <td width="14%" align="center"><img src="docs/images/narration-wav.png" alt="narration.wav audio" width="120"></td>
+    <td width="34%"><img src="docs/images/professor-avatar-source.png" alt="Professor image used for TalkingHead generation"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Generated lecture slide</sub></td>
-    <td align="center"><sub>Professor image used for TalkingHead generation</sub></td>
+    <td align="center"><sub>PPT / generated lecture slide</sub></td>
+    <td align="center"><sub><code>narration.wav</code></sub></td>
+    <td align="center"><sub>Professor image for Ditto TalkingHead</sub></td>
   </tr>
 </table>
 
-**PPT / slides + narration + TalkingHead → `final_lecture.mp4`**
+<p align="center"><strong>PPT / slides + audio + TalkingHead → <code>final_lecture.mp4</code></strong></p>
 
-> The repository keeps only lightweight static images for the README. Large generated artifacts such as MP4 and WAV files are managed from the application's lecture detail page.
+<p align="center">
+  <img src="docs/images/final-lecture-preview.png" alt="Final lecture frame composed from a slide and TalkingHead" width="100%">
+</p>
+
+<p align="center"><sub>Example frame from the final lecture video — the slide and TalkingHead are composed into a single video.</sub></p>
+
+> The repository contains only lightweight static examples for the README. Large generated artifacts such as MP4 and WAV files are managed from the application's lecture detail page.
 
 ---
 

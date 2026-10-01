@@ -30,22 +30,32 @@ Web UI は FastAPI、ジョブ管理は SQLite ベースのキューを使用し
   </tr>
 </table>
 
-実際の生成パイプラインでは、スライドと説明音声を生成し、教授画像を Ditto TalkingHead でアニメーション化した後、FFmpeg で一つの最終講義動画に合成します。
+### 実際の講義動画生成フロー
+
+AI Professor Lite は、生成した PPT / スライド、TTS 音声（`narration.wav`）、教授画像から生成した Ditto TalkingHead を FFmpeg で合成し、最終講義動画 `final_lecture.mp4` を生成します。
 
 <table>
   <tr>
-    <td width="60%"><img src="docs/images/generated-slide.png" alt="生成された講義スライドの例"></td>
-    <td width="40%"><img src="docs/images/professor-avatar-source.png" alt="教授アバター元画像の例"></td>
+    <td width="52%"><img src="docs/images/generated-slide.png" alt="生成された講義スライドの例"></td>
+    <td width="14%" align="center"><img src="docs/images/narration-wav.png" alt="narration.wav 音声" width="120"></td>
+    <td width="34%"><img src="docs/images/professor-avatar-source.png" alt="TalkingHead 生成に使用する教授画像"></td>
   </tr>
   <tr>
-    <td align="center"><sub>生成された講義スライド</sub></td>
-    <td align="center"><sub>TalkingHead 生成に使用する教授画像</sub></td>
+    <td align="center"><sub>PPT / 生成された講義スライド</sub></td>
+    <td align="center"><sub><code>narration.wav</code></sub></td>
+    <td align="center"><sub>Ditto TalkingHead 用の教授画像</sub></td>
   </tr>
 </table>
 
-**PPT / スライド + narration + TalkingHead → `final_lecture.mp4`**
+<p align="center"><strong>PPT / スライド + 音声 + TalkingHead → <code>final_lecture.mp4</code></strong></p>
 
-> リポジトリには README 用の軽量な静止画像のみを含めます。生成された MP4 や WAV などの大容量成果物は、アプリケーションの講義詳細画面で管理します。
+<p align="center">
+  <img src="docs/images/final-lecture-preview.png" alt="スライドと TalkingHead を合成した最終講義動画のフレーム" width="100%">
+</p>
+
+<p align="center"><sub>最終講義動画の実例フレーム — スライドと TalkingHead が一つの動画として合成されます。</sub></p>
+
+> リポジトリには README 用の軽量な静止画像例のみを含めます。生成された MP4 や WAV などの大容量成果物は、アプリケーションの講義詳細画面で管理します。
 
 ---
 
