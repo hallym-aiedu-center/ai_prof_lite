@@ -2,8 +2,6 @@
 
 import asyncio
 import logging
-
-logger = logging.getLogger(__name__)
 import os
 import signal
 import sys
@@ -14,6 +12,8 @@ from core.config import PROJECT_ROOT, positive_int
 from core.jobs.base import Job, LeaseLost
 from core.jobs.errors import retryable
 from core.jobs.factory import get_queue
+
+logger = logging.getLogger(__name__)
 
 
 async def run(job: Job) -> int:

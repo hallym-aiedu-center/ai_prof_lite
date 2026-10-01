@@ -15,4 +15,3 @@ extend-immutable-calls = [
 "scripts/preflight.py" = ["E402"]
 "scripts/resolve_deployment.py" = ["E402"]
 "tests/conftest.py" = ["E402"]
-"core/jobs/runner.py" = ["E402"]
