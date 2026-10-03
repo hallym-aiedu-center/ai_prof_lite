@@ -5,6 +5,9 @@ from typing import Any
 from core.moodle.client import MoodleClient
 
 
+_VIDEO_TRACKER_MODNAMES = {"videotracker", "simplevideotracker"}
+
+
 async def get_site_info(
     client: MoodleClient,
 ) -> dict[str, Any]:
@@ -126,7 +129,7 @@ async def get_videotrackers(
             "modules",
             [],
         ):
-            if module.get("modname") != "videotracker":
+            if module.get("modname") not in _VIDEO_TRACKER_MODNAMES:
                 continue
 
             trackers.append(

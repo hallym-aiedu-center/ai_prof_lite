@@ -178,11 +178,11 @@ async def deploy_moodle_video(
                 duration=spec.duration,
             )
         except Exception as exc:
-            # upload.php or set_video may have committed even if the response was lost.
-            # Keep the durable marker in running state so a retry cannot duplicate it.
+            # Keep the marker because the remote request may already have committed,
+            # but expose the real Moodle/network error for diagnosis.
             raise AmbiguousDeploymentError(
-                "Moodle 영상 업로드/연결 응답을 확인하지 못했습니다. "
-                "Moodle에서 실제 반영 여부를 확인하세요."
+                "Moodle 영상 업로드/연결 실패: "
+                f"{type(exc).__name__}: {exc}"
             ) from exc
 
         if isinstance(video_result, dict) and video_result.get("success") is False:

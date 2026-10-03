@@ -49,7 +49,7 @@
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
             <div class="text-xs uppercase tracking-wider text-slate-400">VideoTracker</div>
             <div class="mt-3 text-3xl font-semibold">
-                {{ overview.module_counts.get('videotracker', 0) }}
+                {{ overview.module_counts.get('videotracker', 0) + overview.module_counts.get('simplevideotracker', 0) }}
             </div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel">
@@ -94,7 +94,7 @@
                                 {{ module.modname }}
                             </span>
 
-                            {% if module.modname == 'videotracker' %}
+                            {% if module.modname in ['videotracker', 'simplevideotracker'] %}
                             <span class="rounded-lg bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700">
                                 CMID {{ module.cmid }}
                             </span>
@@ -105,7 +105,7 @@
                             {{ module.name }}
                         </div>
 
-                        {% if module.modname == 'videotracker' %}
+                        {% if module.modname in ['videotracker', 'simplevideotracker'] %}
                         <div class="mt-1 text-xs text-slate-400">
                             VideoTracker instance {{ module.instance_id }}
                         </div>

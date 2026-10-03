@@ -4,6 +4,37 @@ from pathlib import Path
 from core.moodle.client import MoodleClient
 
 
+_TRACKER_COMPONENTS = ("videotracker", "simplevideotracker")
+
+
+async def _resolve_tracker_component(client: MoodleClient) -> str:
+    """Return the tracker component exposed by the current Moodle token."""
+    cached = getattr(client, "_video_tracker_component", None)
+    if cached in _TRACKER_COMPONENTS:
+        return cached
+
+    site_info = await client.call("core_webservice_get_site_info")
+    functions = site_info.get("functions", []) if isinstance(site_info, dict) else []
+    available = {
+        item.get("name") if isinstance(item, dict) else item
+        for item in functions
+    }
+
+    for component in _TRACKER_COMPONENTS:
+        required = {
+            f"mod_{component}_create_activity",
+            f"mod_{component}_set_video",
+        }
+        if required.issubset(available):
+            setattr(client, "_video_tracker_component", component)
+            return component
+
+    raise RuntimeError(
+        "Moodle token does not expose a compatible VideoTracker web service "
+        "(mod_videotracker_* or mod_simplevideotracker_*)."
+    )
+
+
 async def create_activity(
     *,
     client: MoodleClient,
@@ -13,13 +44,15 @@ async def create_activity(
     intro: str = "",
 ):
     """
-    Create a new Moodle mod_videotracker activity.
+    Create a new Moodle VideoTracker-compatible activity.
 
-    Requires the Moodle plugin external function:
-        mod_videotracker_create_activity
+    Supports both mod_videotracker and mod_simplevideotracker.
     """
+    component = await _resolve_tracker_component(client)
+    function = f"mod_{component}_create_activity"
+
     result = await client.call(
-        "mod_videotracker_create_activity",
+        function,
         courseid=int(course_id),
         sectionnum=int(section_num),
         name=name,
@@ -31,7 +64,7 @@ async def create_activity(
         dict,
     ):
         raise RuntimeError(  # noqa: TRY004
-            "mod_videotracker_create_activity returned an unexpected response."
+            f"{function} returned an unexpected response."
         )
 
     if not result.get("success"):
@@ -54,8 +87,11 @@ async def set_video_from_file(
 ):
     """
     Upload local MP4 into Moodle draft storage and attach it
-    to the target custom VideoTracker activity.
+    to the target VideoTracker-compatible activity.
     """
+    component = await _resolve_tracker_component(client)
+    function = f"mod_{component}_set_video"
+
     duration_value = None
     if duration is not None:
         duration_value = float(duration)
@@ -83,7 +119,7 @@ async def set_video_from_file(
         params["duration"] = duration_value
 
     return await client.call(
-        "mod_videotracker_set_video",
+        function,
         **params,
     )
 
