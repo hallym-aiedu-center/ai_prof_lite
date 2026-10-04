@@ -2,7 +2,7 @@
 
 # 安装与运维
 
-[README](../README_ZH.md) | [开发者指南](./DEVELOPMENT_ZH.md) | [参与贡献](../CONTRIBUTING_ZH.md)
+[README](../README_ZH.MD) | [开发者指南](./DEVELOPMENT_ZH.md) | [参与贡献](../CONTRIBUTING_ZH.md)
 
 ## 要求
 

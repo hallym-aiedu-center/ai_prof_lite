@@ -2,7 +2,7 @@
 
 # インストール・運用
 
-[README](../README_JA.md) | [開発者ガイド](./DEVELOPMENT_JA.md) | [コントリビューション](../CONTRIBUTING_JA.md)
+[README](../README_JA.MD) | [開発者ガイド](./DEVELOPMENT_JA.md) | [コントリビューション](../CONTRIBUTING_JA.md)
 
 ## 要件
 

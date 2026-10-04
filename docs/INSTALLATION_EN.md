@@ -2,7 +2,7 @@
 
 # Installation & Operations
 
-[README](../README_EN.md) | [Developer Guide](./DEVELOPMENT_EN.md) | [Contributing](../CONTRIBUTING_EN.md)
+[README](../README_EN.MD) | [Developer Guide](./DEVELOPMENT_EN.md) | [Contributing](../CONTRIBUTING_EN.md)
 
 ## Requirements
 

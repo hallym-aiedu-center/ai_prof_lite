@@ -57,6 +57,12 @@ AI Professor Lite는 생성된 PPT/슬라이드, TTS 음성(`narration.wav`), �
 
 > 저장소에는 README용 정적 이미지 예시만 포함합니다. 실제 생성된 MP4와 WAV 같은 대용량 산출물은 애플리케이션의 강의 상세 화면에서 관리합니다.
 
+AI 교수 미리보기: [링크 준비 중]
+
+무들 연동 플러그인: [링크 준비 중]
+
+생성되는 영상 미리보기: https://ailms.k-university.ai/login/index.php
+
 ---
 
 ## 주요 기능
@@ -214,12 +220,12 @@ AI Professor Lite는 **학생들이 주도하여 개발한 오픈소스 프로�
 
 ### 현재 기여자
 
-| 이름 | GitHub | 역할 |
-|---|---|---|
-| **Iamjunseok** | [@Iamjunseok](https://github.com/Iamjunseok) | 개발자 / Collaborator |
-| **Wonyoung Choi** | [@waitinghm-creator](https://github.com/waitinghm-creator) | 개발자 / Collaborator |
-| **ChunCheon Man** | [@hero707](https://github.com/hero707) | 기술 자문 / 프로젝트 지원 |
-| **hallymgitoslab** | @hallymgitoslab | 프로젝트 지원 / Contributor |
+| GitHub | 역할 |
+|---|---|
+| [@Iamjunseok](https://github.com/Iamjunseok) | 개발자 / Collaborator |
+| [@waitinghm-creator](https://github.com/waitinghm-creator) | 개발자 / Collaborator |
+| [@hero707](https://github.com/hero707) | 기술 자문 / 프로젝트 지원 |
+| @hallymgitoslab | 프로젝트 지원 / Contributor |
 
 ---
 

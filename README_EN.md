@@ -56,6 +56,12 @@ AI Professor Lite combines generated PPT/slides, TTS audio (`narration.wav`), an
 
 > The repository contains only static image examples for the README. Large generated outputs such as MP4 and WAV files are managed from the lecture detail page in the application.
 
+AI Professor Preview: [Link coming soon]
+
+Moodle Integration Plugin: [Link coming soon]
+
+Generated Video Preview: https://ailms.k-university.ai/login/index.php
+
 ---
 
 ## Features
@@ -213,12 +219,12 @@ AI Professor Lite is an **open-source project led by students**. Technical advic
 
 ### Current Contributors
 
-| Name | GitHub | Role |
-|---|---|---|
-| **Iamjunseok** | [@Iamjunseok](https://github.com/Iamjunseok) | Developer / Collaborator |
-| **Wonyoung Choi** | [@waitinghm-creator](https://github.com/waitinghm-creator) | Developer / Collaborator |
-| **ChunCheon Man** | [@hero707](https://github.com/hero707) | Technical Advisor / Project Support |
-| **hallymgitoslab** | @hallymgitoslab | Project Support / Contributor |
+| GitHub | Role |
+|---|---|
+| [@Iamjunseok](https://github.com/Iamjunseok) | Developer / Collaborator |
+| [@waitinghm-creator](https://github.com/waitinghm-creator) | Developer / Collaborator |
+| [@hero707](https://github.com/hero707) | Technical Advisor / Project Support |
+| @hallymgitoslab | Project Support / Contributor |
 
 ---
 

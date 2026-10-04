@@ -2,7 +2,7 @@
 
 # 开发者指南
 
-[README](../README_ZH.md) | [安装与运维](./INSTALLATION_ZH.md) | [参与贡献](../CONTRIBUTING_ZH.md)
+[README](../README_ZH.MD) | [安装与运维](./INSTALLATION_ZH.md) | [参与贡献](../CONTRIBUTING_ZH.md)
 
 ## 课程生成流程
 

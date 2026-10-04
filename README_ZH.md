@@ -56,6 +56,12 @@ AI Professor Lite 将生成的 PPT/幻灯片、TTS 音频（`narration.wav`）�
 
 > 仓库中只包含 README 使用的静态图片示例。实际生成的 MP4、WAV 等大型输出文件由应用中的课程详情页面管理。
 
+AI 教师预览: [链接准备中]
+
+Moodle 集成插件: [链接准备中]
+
+生成视频预览: https://ailms.k-university.ai/login/index.php
+
 ---
 
 ## 主要功能
@@ -213,12 +219,12 @@ AI Professor Lite 是一个**由学生主导开发的开源项目**。开发过�
 
 ### 当前贡献者
 
-| 姓名 | GitHub | 角色 |
-|---|---|---|
-| **Iamjunseok** | [@Iamjunseok](https://github.com/Iamjunseok) | 开发者 / Collaborator |
-| **Wonyoung Choi** | [@waitinghm-creator](https://github.com/waitinghm-creator) | 开发者 / Collaborator |
-| **ChunCheon Man** | [@hero707](https://github.com/hero707) | 技术顾问 / 项目支持 |
-| **hallymgitoslab** | @hallymgitoslab | 项目支持 / Contributor |
+| GitHub | 角色 |
+|---|---|
+| [@Iamjunseok](https://github.com/Iamjunseok) | 开发者 / Collaborator |
+| [@waitinghm-creator](https://github.com/waitinghm-creator) | 开发者 / Collaborator |
+| [@hero707](https://github.com/hero707) | 技术顾问 / 项目支持 |
+| @hallymgitoslab | 项目支持 / Contributor |
 
 ---
 

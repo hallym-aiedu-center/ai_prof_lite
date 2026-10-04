@@ -56,6 +56,12 @@ AI Professor Liteは、生成したPPT/スライド、TTS音声（`narration.wav
 
 > リポジトリにはREADME用の静止画像例のみを含みます。実際に生成されたMP4やWAVなどの大容量成果物は、アプリケーションの講義詳細画面で管理します。
 
+AI教授プレビュー: [リンク準備中]
+
+Moodle連携プラグイン: [リンク準備中]
+
+生成動画プレビュー: https://ailms.k-university.ai/login/index.php
+
 ---
 
 ## 主な機能
@@ -213,12 +219,12 @@ AI Professor Liteは**学生主導で開発されたオープンソースプロ�
 
 ### 現在のコントリビューター
 
-| 名前 | GitHub | 役割 |
-|---|---|---|
-| **Iamjunseok** | [@Iamjunseok](https://github.com/Iamjunseok) | 開発者 / Collaborator |
-| **Wonyoung Choi** | [@waitinghm-creator](https://github.com/waitinghm-creator) | 開発者 / Collaborator |
-| **ChunCheon Man** | [@hero707](https://github.com/hero707) | 技術アドバイザー / プロジェクト支援 |
-| **hallymgitoslab** | @hallymgitoslab | プロジェクト支援 / Contributor |
+| GitHub | 役割 |
+|---|---|
+| [@Iamjunseok](https://github.com/Iamjunseok) | 開発者 / Collaborator |
+| [@waitinghm-creator](https://github.com/waitinghm-creator) | 開発者 / Collaborator |
+| [@hero707](https://github.com/hero707) | 技術アドバイザー / プロジェクト支援 |
+| @hallymgitoslab | プロジェクト支援 / Contributor |
 
 ---
 

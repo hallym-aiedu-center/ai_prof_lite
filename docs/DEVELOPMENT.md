@@ -1,5 +1,3 @@
-**한국어** | [English](./DEVELOPMENT_EN.md) | [日本語](./DEVELOPMENT_JA.md) | [中文](./DEVELOPMENT_ZH.md)
-
 # 개발자 가이드
 
 [README](../README.md) | [설치 및 운영](./INSTALLATION.md) | [기여하기](../CONTRIBUTING.md)

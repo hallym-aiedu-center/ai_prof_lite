@@ -1,5 +1,3 @@
-**한국어** | [English](./INSTALLATION_EN.md) | [日本語](./INSTALLATION_JA.md) | [中文](./INSTALLATION_ZH.md)
-
 # 설치 및 운영
 
 [README](../README.md) | [개발자 가이드](./DEVELOPMENT.md) | [기여하기](../CONTRIBUTING.md)
