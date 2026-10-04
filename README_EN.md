@@ -224,7 +224,7 @@ AI Professor Lite is an **open-source project led by students**. Technical advic
 | [@Iamjunseok](https://github.com/Iamjunseok) | Developer / Collaborator |
 | [@waitinghm-creator](https://github.com/waitinghm-creator) | Developer / Collaborator |
 | [@hero707](https://github.com/hero707) | Technical Advisor / Project Support |
-| @hallymgitoslab | Project Support / Contributor |
+| [@hallymgitoslab](https://github.com/hallymgitoslab) | Project Support / Contributor |
 
 ---
 

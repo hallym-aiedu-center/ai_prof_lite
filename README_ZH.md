@@ -224,15 +224,13 @@ AI Professor Lite 是一个**由学生主导开发的开源项目**。开发过�
 | [@Iamjunseok](https://github.com/Iamjunseok) | 开发者 / Collaborator |
 | [@waitinghm-creator](https://github.com/waitinghm-creator) | 开发者 / Collaborator |
 | [@hero707](https://github.com/hero707) | 技术顾问 / 项目支持 |
-| @hallymgitoslab | 项目支持 / Contributor |
+| [@hallymgitoslab](https://github.com/hallymgitoslab) | 项目支持 / Contributor |
 
 ---
 
 ## 支持与致谢
 
-本成果由韩国教育部和江原特别自治道提供经费，并在江原 ANCHOR 中心支持下，作为区域成长人才培养体系（ANCHOR）Glocal University30 项目的成果完成。(2026-ANCHOR-10-009)
 
-**English acknowledgement**
 
 This research was supported by the ANCHOR program(Glocal University30) through the Gangwon ANCHOR Center, funded by the Ministry of Education(MOE) and the Gangwon State(G.S.),Republic of Korea.(2026-ANCHOR-10-009)
 

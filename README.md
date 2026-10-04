@@ -225,7 +225,7 @@ AI Professor Lite는 **학생들이 주도하여 개발한 오픈소스 프로�
 | [@Iamjunseok](https://github.com/Iamjunseok) | 개발자 / Collaborator |
 | [@waitinghm-creator](https://github.com/waitinghm-creator) | 개발자 / Collaborator |
 | [@hero707](https://github.com/hero707) | 기술 자문 / 프로젝트 지원 |
-| @hallymgitoslab | 프로젝트 지원 / Contributor |
+| [@hallymgitoslab](https://github.com/hallymgitoslab) | 프로젝트 지원 / Contributor |
 
 ---
 
@@ -233,9 +233,6 @@ AI Professor Lite는 **학생들이 주도하여 개발한 오픈소스 프로�
 
 본 과제(결과물)는 2026년도 교육부 및 강원특별자치도의 재원으로 강원앵커센터의 지원을 받아 수행된 지역성장 인재양성체계(앵커) 글로컬대학 30의 결과입니다.(2026-ANCHOR-10-009)
 
-**English acknowledgement**
-
-This research was supported by the ANCHOR program(Glocal University30) through the Gangwon ANCHOR Center, funded by the Ministry of Education(MOE) and the Gangwon State(G.S.),Republic of Korea.(2026-ANCHOR-10-009)
 
 ---
 

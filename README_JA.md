@@ -224,15 +224,12 @@ AI Professor Liteは**学生主導で開発されたオープンソースプロ�
 | [@Iamjunseok](https://github.com/Iamjunseok) | 開発者 / Collaborator |
 | [@waitinghm-creator](https://github.com/waitinghm-creator) | 開発者 / Collaborator |
 | [@hero707](https://github.com/hero707) | 技術アドバイザー / プロジェクト支援 |
-| @hallymgitoslab | プロジェクト支援 / Contributor |
+| [@hallymgitoslab](https://github.com/hallymgitoslab) | プロジェクト支援 / Contributor |
 
 ---
 
 ## 支援・謝辞
 
-本成果物は、2026年度教育部および江原特別自治道の財源により江原ANCHORセンターの支援を受けて実施された地域成長人材養成体系（ANCHOR）グローカル大学30の成果です。(2026-ANCHOR-10-009)
-
-**English acknowledgement**
 
 This research was supported by the ANCHOR program(Glocal University30) through the Gangwon ANCHOR Center, funded by the Ministry of Education(MOE) and the Gangwon State(G.S.),Republic of Korea.(2026-ANCHOR-10-009)
 
