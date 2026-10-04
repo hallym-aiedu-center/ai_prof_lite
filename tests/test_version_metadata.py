@@ -14,10 +14,10 @@ def test_version_metadata_is_consistent():
     version_marker = f"> Version `{__version__}`"
 
     for filename in (
-        "README.MD",
-        "README_EN.MD",
-        "README_JA.MD",
-        "README_ZH.MD",
+        "README.md",
+        "README_EN.md",
+        "README_JA.md",
+        "README_ZH.md",
     ):
         readme = (ROOT / filename).read_text(encoding="utf-8")
         assert version_marker in readme, (
