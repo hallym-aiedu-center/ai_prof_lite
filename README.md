@@ -55,7 +55,6 @@ AI Professor Lite는 생성된 PPT/슬라이드, TTS 음성(`narration.wav`), �
 
 <p align="center"><sub>실제 최종 강의 영상 프레임 예시 — 슬라이드와 TalkingHead가 하나의 영상으로 합성됩니다.</sub></p>
 
-> 저장소에는 README용 정적 이미지 예시만 포함합니다. 실제 생성된 MP4와 WAV 같은 대용량 산출물은 애플리케이션의 강의 상세 화면에서 관리합니다.
 
 AI 교수 미리보기: [링크 준비 중]
 
@@ -82,7 +81,7 @@ AI 교수 미리보기: [링크 준비 중]
 - 배경 제거 / chroma key 전처리
 - FFmpeg 기반 최종 강의 MP4 합성
 - PPT 검토 후 승인 / 수정 / 재개
-- Moodle course / section / VideoTracker 연동
+- Moodle course / section / SimpleVideoTracker 연동
 - AI Instructor 기반 학기 단위 자동 강의 생성 및 예약 게시
 - SQLite lease queue, retry, heartbeat, checkpoint 복구
 - 다중 GPU worker
@@ -156,7 +155,7 @@ chmod +x setup_en.sh
 5. 새 강의를 만들고 필요하면 참고자료를 첨부합니다.
 6. PPT 검토 단계에서 슬라이드를 확인한 뒤 승인합니다.
 7. 생성 완료 후 PPTX, 영상, 음성, Quiz JSON 등의 결과물을 내려받습니다.
-8. Moodle 연결이 설정되어 있으면 VideoTracker에 게시할 수 있습니다.
+8. Moodle 연결이 설정되어 있으면 SimpleVideoTracker에 게시할 수 있습니다.
 
 ---
 
@@ -176,9 +175,9 @@ Moodle 연동은 사용자별 Web Service credential을 사용합니다.
 
 - course 조회
 - section 조회
-- VideoTracker 조회
+- SimpleVideoTracker 조회
 - 기존 activity에 영상 연결
-- 새 VideoTracker activity 생성
+- 새 SimpleVideoTracker activity 생성
 - 강의 완료 후 즉시 게시
 - AI Instructor 예약 게시
 

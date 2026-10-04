@@ -54,7 +54,7 @@ AI Professor Liteは、生成したPPT/スライド、TTS音声（`narration.wav
 
 <p align="center"><sub>実際の最終講義動画フレーム例 — スライドとTalkingHeadが一つの動画に合成されます。</sub></p>
 
-> リポジトリにはREADME用の静止画像例のみを含みます。実際に生成されたMP4やWAVなどの大容量成果物は、アプリケーションの講義詳細画面で管理します。
+
 
 AI教授プレビュー: [リンク準備中]
 
@@ -81,7 +81,7 @@ Moodle連携プラグイン: [リンク準備中]
 - 背景除去 / chroma key前処理
 - FFmpegベースの最終講義MP4合成
 - PPT確認後の承認 / 修正 / 再開
-- Moodle course / section / VideoTracker連携
+- Moodle course / section / SimpleVideoTracker連携
 - AI Instructorによる学期単位の自動講義生成と予約公開
 - SQLite lease queue、retry、heartbeat、checkpoint復旧
 - 複数GPU worker
@@ -155,7 +155,7 @@ Dockerの詳細インストール、手動インストール、環境変数、GP
 5. 新しい講義を作成し、必要に応じて参考資料を添付します。
 6. PPT確認段階でスライドを確認し、承認します。
 7. 生成完了後、PPTX、動画、音声、Quiz JSONなどの成果物をダウンロードします。
-8. Moodle接続が設定されている場合はVideoTrackerに公開できます。
+8. Moodle接続が設定されている場合はSimpleVideoTrackerに公開できます。
 
 ---
 
@@ -175,9 +175,9 @@ Moodle連携ではユーザーごとのWeb Service credentialを使用します�
 
 - course照会
 - section照会
-- VideoTracker照会
+- SimpleVideoTracker照会
 - 既存activityへの動画接続
-- 新しいVideoTracker activityの作成
+- 新しいSimpleVideoTracker activityの作成
 - 講義完了後の即時公開
 - AI Instructorによる予約公開
 

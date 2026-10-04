@@ -81,7 +81,7 @@ Moodle 集成插件: [链接准备中]
 - 背景移除 / chroma key 预处理
 - 基于 FFmpeg 合成最终课程 MP4
 - PPT 审阅后批准 / 修改 / 恢复
-- Moodle course / section / VideoTracker 集成
+- Moodle course / section / SimpleVideoTracker 集成
 - 基于 AI Instructor 的学期级自动课程生成和定时发布
 - SQLite lease queue、retry、heartbeat、checkpoint 恢复
 - 多 GPU worker
@@ -155,7 +155,7 @@ chmod +x setup_en.sh
 5. 创建新课程，并在需要时附加参考资料。
 6. 在 PPT 审阅阶段检查幻灯片并批准。
 7. 生成完成后，下载 PPTX、视频、音频、Quiz JSON 等输出文件。
-8. 如果已配置 Moodle，可发布到 VideoTracker。
+8. 如果已配置 Moodle，可发布到 SimpleVideoTracker。
 
 ---
 
@@ -175,9 +175,9 @@ Moodle 集成使用每个用户各自的 Web Service credential。
 
 - 查询 course
 - 查询 section
-- 查询 VideoTracker
+- 查询 SimpleVideoTracker
 - 将视频连接到现有 activity
-- 创建新的 VideoTracker activity
+- 创建新的 SimpleVideoTracker activity
 - 课程完成后立即发布
 - AI Instructor 定时发布
 

@@ -54,7 +54,6 @@ AI Professor Lite combines generated PPT/slides, TTS audio (`narration.wav`), an
 
 <p align="center"><sub>Example frame from an actual generated lecture video — slides and TalkingHead are composited into a single video.</sub></p>
 
-> The repository contains only static image examples for the README. Large generated outputs such as MP4 and WAV files are managed from the lecture detail page in the application.
 
 AI Professor Preview: [Link coming soon]
 
@@ -81,7 +80,7 @@ Generated Video Preview: https://ailms.k-university.ai/login/index.php
 - Background removal / chroma key preprocessing
 - Final lecture MP4 composition with FFmpeg
 - PPT review, approval / revision / resume
-- Moodle course / section / VideoTracker integration
+- Moodle course / section / SimpleVideoTracker integration
 - Semester-based automatic lecture generation and scheduled publishing with AI Instructor
 - SQLite lease queue, retry, heartbeat, and checkpoint recovery
 - Multi-GPU workers
@@ -155,7 +154,7 @@ For detailed Docker installation, manual installation, environment variables, GP
 5. Create a new lecture and attach reference materials if needed.
 6. Review the slides at the PPT review stage and approve them.
 7. After generation completes, download outputs such as PPTX, video, audio, and Quiz JSON.
-8. If Moodle is configured, publish the lecture to VideoTracker.
+8. If Moodle is configured, publish the lecture to SimpleVideoTracker.
 
 ---
 
@@ -175,9 +174,9 @@ Supported flow:
 
 - Course lookup
 - Section lookup
-- VideoTracker lookup
+- SimpleVideoTracker lookup
 - Attach a video to an existing activity
-- Create a new VideoTracker activity
+- Create a new SimpleVideoTracker activity
 - Publish immediately after lecture generation
 - Scheduled publishing with AI Instructor
 
