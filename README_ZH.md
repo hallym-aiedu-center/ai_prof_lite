@@ -54,7 +54,7 @@ AI Professor Lite 将生成的 PPT/幻灯片、TTS 音频（`narration.wav`）�
 
 <p align="center"><sub>实际最终课程视频画面示例 — 幻灯片与 TalkingHead 会被合成为一个视频。</sub></p>
 
-> 仓库中只包含 README 使用的静态图片示例。实际生成的 MP4、WAV 等大型输出文件由应用中的课程详情页面管理。
+
 
 AI 教师预览: [链接准备中]
 
