@@ -2,7 +2,7 @@
 
 # Developer Guide
 
-[README](../README_EN.MD) | [Installation & Operations](./INSTALLATION_EN.md) | [Contributing](../CONTRIBUTING_EN.md)
+[README](../README_EN.md) | [Installation & Operations](./INSTALLATION_EN.md) | [Contributing](../CONTRIBUTING_EN.md)
 
 ## Lecture Generation Flow
 

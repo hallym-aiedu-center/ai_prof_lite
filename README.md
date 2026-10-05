@@ -100,7 +100,7 @@ AI 교수 미리보기: [링크 준비 중]
 - Git
 - Git LFS
 - OpenSSL
-- NVIDIA GPU
+- NVIDIA GPU (Ampere 이상)
 
 호스트에서 아래 두 명령이 정상 동작해야 합니다.
 
@@ -114,7 +114,7 @@ docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 - Linux / POSIX 환경
 - Python 3.10
 - FFmpeg / FFprobe
-- NVIDIA GPU + CUDA / TensorRT 환경
+- NVIDIA GPU (Ampere 이상) + CUDA / TensorRT 환경
 - SQLite
 
 애플리케이션과 Ditto는 동일한 Python 3.10 환경에서 실행합니다.
@@ -128,7 +128,7 @@ docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 Docker 설치는 `setup.sh` 또는 `setup_en.sh`를 기준으로 합니다.
 
 ```bash
-git clone <REPOSITORY_URL>
+git clone https://github.com/hallym-aied/AI_Prof.git
 cd ai_prof_lite
 
 chmod +x setup.sh

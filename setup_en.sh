@@ -38,9 +38,9 @@ APP_GID="${APP_GID:-10001}"
 
 # Optional non-interactive overrides:
 #   DATA_DIR=/u2a/ai-prof-lite-data ./setup_en.sh
-#   EXTERNAL_PORT=18002 ./setup.sh
-#   SETUP_OPENAI_KEY_MODE=user ./setup.sh
-#   SETUP_JOB_CONCURRENCY=4 ./setup.sh
+#   EXTERNAL_PORT=18002 ./setup_en.sh
+#   SETUP_OPENAI_KEY_MODE=user ./setup_en.sh
+#   SETUP_JOB_CONCURRENCY=4 ./setup_en.sh
 EXTERNAL_PORT="${EXTERNAL_PORT:-}"
 SETUP_OPENAI_KEY_MODE="${SETUP_OPENAI_KEY_MODE:-}"
 SETUP_JOB_CONCURRENCY="${SETUP_JOB_CONCURRENCY:-}"

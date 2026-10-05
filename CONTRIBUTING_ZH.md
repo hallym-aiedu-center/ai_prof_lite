@@ -32,9 +32,10 @@ python -m pytest tests/test_worker.py
 python -m pytest tests/test_security.py
 ```
 
-修改代码后，至少执行以下两项检查。
+修改代码后，至少执行以下三项检查。
 
 ```bash
+ruff check .
 python scripts/preflight.py
 python -m pytest
 ```

@@ -2,7 +2,7 @@
 
 # インストール・運用
 
-[README](../README_JA.MD) | [開発者ガイド](./DEVELOPMENT_JA.md) | [コントリビューション](../CONTRIBUTING_JA.md)
+[README](../README_JA.md) | [開発者ガイド](./DEVELOPMENT_JA.md) | [コントリビューション](../CONTRIBUTING_JA.md)
 
 ## 要件
 
@@ -15,7 +15,7 @@
 - Git
 - Git LFS
 - OpenSSL
-- NVIDIA GPU
+- NVIDIA GPU (Ampere 以降)
 
 ホスト上で次の 2 つのコマンドが正常に実行できる必要があります。
 
@@ -29,7 +29,7 @@ docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 - Linux / POSIX 環境
 - Python 3.10
 - FFmpeg / FFprobe
-- NVIDIA GPU + CUDA / TensorRT 環境
+- NVIDIA GPU (Ampere 以降) + CUDA / TensorRT 環境
 - SQLite
 
 アプリケーションと Ditto は同じ Python 3.10 環境で実行します。
@@ -43,7 +43,7 @@ docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 Docker インストールは `setup.sh` または `setup_en.sh` を基準にします。
 
 ```bash
-git clone <REPOSITORY_URL>
+git clone https://github.com/hallym-aied/AI_Prof.git
 cd ai_prof_lite
 
 chmod +x setup.sh

@@ -2,7 +2,7 @@
 
 # 開発者ガイド
 
-[README](../README_JA.MD) | [インストール・運用](./INSTALLATION_JA.md) | [コントリビューション](../CONTRIBUTING_JA.md)
+[README](../README_JA.md) | [インストール・運用](./INSTALLATION_JA.md) | [コントリビューション](../CONTRIBUTING_JA.md)
 
 ## 講義生成フロー
 

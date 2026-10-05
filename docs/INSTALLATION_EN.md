@@ -2,7 +2,7 @@
 
 # Installation & Operations
 
-[README](../README_EN.MD) | [Developer Guide](./DEVELOPMENT_EN.md) | [Contributing](../CONTRIBUTING_EN.md)
+[README](../README_EN.md) | [Developer Guide](./DEVELOPMENT_EN.md) | [Contributing](../CONTRIBUTING_EN.md)
 
 ## Requirements
 
@@ -15,7 +15,7 @@
 - Git
 - Git LFS
 - OpenSSL
-- NVIDIA GPU
+- NVIDIA GPU (Ampere or newer)
 
 The following two commands must run successfully on the host.
 
@@ -29,7 +29,7 @@ docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 - Linux / POSIX environment
 - Python 3.10
 - FFmpeg / FFprobe
-- NVIDIA GPU + CUDA / TensorRT environment
+- NVIDIA GPU (Ampere or newer) + CUDA / TensorRT environment
 - SQLite
 
 The application and Ditto run in the same Python 3.10 environment.
@@ -43,7 +43,7 @@ The application and Ditto run in the same Python 3.10 environment.
 Docker installation is based on `setup.sh` or `setup_en.sh`.
 
 ```bash
-git clone <REPOSITORY_URL>
+git clone https://github.com/hallym-aied/AI_Prof.git
 cd ai_prof_lite
 
 chmod +x setup.sh

@@ -32,9 +32,10 @@ python -m pytest tests/test_worker.py
 python -m pytest tests/test_security.py
 ```
 
-After modifying code, run at least the following two checks.
+After modifying code, run at least the following three checks.
 
 ```bash
+ruff check .
 python scripts/preflight.py
 python -m pytest
 ```

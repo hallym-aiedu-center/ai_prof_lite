@@ -2,7 +2,7 @@
 
 # 安装与运维
 
-[README](../README_ZH.MD) | [开发者指南](./DEVELOPMENT_ZH.md) | [参与贡献](../CONTRIBUTING_ZH.md)
+[README](../README_ZH.md) | [开发者指南](./DEVELOPMENT_ZH.md) | [参与贡献](../CONTRIBUTING_ZH.md)
 
 ## 要求
 
@@ -15,7 +15,7 @@
 - Git
 - Git LFS
 - OpenSSL
-- NVIDIA GPU
+- NVIDIA GPU（Ampere 或更新架构）
 
 主机上必须能够正常执行以下两个命令。
 
@@ -29,7 +29,7 @@ docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 - Linux / POSIX 环境
 - Python 3.10
 - FFmpeg / FFprobe
-- NVIDIA GPU + CUDA / TensorRT 环境
+- NVIDIA GPU（Ampere 或更新架构）+ CUDA / TensorRT 环境
 - SQLite
 
 应用程序与 Ditto 在同一个 Python 3.10 环境中运行。
@@ -43,7 +43,7 @@ docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 Docker 安装以 `setup.sh` 或 `setup_en.sh` 为准。
 
 ```bash
-git clone <REPOSITORY_URL>
+git clone https://github.com/hallym-aied/AI_Prof.git
 cd ai_prof_lite
 
 chmod +x setup.sh

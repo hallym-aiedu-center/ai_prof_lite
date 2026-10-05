@@ -100,7 +100,7 @@ Moodle連携プラグイン: [リンク準備中]
 - Git
 - Git LFS
 - OpenSSL
-- NVIDIA GPU
+- NVIDIA GPU (Ampere 以降)
 
 ホスト上で次の2つのコマンドが正常に実行できる必要があります。
 
@@ -114,7 +114,7 @@ docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 - Linux / POSIX環境
 - Python 3.10
 - FFmpeg / FFprobe
-- NVIDIA GPU + CUDA / TensorRT環境
+- NVIDIA GPU (Ampere 以降) + CUDA / TensorRT環境
 - SQLite
 
 アプリケーションとDittoは同じPython 3.10環境で実行します。
@@ -128,7 +128,7 @@ docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 Dockerインストールは`setup.sh`または`setup_en.sh`を基準にします。
 
 ```bash
-git clone <REPOSITORY_URL>
+git clone https://github.com/hallym-aied/AI_Prof.git
 cd ai_prof_lite
 
 chmod +x setup.sh

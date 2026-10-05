@@ -32,9 +32,10 @@ python -m pytest tests/test_worker.py
 python -m pytest tests/test_security.py
 ```
 
-コードを修正した後は、最低限次の 2 つを確認します。
+コードを修正した後は、最低限次の 3 つを確認します。
 
 ```bash
+ruff check .
 python scripts/preflight.py
 python -m pytest
 ```
