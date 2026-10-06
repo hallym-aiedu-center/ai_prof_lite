@@ -56,7 +56,7 @@ AI Professor Lite 将生成的 PPT/幻灯片、TTS 音频（`narration.wav`）�
 
 
 
-AI 教师预览: [链接准备中]
+AI 教师预览: [https://aiproflite.k-university.ai/](https://aiproflite.k-university.ai/)
 
 Moodle 集成插件: [链接准备中]
 

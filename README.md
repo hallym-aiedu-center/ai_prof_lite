@@ -56,7 +56,7 @@ AI Professor Lite는 생성된 PPT/슬라이드, TTS 음성(`narration.wav`), �
 <p align="center"><sub>실제 최종 강의 영상 프레임 예시 — 슬라이드와 TalkingHead가 하나의 영상으로 합성됩니다.</sub></p>
 
 
-AI 교수 미리보기: [링크 준비 중]
+AI 교수 미리보기: [https://aiproflite.k-university.ai/](https://aiproflite.k-university.ai/)
 
 무들 연동 플러그인: [링크 준비 중]
 

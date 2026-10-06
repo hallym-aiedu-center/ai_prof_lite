@@ -55,7 +55,7 @@ AI Professor Lite combines generated PPT/slides, TTS audio (`narration.wav`), an
 <p align="center"><sub>Example frame from an actual generated lecture video — slides and TalkingHead are composited into a single video.</sub></p>
 
 
-AI Professor Preview: [Link coming soon]
+AI Professor Preview: [https://aiproflite.k-university.ai/](https://aiproflite.k-university.ai/)
 
 Moodle Integration Plugin: [Link coming soon]
 
