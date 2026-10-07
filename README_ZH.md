@@ -57,13 +57,14 @@ AI Professor Lite 将生成的 PPT/幻灯片、TTS 音频（`narration.wav`）�
 
 
 AI 教师预览: [https://aiproflite.k-university.ai/](https://aiproflite.k-university.ai/)
+
 测试账号:
 - Email: `test@mentorix.kr`
 - Password: `Test00**`
 
 Moodle 集成插件: [链接准备中]
 
-生成视频预览: https://ailms.k-university.ai/login/index.php
+生成视频预览（LMS）: https://ailms.k-university.ai/login/index.php
 测试账号:
 - Username: `testuser`
 - Password: `Test00**`
