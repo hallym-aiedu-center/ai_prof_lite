@@ -129,6 +129,7 @@ Docker 설치는 `setup.sh` 또는 `setup_en.sh`를 기준으로 합니다.
 
 ```bash
 git clone https://github.com/hallym-aiedu-center/ai_prof_lite.git ai_prof_lite
+cd ai_prof_lite
 
 chmod +x setup.sh
 ./setup.sh
