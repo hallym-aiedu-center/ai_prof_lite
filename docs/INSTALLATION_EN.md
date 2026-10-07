@@ -43,7 +43,12 @@ The application and Ditto run in the same Python 3.10 environment.
 Docker installation is based on `setup.sh` or `setup_en.sh`.
 
 ```bash
-git clone https://github.com/hallym-aied/AI_Prof_lite.git ai_prof_lite
+git clone https://github.com/hallym-aiedu-center/ai_prof_lite.git ai_prof_lite
+cd ai_prof_lite
+
+chmod +x setup.sh
+./setup.sh
+
 cd ai_prof_lite
 
 chmod +x setup.sh
