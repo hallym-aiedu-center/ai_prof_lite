@@ -63,7 +63,8 @@ AI 교수 미리보기: [https://aiproflite.k-university.ai/](https://aiproflite
 
 무들 연동 플러그인: [링크 준비 중]
 
-생성되는 영상 미리보기: https://ailms.k-university.ai/login/index.php
+생성되는 영상 미리보기(LMS): https://ailms.k-university.ai/login/index.php
+
 테스트 계정:
 - Username: `testuser`
 - Password: `Test00**`

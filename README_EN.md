@@ -56,13 +56,15 @@ AI Professor Lite combines generated PPT/slides, TTS audio (`narration.wav`), an
 
 
 AI Professor Preview: [https://aiproflite.k-university.ai/](https://aiproflite.k-university.ai/)
+
 Test account:
 - Email: `test@mentorix.kr`
 - Password: `Test00**`
 
 Moodle Integration Plugin: [Link coming soon]
 
-Generated Video Preview: https://ailms.k-university.ai/login/index.php
+Generated Video Preview (LMS): https://ailms.k-university.ai/login/index.php
+
 Test account:
 - Username: `testuser`
 - Password: `Test00**`
