@@ -128,7 +128,12 @@ docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 Dockerインストールは`setup.sh`または`setup_en.sh`を基準にします。
 
 ```bash
-git clone https://github.com/hallym-aied/AI_Prof_lite.git ai_prof_lite
+git clone https://github.com/hallym-aiedu-center/ai_prof_lite.git ai_prof_lite
+cd ai_prof_lite
+
+chmod +x setup.sh
+./setup.sh
+
 cd ai_prof_lite
 
 chmod +x setup.sh
