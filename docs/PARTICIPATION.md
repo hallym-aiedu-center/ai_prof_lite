@@ -12,6 +12,8 @@
 
 ```bash
 git clone https://github.com/hallym-aiedu-center/ai_prof_lite.git
+cd ai_prof_lite
+./setup_en.sh
 ```
 
 설치 과정에서 막히는 부분이나 개선이 필요한 점이 보이시면 **이슈로 알려주시는 것만으로도** 저희에게 큰 도움이 되고, 그것이 곧 커뮤니티 참여 활동이 됩니다.
