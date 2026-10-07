@@ -64,6 +64,7 @@ Test account:
 Moodle Integration Plugin: [Link coming soon]
 
 Generated Video Preview (LMS): https://ailms.k-university.ai/login/index.php
+
 Test account:
 - Username: `testuser`
 - Password: `Test00**`

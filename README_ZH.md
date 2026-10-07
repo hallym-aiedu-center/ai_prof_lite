@@ -65,6 +65,7 @@ AI 教师预览: [https://aiproflite.k-university.ai/](https://aiproflite.k-univ
 Moodle 集成插件: [链接准备中]
 
 生成视频预览（LMS）: https://ailms.k-university.ai/login/index.php
+
 测试账号:
 - Username: `testuser`
 - Password: `Test00**`
