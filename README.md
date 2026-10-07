@@ -56,11 +56,17 @@ AI Professor Lite는 생성된 PPT/슬라이드, TTS 음성(`narration.wav`), �
 <p align="center"><sub>실제 최종 강의 영상 프레임 예시 — 슬라이드와 TalkingHead가 하나의 영상으로 합성됩니다.</sub></p>
 
 
-AI 교수 미리보기: [https://aiproflite.k-university.ai/](https://aiproflite.k-university.ai/)
+AI 교수 미리보기: [https://aiproflite.k-university.ai/](https://aiproflite.k-university.ai/)  
+테스트 계정:
+- Email: `test@mentorix.kr`
+- Password: `Test00**`
 
 무들 연동 플러그인: [링크 준비 중]
 
 생성되는 영상 미리보기: https://ailms.k-university.ai/login/index.php
+테스트 계정:
+- Username: `testuser`
+- Password: `Test00**`
 
 ---
 

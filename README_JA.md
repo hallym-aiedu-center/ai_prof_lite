@@ -57,10 +57,16 @@ AI Professor Liteは、生成したPPT/スライド、TTS音声（`narration.wav
 
 
 AI教授プレビュー: [https://aiproflite.k-university.ai/](https://aiproflite.k-university.ai/)
+テストアカウント:
+- Email: `test@mentorix.kr`
+- Password: `Test00**`
 
 Moodle連携プラグイン: [リンク準備中]
 
 生成動画プレビュー: https://ailms.k-university.ai/login/index.php
+テストアカウント:
+- Username: `testuser`
+- Password: `Test00**`
 
 ---
 
